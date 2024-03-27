@@ -14,7 +14,6 @@ static const int     HEIGHT                    = 1024;
 static const char*   PIXEL_FORMAT              = "Mono8";
 static const int     BPP                       = 1;
 static const int     PAYLOAD_SIZE_EXPECTED_MAX = WIDTH*HEIGHT*BPP;
-#define DISABLE_TEST_PATTERN 1
 
 
 
@@ -86,9 +85,14 @@ mrcam_t mrcam_init(const char* camera_name)
     try_arv(arv_camera_set_integer(*camera, "Width",       WIDTH,        &error));
     try_arv(arv_camera_set_integer(*camera, "Height",      HEIGHT,       &error));
     try_arv(arv_camera_set_string (*camera, "PixelFormat", PIXEL_FORMAT, &error));
-#if defined DISABLE_TEST_PATTERN && DISABLE_TEST_PATTERN
-    try_arv(arv_camera_set_string (*camera, "TestPattern", "Off",   &error));
-#endif
+
+    // Some cameras start up with the test-pattern enabled. So I turn it off
+    // unconditionally. This setting doesn't exist on all cameras. And if it
+    // doesn't, this will fail, and I ignore the failure
+    arv_camera_set_string (*camera, "TestPattern", "Off", &error);
+    if(error != NULL)
+        g_error_free(error);
+    error = NULL;
 
     gint payload_size;
     try_arv(payload_size = arv_camera_get_payload(*camera, &error));
