@@ -20,19 +20,19 @@ static const int     PAYLOAD_SIZE_EXPECTED_MAX = WIDTH*HEIGHT*BPP;
 
 
 
-#define try(expr, ...) do {                             \
-        if(verbose)                                     \
-            MSG("Evaluating   '" #expr "'");      \
-        if(!(expr))                                     \
+#define try(expr, ...) do {                                     \
+        if(verbose)                                             \
+            MSG("Evaluating   '" #expr "'");                    \
+        if(!(expr))                                             \
         {                                                       \
             MSG("Failure!!! '" #expr "' is false" __VA_ARGS__); \
-            goto done;                                  \
-        }                                               \
+            goto done;                                          \
+        }                                                       \
     } while(0)
 
 #define try_arv(expr) do {                              \
         if(verbose)                                     \
-            MSG("Calling   '" #expr "'");         \
+            MSG("Calling   '" #expr "'");               \
         expr;                                           \
         if(error != NULL)                               \
         {                                               \
@@ -46,7 +46,7 @@ static const int     PAYLOAD_SIZE_EXPECTED_MAX = WIDTH*HEIGHT*BPP;
 
 #define try_arv_with_extra_condition(expr, condition) do {              \
         if(verbose)                                                     \
-            MSG("Calling   '" #expr "'");                         \
+            MSG("Calling   '" #expr "'");                               \
         expr;                                                           \
         if(error != NULL)                                               \
         {                                                               \
