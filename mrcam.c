@@ -3,18 +3,18 @@
 #include <arv.h>
 
 #include "mrcam.h"
+#include "util.h"
 
 
-#define MSG(fmt, ...) fprintf(stderr, "%s(%d): " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+// This is meant for debugging, so making it a global is fine
+static bool verbose = false;
 
 
-static const bool    verbose                   = true;
 static const int     WIDTH                     = 1280;
 static const int     HEIGHT                    = 1024;
 static const char*   PIXEL_FORMAT              = "Mono8";
 static const int     BPP                       = 1;
 static const int     PAYLOAD_SIZE_EXPECTED_MAX = WIDTH*HEIGHT*BPP;
-
 
 
 
@@ -69,14 +69,18 @@ static const int     PAYLOAD_SIZE_EXPECTED_MAX = WIDTH*HEIGHT*BPP;
     ArvBuffer** buffer __attribute__((unused)) = (ArvBuffer**)(&(ctx)->buffer); \
     ArvStream** stream __attribute__((unused)) = (ArvStream**)(&(ctx)->stream)
 
-mrcam_t mrcam_init(const char* camera_name)
+bool mrcam_init(// out
+                mrcam_t* ctx,
+                // in
+                const char* camera_name)
 {
     bool result = false;
 
     GError *error  = NULL;
 
-    mrcam_t ctx = {};
-    DEFINE_INTERNALS(&ctx);
+    *ctx = (mrcam_t){};
+
+    DEFINE_INTERNALS(ctx);
 
     try_arv_with_extra_condition( *camera = arv_camera_new (camera_name,
                                                             &error),
@@ -111,10 +115,10 @@ mrcam_t mrcam_init(const char* camera_name)
  done:
     if(!result)
     {
-        mrcam_free(&ctx);
+        mrcam_free(ctx);
         // ctx is {} now
     }
-    return ctx;
+    return result;
 }
 
 // deallocates everything, and sets all the pointers in ctx to NULL
@@ -133,6 +137,12 @@ bool mrcam_is_inited(mrcam_t* ctx)
 
     return *camera != NULL;
 }
+
+void mrcam_set_verbose(void)
+{
+    verbose = true;
+}
+
 
 // Fill in the image. Assumes that the buffer has valid data
 static

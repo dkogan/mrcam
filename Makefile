@@ -16,6 +16,8 @@ LIB_SOURCES := \
 BIN_SOURCES := \
   mrcam-test.c
 
+mrcam-test.o: CPPFLAGS += -fopenmp
+mrcam-test:   LDFLAGS  += -fopenmp
 
 CFLAGS := $(shell pkg-config --cflags aravis-0.8)
 LDLIBS := $(shell pkg-config --libs   aravis-0.8)

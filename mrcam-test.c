@@ -1,98 +1,242 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <stdint.h>
 #include <stdbool.h>
-#include <inttypes.h>
-#include <mrcal/mrcal.h>
+#include <time.h>
+#include <sys/time.h>
+#include <getopt.h>
+#include <string.h>
+#include <omp.h>
 
 #include "mrcam.h"
+#include "util.h"
 
 
 
-static const char* camera_name = "192.168.0.2";
-static const int Nframes = 10;
+#define LIST_OPTIONS(_)                                                 \
+    _(int,         Nframes, 1,     required_argument, " N",         'N', "N:") \
+    _(const char*, outdir,  ".",   required_argument, " DIR",       'o', "o:") \
+    _(bool,        jpg,     false, no_argument,       ,             'j', "j") \
+    _(double,      period,  1.0,   required_argument, " PERIOD_SEC",'T', "T:") \
+    _(bool,        verbose, false, no_argument,       ,             'v', "v")
 
 
-#define MSG(fmt, ...) fprintf(stderr, "%s(%d): " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 
-#define try(expr, ...) do {                             \
-        if(!(expr))                                     \
-        {                                                       \
-            MSG("Failure!!! '" #expr "' is false" __VA_ARGS__); \
-            goto done;                                  \
-        }                                               \
-    } while(0)
 
+#define OPTIONS_DECLARE(type, name, default, has_arg, placeholder, id, shortopt) \
+    type name;
+typedef struct
+{
+    int Ncameras;
+    char** camera_names;
+    LIST_OPTIONS(OPTIONS_DECLARE)
+} options_t;
+
+
+
+
+
+
+static int64_t gettimeofday_int64()
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (int64_t) tv.tv_sec * 1000000LL + (int64_t) tv.tv_usec;
+}
+
+
+static bool parse_args(// out
+                       options_t* options,
+                       // in
+                       int argc, char** argv)
+{
+    void sayusage(bool to_stderr)
+    {
+
+        // const char* usage =
+        //     #include "mrcam-test.usage.h"
+        //     ;
+
+#define OPTIONS_HELP_MSG(type, name, default, has_arg, placeholder, id, shortopt) \
+    "  [--" #name placeholder "]\n"
+
+        FILE* fp = to_stderr ? stderr : stdout;
+        fprintf(fp,
+                "%s\n" LIST_OPTIONS(OPTIONS_HELP_MSG),
+                argv[0]);
+    }
+
+
+
+#define OPTIONS_LONG_DEF(type, name, default, has_arg, placeholder, id, shortopt) \
+    { #name, has_arg, NULL, id },
+    struct option option_definition[] = {
+        LIST_OPTIONS(OPTIONS_LONG_DEF)
+        { "help",                       no_argument,       NULL, 'h' },
+        {}
+    };
+
+
+#define OPTIONS_SHORT_DEF(type, name, default, has_arg, placeholder, id, shortopt) \
+    shortopt
+    const char* optstring = LIST_OPTIONS(OPTIONS_SHORT_DEF)
+        // and --help
+        "h";
+
+
+#define OPTIONS_DECLARE_DEFAULT(type, name, default, has_arg, placeholder, id, shortopt) \
+    , .name = default
+
+
+    *options = (options_t){ .Ncameras = 0
+                            LIST_OPTIONS(OPTIONS_DECLARE_DEFAULT) };
+
+    int opt;
+    do
+    {
+        opt = getopt_long(argc, argv, optstring, option_definition, NULL);
+        switch(opt)
+        {
+        case -1:
+            break;
+
+        case 'h':
+            sayusage(false);
+            exit(0);
+
+        case 'N':
+            options->Nframes = atoi(optarg);
+            if(options->Nframes <= 0)
+            {
+                MSG("I want Nframes > 0\n");
+                sayusage(true);
+                exit(1);
+            }
+            break;
+
+        case 'o': options->outdir  = optarg;       break;
+        case 'j': options->jpg     = true;         break;
+        case 'T': options->period  = atof(optarg); break;
+        case 'v': options->verbose = true;         break;
+
+        case '?':
+            MSG("Unknown option");
+            sayusage(true);
+            exit(1);
+        }
+    } while( opt != -1 );
+
+    const int Noptions_remaining = argc - optind;
+    if(Noptions_remaining > 0)
+    {
+        options->Ncameras     = Noptions_remaining;
+        options->camera_names = &argv[optind];
+    }
+    else
+    {
+        // No cameras were requested; I use the first available one
+        options->Ncameras = 1;
+        static char* one_null[] = {NULL};
+        options->camera_names = one_null;
+    }
+
+    return true;
+}
 
 
 int main(int argc, char **argv)
 {
     int result = 1;
 
-    mrcam_t ctx = mrcam_init(camera_name);
-    if(!mrcam_is_inited(&ctx))
-        return 1;
+    options_t options;
+    // function calls exit() if something went wrong; so no error checking
+    parse_args(&options,
+               argc, argv);
 
-    mrcal_image_bgr_t image_colormap = {};
+    if(options.verbose)
+        mrcam_set_verbose();
 
-    for(int i=0; i<Nframes; i++)
+
+    omp_set_num_threads(options.Ncameras);
+
+    mrcam_t ctx[options.Ncameras];
+    for(int icam=0; icam<options.Ncameras; icam++)
     {
-
-        const char* outdir = "/tmp";
-        const char* fmt = "%s/frame-%05d-cam%d.png"; // in variable to not confuse MSG()
-        char filename[1024];
-        try( snprintf(filename, sizeof(filename),
-                      fmt,
-                      outdir, i, 0) < (int)sizeof(filename) );
-
-
-#if 0
-        // 16-bit images; make heatmap
-
-        mrcal_image_uint16_t image;
-        if(!mrcam_get_frame_uint16(&image, 0, &ctx))
+        if(!mrcam_init(&ctx[icam], options.camera_names[icam]))
             return 1;
+    }
 
-        if(image_colormap.data == NULL)
+
+    mrcal_image_uint8_t image[options.Ncameras];
+
+    printf("# iframe icam cameraname t_system imagepath\n");
+
+    for(int iframe=0; iframe<options.Nframes; iframe++)
+    {
+        int64_t t0 = gettimeofday_int64();
+
+        for(int icam=0; icam<options.Ncameras; icam++)
         {
-            image_colormap.width  = image.width;
-            image_colormap.height = image.height;
-            image_colormap.stride = image_colormap.width * 3;
-
-            try(NULL != (image_colormap.data = (mrcal_bgr_t*)malloc(image_colormap.height*image_colormap.stride)));
+            if(!mrcam_get_frame_uint8(&image[icam], 0, &ctx[icam]))
+                goto done;
         }
 
-        try(mrcal_apply_color_map_uint16(&image_colormap,
-                                         &image,
-                                         true, // auto_min
-                                         true, // auto_max
-                                         true,
-                                         0, // in_min
-                                         0, // in_max
-                                         0,0,0));
+        int64_t t1 = gettimeofday_int64();
 
-        try(mrcal_image_bgr_save(filename, &image_colormap),
-            ": writing to '%s'",
-            filename);
-#else
-        // 8-bit images; write out grayscale
-        mrcal_image_uint8_t image;
-        if(!mrcam_get_frame_uint8(&image, 0, &ctx))
-            return 1;
+        bool capturefailed = false;
 
-        try(mrcal_image_uint8_save(filename, &image),
-            ": writing to '%s'",
-            filename);
-#endif
+        int icam;
+#pragma omp parallel for private(icam) num_threads(options.Ncameras)
+        for(icam=0; icam<options.Ncameras; icam++)
+        {
+            const char* fmt = "%s/frame-%05d-cam%d.%s"; // in variable to not confuse MSG()
+            char filename[1024];
+            if( snprintf(filename, sizeof(filename),
+                          fmt,
+                          options.outdir,
+                          iframe,
+                          icam,
+                          options.jpg ? "jpg" : "png") >= (int)sizeof(filename) )
+            {
+                MSG("Static buffer overflow. Increase sizeof(filename)");
+                __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
+                continue;
 
+            }
 
-        MSG("Wrote '%s'", filename);
-        sleep(1);
+            if(!mrcal_image_uint8_save(filename, &image[icam]))
+            {
+                MSG("Couldn't save to '%s'", filename);
+                __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
+                continue;
+            }
+
+            printf("%d %d %s %ld.%06ld %s\n",
+                   iframe, icam, options.camera_names[icam],
+                   t1 / 1000000,
+                   t1 % 1000000,
+                   filename);
+            fflush(stdout);
+        }
+
+        if(capturefailed)
+            goto done;
+
+        int64_t t2 = gettimeofday_int64();
+
+        // I sleep the requested period, minus whatever time already elapsed
+        int t_sleep = (int)(options.period*1e6 + 0.5) - (int)(t2-t0);
+        if(t_sleep > 0)
+            usleep(t_sleep);
+
     }
 
     result = 0;
 
  done:
-    mrcam_free(&ctx);
+    for(int icam=0; icam<options.Ncameras; icam++)
+        mrcam_free(&ctx[icam]);
 
     return result;
 }
