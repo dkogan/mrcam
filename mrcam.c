@@ -10,11 +10,8 @@
 static bool verbose = false;
 
 
-static const int     WIDTH                     = 1280;
-static const int     HEIGHT                    = 1024;
 static const char*   PIXEL_FORMAT              = "Mono8";
 static const int     BPP                       = 1;
-static const int     PAYLOAD_SIZE_EXPECTED_MAX = WIDTH*HEIGHT*BPP;
 
 
 
@@ -86,8 +83,13 @@ bool mrcam_init(// out
                                                             &error),
                                   ARV_IS_CAMERA(*camera) );
 
-    try_arv(arv_camera_set_integer(*camera, "Width",       WIDTH,        &error));
-    try_arv(arv_camera_set_integer(*camera, "Height",      HEIGHT,       &error));
+    // I use the maximum available size for the width, height
+    gint dummy,width,height;
+    try_arv( arv_camera_get_width_bounds( *camera, &dummy, &width,  &error) );
+    try_arv( arv_camera_get_height_bounds(*camera, &dummy, &height, &error) );
+
+    try_arv(arv_camera_set_integer(*camera, "Width",       width,        &error));
+    try_arv(arv_camera_set_integer(*camera, "Height",      height,       &error));
     try_arv(arv_camera_set_string (*camera, "PixelFormat", PIXEL_FORMAT, &error));
 
     // Some cameras start up with the test-pattern enabled. So I turn it off
@@ -101,7 +103,7 @@ bool mrcam_init(// out
     gint payload_size;
     try_arv(payload_size = arv_camera_get_payload(*camera, &error));
 
-    try(payload_size <= PAYLOAD_SIZE_EXPECTED_MAX);
+    try(payload_size <= width*height*BPP);
 
     try(*buffer = arv_buffer_new(payload_size, NULL));
 
