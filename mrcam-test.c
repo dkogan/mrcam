@@ -49,7 +49,7 @@ int main(int argc, char **argv)
         // 16-bit images; make heatmap
 
         mrcal_image_uint16_t image;
-        if(!mrcam_get_frame_uint16(&image, &ctx))
+        if(!mrcam_get_frame_uint16(&image, 0, &ctx))
             return 1;
 
         if(image_colormap.data == NULL)
@@ -76,7 +76,7 @@ int main(int argc, char **argv)
 #else
         // 8-bit images; write out grayscale
         mrcal_image_uint8_t image;
-        if(!mrcam_get_frame_uint8(&image, &ctx))
+        if(!mrcam_get_frame_uint8(&image, 0, &ctx))
             return 1;
 
         try(mrcal_image_uint8_save(filename, &image),

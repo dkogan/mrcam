@@ -21,13 +21,17 @@ void mrcam_free(mrcam_t* ctx);
 
 bool mrcam_is_inited(mrcam_t* ctx);
 
-bool mrcam_get_frame_uint8(// out
-                           mrcal_image_uint8_t* image,
-                           // in
-                           mrcam_t* ctx);
+// timeout_us=0 means "wait forever"
+bool mrcam_get_frame_uint8( // out
+                            mrcal_image_uint8_t* image,
+                            // in
+                            const uint64_t timeout_us,
+                            mrcam_t* ctx);
 
+// timeout_us=0 means "wait forever"
 bool mrcam_get_frame_uint16(// out
                             mrcal_image_uint16_t* image,
                             // in
+                            const uint64_t timeout_us,
                             mrcam_t* ctx);
 

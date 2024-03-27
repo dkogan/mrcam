@@ -9,7 +9,6 @@
 
 
 static const bool    verbose                   = true;
-static const guint64 timeout                   = 0;
 static const int     WIDTH                     = 1280;
 static const int     HEIGHT                    = 1024;
 static const char*   PIXEL_FORMAT              = "Mono8";
@@ -190,7 +189,8 @@ bool fill_image_uint16(// out
 }
 
 static
-bool get_frame__internal(mrcam_t* ctx)
+bool get_frame__internal(mrcam_t* ctx,
+                         const uint64_t timeout_us)
 {
     DEFINE_INTERNALS(ctx);
 
@@ -209,8 +209,8 @@ bool get_frame__internal(mrcam_t* ctx)
     try_arv( arv_camera_start_acquisition(*camera, &error));
     acquiring = true;
 
-    if (timeout > 0) buffer_here = arv_stream_timeout_pop_buffer(*stream, timeout);
-    else             buffer_here = arv_stream_pop_buffer        (*stream);
+    if (timeout_us > 0) buffer_here = arv_stream_timeout_pop_buffer(*stream, timeout_us);
+    else                buffer_here = arv_stream_pop_buffer        (*stream);
 
     try_arv(arv_camera_stop_acquisition(*camera, &error));
     acquiring = false;
@@ -286,28 +286,31 @@ bool get_frame__internal(mrcam_t* ctx)
     return buffer;
 }
 
-
+// timeout_us=0 means "wait forever"
 bool mrcam_get_frame_uint8(// out
                            mrcal_image_uint8_t* image,
                            // in
+                           const uint64_t timeout_us,
                            mrcam_t* ctx)
 {
     DEFINE_INTERNALS(ctx);
 
-    if(!get_frame__internal(ctx))
+    if(!get_frame__internal(ctx, timeout_us))
         return false;
 
     return fill_image_uint8(image, *buffer);
 }
 
+// timeout_us=0 means "wait forever"
 bool mrcam_get_frame_uint16(// out
                             mrcal_image_uint16_t* image,
                             // in
+                            const uint64_t timeout_us,
                             mrcam_t* ctx)
 {
     DEFINE_INTERNALS(ctx);
 
-    if(!get_frame__internal(ctx))
+    if(!get_frame__internal(ctx, timeout_us))
         return false;
 
     return fill_image_uint16(image, *buffer);
