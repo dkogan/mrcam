@@ -259,9 +259,11 @@ bool fill_image_uint8(// out
                       ArvBuffer* buffer)
 {
     ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(buffer);
-    if(!(pixfmt == ARV_PIXEL_FORMAT_MONO_8))
-        return false;
+    try(pixfmt == ARV_PIXEL_FORMAT_MONO_8);
     return fill_image_generic((mrcal_image_uint8_t*)image, buffer, sizeof(uint8_t));
+
+ done:
+    return false;
 }
 
 static
@@ -271,12 +273,15 @@ bool fill_image_uint16(// out
                        ArvBuffer* buffer)
 {
     ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(buffer);
-    if(!(pixfmt == ARV_PIXEL_FORMAT_MONO_10 ||
-         pixfmt == ARV_PIXEL_FORMAT_MONO_12 ||
-         pixfmt == ARV_PIXEL_FORMAT_MONO_14 ||
-         pixfmt == ARV_PIXEL_FORMAT_MONO_16))
-        return false;
+    try(pixfmt == ARV_PIXEL_FORMAT_MONO_10 ||
+        pixfmt == ARV_PIXEL_FORMAT_MONO_12 ||
+        pixfmt == ARV_PIXEL_FORMAT_MONO_14 ||
+        pixfmt == ARV_PIXEL_FORMAT_MONO_16);
     return fill_image_generic((mrcal_image_uint8_t*)image, buffer, sizeof(uint16_t));
+
+
+ done:
+    return false;
 }
 
 static
