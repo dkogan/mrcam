@@ -35,11 +35,28 @@ window.resizable(group)
 window.end()
 window.show()
 
-c = mrcam.camera()
+
+# try block needed to avoid potential crashes:
+#   https://sourceforge.net/p/pyfltk/mailman/pyfltk-user/thread/875xx5ncgp.fsf%40secretsauce.net/#msg58754407
+try:
+    c = mrcam.camera()
+except Exception as e:
+    window.hide()
+    raise e
+
 
 def update(*args):
-    image = c.get_frame()
-    image_widget .update_image(image_data = image)
+
+    # try block needed to avoid potential crashes:
+    #   https://sourceforge.net/p/pyfltk/mailman/pyfltk-user/thread/875xx5ncgp.fsf%40secretsauce.net/#msg58754407
+    try:
+        image = c.get_frame()
+        image_widget.update_image(image_data = image)
+    except Exception as e:
+        window.hide()
+        raise e
+
+
     Fl.add_timeout(period, update)
 
 update()
