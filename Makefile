@@ -7,7 +7,6 @@ TAIL_VERSION := 0
 VERSION := 0.0
 
 
-CCXXFLAGS += -fno-omit-frame-pointer
 CCXXFLAGS += -Wno-unused-parameter -Wno-unused-function
 
 LIB_SOURCES := \
