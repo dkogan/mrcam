@@ -15,11 +15,12 @@
 
 
 #define LIST_OPTIONS(_)                                                 \
-    _(int,         Nframes, 1,     required_argument, " N",         'N', "N:") \
-    _(const char*, outdir,  ".",   required_argument, " DIR",       'o', "o:") \
-    _(bool,        jpg,     false, no_argument,       ,             'j', "j") \
-    _(double,      period,  1.0,   required_argument, " PERIOD_SEC",'T', "T:") \
-    _(bool,        verbose, false, no_argument,       ,             'v', "v")
+    _(int,            Nframes, 1,                   required_argument, " N",          'N', "N:") \
+    _(const char*,    outdir,  ".",                 required_argument, " DIR",        'o', "o:") \
+    _(bool,           jpg,     false,               no_argument,       ,              'j', "j" ) \
+    _(double,         period,  1.0,                 required_argument, " PERIOD_SEC", 'T', "T:") \
+    _(mrcam_pixfmt_t, pixfmt,  MRCAM_PIXFMT_MONO_8, required_argument, " PIXELFORMAT",'F', ""  ) \
+    _(bool,           verbose, false,               no_argument,       ,              'v', "v")
 
 
 
@@ -30,6 +31,8 @@ typedef struct
 {
     int Ncameras;
     char** camera_names;
+
+    int bytes_per_pixel; // from the pixel-format. Stored here for convenience
     LIST_OPTIONS(OPTIONS_DECLARE)
 } options_t;
 
@@ -120,6 +123,28 @@ static bool parse_args(// out
         case 'T': options->period  = atof(optarg); break;
         case 'v': options->verbose = true;         break;
 
+        case 'F':
+#define MRCAM_PIXFMT_PARSE(name, bytes_per_pixel)                       \
+            else if(0 == strcmp(optarg, #name))                         \
+            {                                                           \
+                options->pixfmt              = MRCAM_PIXFMT_ ## name;   \
+                options->bytes_per_ ## pixel = bytes_per_pixel;         \
+            }
+
+            if(0) ; LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_PARSE)
+            else
+            {
+                MSG("Unknown pixel format '%s'; I know about:", optarg);
+#define MRCAM_PIXFMT_SAY(name, bytes_per_pixel)               \
+                MSG("  " #name);
+                LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_SAY);
+                exit(1);
+            }
+#undef MRCAM_PIXFMT_SAY
+#undef MRCAM_PIXFMT_PARSE
+            break;
+
+
         case '?':
             MSG("Unknown option");
             sayusage(true);
@@ -157,7 +182,6 @@ int main(int argc, char **argv)
     if(options.verbose)
         mrcam_set_verbose();
 
-
     omp_set_num_threads(options.Ncameras);
 
     mrcam_t ctx[options.Ncameras];
@@ -165,12 +189,16 @@ int main(int argc, char **argv)
     {
         if(!mrcam_init(&ctx[icam],
                        options.camera_names[icam],
-                       MRCAM_PIXFMT_MONO_8))
+                       options.pixfmt))
             return 1;
     }
 
 
-    mrcal_image_uint8_t image[options.Ncameras];
+    union
+    {
+        mrcal_image_uint8_t  image_uint8 [options.Ncameras];
+        mrcal_image_uint16_t image_uint16[options.Ncameras];
+    } images;
 
     printf("# iframe icam cameraname t_system imagepath\n");
 
@@ -180,8 +208,21 @@ int main(int argc, char **argv)
 
         for(int icam=0; icam<options.Ncameras; icam++)
         {
-            if(!mrcam_get_frame_uint8(&image[icam], 0, &ctx[icam]))
+            if(options.bytes_per_pixel == 1)
+            {
+                if(!mrcam_get_frame_uint8 (&images.image_uint8 [icam], 0, &ctx[icam]))
+                    goto done;
+            }
+            else if(options.bytes_per_pixel == 2)
+            {
+                if(!mrcam_get_frame_uint16(&images.image_uint16[icam], 0, &ctx[icam]))
+                    goto done;
+            }
+            else
+            {
+                MSG("Unknown bytes_per_pixel=%d", options.bytes_per_pixel);
                 goto done;
+            }
         }
 
         int64_t t1 = gettimeofday_int64();
@@ -207,9 +248,27 @@ int main(int argc, char **argv)
 
             }
 
-            if(!mrcal_image_uint8_save(filename, &image[icam]))
+            if(options.bytes_per_pixel == 1)
             {
-                MSG("Couldn't save to '%s'", filename);
+                if(!mrcal_image_uint8_save( filename, &images.image_uint8 [icam]))
+                {
+                    MSG("Couldn't save to '%s'", filename);
+                    __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
+                    continue;
+                }
+            }
+            else if(options.bytes_per_pixel == 2)
+            {
+                if(!mrcal_image_uint16_save(filename, &images.image_uint16[icam]))
+                {
+                    MSG("Couldn't save to '%s'", filename);
+                    __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
+                    continue;
+                }
+            }
+            else
+            {
+                MSG("Unknown bytes_per_pixel=%d", options.bytes_per_pixel);
                 __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
                 continue;
             }
