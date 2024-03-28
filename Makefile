@@ -6,21 +6,21 @@ TAIL_VERSION := 0
 
 VERSION := 0.0
 
-
-CCXXFLAGS += -Wno-unused-parameter -Wno-unused-function
-
 LIB_SOURCES := \
   mrcam.c
 
 BIN_SOURCES := \
   mrcam-test.c
 
+CFLAGS    += --std=gnu99
+CCXXFLAGS += -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
+
 mrcam-test.o: CPPFLAGS += -fopenmp
 mrcam-test:   LDFLAGS  += -fopenmp
+mrcam-test:   LDLIBS += -lmrcal
 
-CFLAGS := $(shell pkg-config --cflags aravis-0.8)
-LDLIBS := $(shell pkg-config --libs   aravis-0.8)
+CFLAGS += $(shell pkg-config --cflags aravis-0.8)
+LDLIBS += $(shell pkg-config --libs   aravis-0.8)
 
-mrcam-test: LDLIBS += -lmrcal
 
 include /usr/include/mrbuild/Makefile.common.footer
