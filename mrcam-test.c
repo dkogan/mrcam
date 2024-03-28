@@ -163,7 +163,9 @@ int main(int argc, char **argv)
     mrcam_t ctx[options.Ncameras];
     for(int icam=0; icam<options.Ncameras; icam++)
     {
-        if(!mrcam_init(&ctx[icam], options.camera_names[icam]))
+        if(!mrcam_init(&ctx[icam],
+                       options.camera_names[icam],
+                       MRCAM_PIXFMT_MONO_8))
             return 1;
     }
 

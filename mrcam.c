@@ -9,13 +9,6 @@
 // This is meant for debugging, so making it a global is fine
 static bool verbose = false;
 
-
-static const char*   PIXEL_FORMAT              = "Mono8";
-static const int     BPP                       = 1;
-
-
-
-
 #define try(expr, ...) do {                                     \
         if(verbose)                                             \
             MSG("Evaluating   '" #expr "'");                    \
@@ -66,10 +59,62 @@ static const int     BPP                       = 1;
     ArvBuffer** buffer __attribute__((unused)) = (ArvBuffer**)(&(ctx)->buffer); \
     ArvStream** stream __attribute__((unused)) = (ArvStream**)(&(ctx)->stream)
 
+
+
+
+
+
+
+
+static
+ArvPixelFormat get_ArvPixelFormat(mrcam_pixfmt_t pixfmt)
+{
+    switch(pixfmt)
+    {
+#define MRCAM_PIXFMT_CHOOSE(name, bytes_per_pixel) case MRCAM_PIXFMT_ ## name: return ARV_PIXEL_FORMAT_ ## name;
+    LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_CHOOSE)
+    default:
+        MSG("ERROR: unknown mrcam_pixfmt_t = %d", (int)pixfmt);
+        return 0;
+    }
+#undef MRCAM_PIXFMT_CHOOSE
+
+}
+
+static
+int get_bytes_per_pixel(mrcam_pixfmt_t pixfmt)
+{
+    switch(pixfmt)
+    {
+#define MRCAM_PIXFMT_CHOOSE(name, bytes_per_pixel) case MRCAM_PIXFMT_ ## name: return bytes_per_pixel;
+    LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_CHOOSE)
+    default:
+        MSG("ERROR: unknown mrcam_pixfmt_t = %d", (int)pixfmt);
+        return 0;
+    }
+#undef MRCAM_PIXFMT_CHOOSE
+}
+
+static
+const char* get_pixel_format_string(mrcam_pixfmt_t pixfmt)
+{
+    switch(pixfmt)
+    {
+#define MRCAM_PIXFMT_CHOOSE(name, bytes_per_pixel) case MRCAM_PIXFMT_ ## name: return #name;
+    LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_CHOOSE)
+    default:
+        MSG("ERROR: unknown mrcam_pixfmt_t = %d", (int)pixfmt);
+        return "UNKNOWN";
+    }
+#undef MRCAM_PIXFMT_CHOOSE
+}
+
+
 bool mrcam_init(// out
                 mrcam_t* ctx,
                 // in
-                const char* camera_name)
+                const char* camera_name,
+                const mrcam_pixfmt_t pixfmt)
 {
     bool result = false;
 
@@ -88,9 +133,39 @@ bool mrcam_init(// out
     try_arv( arv_camera_get_width_bounds( *camera, &dummy, &width,  &error) );
     try_arv( arv_camera_get_height_bounds(*camera, &dummy, &height, &error) );
 
-    try_arv(arv_camera_set_integer(*camera, "Width",       width,        &error));
-    try_arv(arv_camera_set_integer(*camera, "Height",      height,       &error));
-    try_arv(arv_camera_set_string (*camera, "PixelFormat", PIXEL_FORMAT, &error));
+    try_arv(arv_camera_set_integer(*camera, "Width",  width,  &error));
+    try_arv(arv_camera_set_integer(*camera, "Height", height, &error));
+
+    ArvPixelFormat arv_pixfmt = get_ArvPixelFormat(pixfmt);
+    if(arv_pixfmt == 0)
+        goto done;
+
+    const int bytes_per_pixel = get_bytes_per_pixel(pixfmt);
+    if(bytes_per_pixel == 0)
+        goto done;
+
+    arv_camera_set_pixel_format(*camera, arv_pixfmt, &error);
+    if(error != NULL)
+    {
+        MSG("Failure!!! Couldn't set the requested pixel format: '%s': '%s'",
+            get_pixel_format_string(pixfmt),
+            error->message);
+        g_error_free(error);
+        error = NULL;
+
+
+        MSG("Available pixel formats supported by the camera:");
+        const char** available_pixel_formats;
+        guint n_pixel_formats;
+        try_arv( available_pixel_formats =
+                 arv_camera_dup_available_pixel_formats_as_strings(*camera, &n_pixel_formats, &error) );
+        for(guint i=0; i<n_pixel_formats; i++)
+            MSG("  %s",
+                available_pixel_formats[i]);
+        g_free(available_pixel_formats);
+
+        goto done;
+    }
 
     // Some cameras start up with the test-pattern enabled. So I turn it off
     // unconditionally. This setting doesn't exist on all cameras. And if it
@@ -103,7 +178,7 @@ bool mrcam_init(// out
     gint payload_size;
     try_arv(payload_size = arv_camera_get_payload(*camera, &error));
 
-    try(payload_size <= width*height*BPP);
+    try(payload_size <= width*height*bytes_per_pixel);
 
     try(*buffer = arv_buffer_new(payload_size, NULL));
 
