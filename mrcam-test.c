@@ -124,6 +124,9 @@ static bool parse_args(// out
         case 'v': options->verbose = true;         break;
 
         case 'F':
+
+            if(0) ;
+
 #define MRCAM_PIXFMT_PARSE(name, bytes_per_pixel)                       \
             else if(0 == strcmp(optarg, #name))                         \
             {                                                           \
@@ -131,16 +134,17 @@ static bool parse_args(// out
                 options->bytes_per_ ## pixel = bytes_per_pixel;         \
             }
 
-            if(0) ; LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_PARSE)
+            LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_PARSE)
             else
             {
                 MSG("Unknown pixel format '%s'; I know about:", optarg);
-#define MRCAM_PIXFMT_SAY(name, bytes_per_pixel)               \
-                MSG("  " #name);
+
+#define MRCAM_PIXFMT_SAY(name, bytes_per_pixel) MSG("  " #name);
                 LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_SAY);
+#undef MRCAM_PIXFMT_SAY
+
                 exit(1);
             }
-#undef MRCAM_PIXFMT_SAY
 #undef MRCAM_PIXFMT_PARSE
             break;
 
