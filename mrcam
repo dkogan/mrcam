@@ -37,11 +37,11 @@ window.show()
 
 c = mrcam.camera()
 
-def update():
+def update(*args):
     image = c.get_frame()
     image_widget .update_image(image_data = image)
     Fl.add_timeout(period, update)
 
-Fl.add_timeout(period, update)
+update()
 
 Fl.run()
