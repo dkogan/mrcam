@@ -1,0 +1,13 @@
+Simple and generic camera interface for genicam cameras
+
+The actual hardware interface used here is provided by the wonderful aravis
+project:
+
+  https://github.com/AravisProject/aravis
+
+Any genicam camera should be supported, in theory. Without using the vendor's
+unwaveringly-terrible and disparate tooling.
+
+THIS project provides trivial interface appropriate for my use cases. And it
+provides a Python API. And a visualization tool. And some extra utilities, such
+as focusing and camera-sync-validation tools
