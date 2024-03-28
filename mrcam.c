@@ -136,12 +136,13 @@ bool mrcam_init(// out
     try_arv(arv_camera_set_integer(*camera, "Width",  width,  &error));
     try_arv(arv_camera_set_integer(*camera, "Height", height, &error));
 
-    ArvPixelFormat arv_pixfmt = get_ArvPixelFormat(pixfmt);
-    if(arv_pixfmt == 0)
+    ctx->pixfmt          = pixfmt;
+    ctx->bytes_per_pixel = get_bytes_per_pixel(pixfmt);
+    if(ctx->bytes_per_pixel == 0)
         goto done;
 
-    const int bytes_per_pixel = get_bytes_per_pixel(pixfmt);
-    if(bytes_per_pixel == 0)
+    ArvPixelFormat arv_pixfmt = get_ArvPixelFormat(pixfmt);
+    if(arv_pixfmt == 0)
         goto done;
 
     arv_camera_set_pixel_format(*camera, arv_pixfmt, &error);
@@ -178,7 +179,7 @@ bool mrcam_init(// out
     gint payload_size;
     try_arv(payload_size = arv_camera_get_payload(*camera, &error));
 
-    try(payload_size <= width*height*bytes_per_pixel);
+    try(payload_size <= width*height*ctx->bytes_per_pixel);
 
     try(*buffer = arv_buffer_new(payload_size, NULL));
 

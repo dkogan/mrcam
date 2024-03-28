@@ -31,8 +31,6 @@ typedef struct
 {
     int Ncameras;
     char** camera_names;
-
-    int bytes_per_pixel; // from the pixel-format. Stored here for convenience
     LIST_OPTIONS(OPTIONS_DECLARE)
 } options_t;
 
@@ -129,10 +127,7 @@ static bool parse_args(// out
 
 #define MRCAM_PIXFMT_PARSE(name, bytes_per_pixel)                       \
             else if(0 == strcmp(optarg, #name))                         \
-            {                                                           \
-                options->pixfmt              = MRCAM_PIXFMT_ ## name;   \
-                options->bytes_per_ ## pixel = bytes_per_pixel;         \
-            }
+                options->pixfmt = MRCAM_PIXFMT_ ## name;
 
             LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_PARSE)
             else
@@ -212,19 +207,19 @@ int main(int argc, char **argv)
 
         for(int icam=0; icam<options.Ncameras; icam++)
         {
-            if(options.bytes_per_pixel == 1)
+            if(ctx[icam].bytes_per_pixel == 1)
             {
                 if(!mrcam_get_frame_uint8 (&images.image_uint8 [icam], 0, &ctx[icam]))
                     goto done;
             }
-            else if(options.bytes_per_pixel == 2)
+            else if(ctx[icam].bytes_per_pixel == 2)
             {
                 if(!mrcam_get_frame_uint16(&images.image_uint16[icam], 0, &ctx[icam]))
                     goto done;
             }
             else
             {
-                MSG("Unknown bytes_per_pixel=%d", options.bytes_per_pixel);
+                MSG("Unknown bytes_per_pixel=%d", ctx[icam].bytes_per_pixel);
                 goto done;
             }
         }
@@ -252,7 +247,7 @@ int main(int argc, char **argv)
 
             }
 
-            if(options.bytes_per_pixel == 1)
+            if(ctx[icam].bytes_per_pixel == 1)
             {
                 if(!mrcal_image_uint8_save( filename, &images.image_uint8 [icam]))
                 {
@@ -261,7 +256,7 @@ int main(int argc, char **argv)
                     continue;
                 }
             }
-            else if(options.bytes_per_pixel == 2)
+            else if(ctx[icam].bytes_per_pixel == 2)
             {
                 if(!mrcal_image_uint16_save(filename, &images.image_uint16[icam]))
                 {
@@ -272,7 +267,7 @@ int main(int argc, char **argv)
             }
             else
             {
-                MSG("Unknown bytes_per_pixel=%d", options.bytes_per_pixel);
+                MSG("Unknown bytes_per_pixel=%d", ctx[icam].bytes_per_pixel);
                 __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
                 continue;
             }
