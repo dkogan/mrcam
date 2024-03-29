@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+
+r'''Report image sharpness over time
+
+SYNOPSIS
+
+  $ ./focus
+
+  [ Interactive window up pop up showing the realtime view; clicking on the ]
+  [ image shows a realtime plot of the sharpness in those areas             ]
+
+This tool is intended to automate camera-focussing procedures. It repeatedly
+grabs images, and plots a "sharpness" metric in each region of interest. The
+user moves the focus ring, while looking at the realtime feedback displayed by
+this tool.
+
+'''
+
+import sys
+import numpy as np
+import numpysane as nps
+import cv2
+from fltk import *
+from Fl_Gl_Image_Widget import *
+from Fl_gnuplotlib import *
+
+import mrcam
+
+
+def sharpness(image):
+    '''Reports a measure of sharpness in an image.
+
+    There're many ways to do this. I look at this:
+
+        Said Pertuz, Domenec Puig, Miguel Angel Garcia, "Analysis of focus
+        measure operators for shape-from-focus", Pattern Recognition Volume 46,
+        Isue 5, May 2013.
+
+    They looked at a bunch of operators, and there wasn't a standout. I use the
+    basic norm2(laplacian) since it's simple, and they had decent results with
+    it. This is LAP1 described in section A.17.
+
+    '''
+    L = cv2.Laplacian(image,
+                      ddepth = cv2.CV_32F,
+                      borderType = cv2.BORDER_REFLECT)
+    return nps.norm2(L.ravel())
+
+focus_regions = []
+
+imagersize = None
+
+period     = 0.5
+roi_radius = 50
+
+
+
+def tick(c):
+
+    global imagersize
+
+    # try block needed to avoid potential crashes:
+    #   https://sourceforge.net/p/pyfltk/mailman/pyfltk-user/thread/875xx5ncgp.fsf%40secretsauce.net/#msg58754407
+    try:
+        image = c.get_frame()
+        imagersize = np.array((image.shape[1], image.shape[0]), dtype=int)
+
+        image_widget.update_image(image_data = image)
+    except Exception as e:
+        window.hide()
+        raise e
+
+    if not hasattr(tick, 't'): tick.t = 0
+
+    for region in focus_regions:
+        roi  = region['roi']
+        region['data'] = nps.glue(region['data'],
+                                  np.array((tick.t, sharpness(image[roi[0],roi[1]])),
+                                           dtype=float),
+                                  axis = -2)
+
+    if focus_regions:
+        plot_widget.plot(*[(region['data'] - tick.t,
+                            dict(tuplesize = -2,
+                                 _with     = f"lines lw 2 lc \"{region['color_string']}\"")) \
+                           for region in focus_regions])
+
+    tick.t += period
+    Fl.add_timeout(period, tick, c)
+
+
+
+
+
+# from "gnuplot -e 'show linetype'"
+color_sequence_rgb = (
+    "0x9400d3",
+    "0x009e73",
+    "0x56b4e9",
+    "0xe69f00",
+    "0xf0e442",
+    "0x0072b2",
+    "0xe51e10",
+    "0x000000"
+)
+
+def color_array_from_string(c):
+    x = int(c, 0)
+
+    r = (x >> 16) & 255
+    g = (x >>  8) & 255
+    b = (x >>  0) & 255
+    return np.array((r,g,b), dtype=np.float32) / 255.
+
+
+class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
+    def handle(self, event):
+        if event != FL_PUSH:
+            return super().handle(event)
+
+        if Fl.event_button() != FL_RIGHT_MOUSE:
+            return super().handle(event)
+
+        try:
+            q = np.round(np.array(self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ))).astype(int)
+        except:
+            return super().handle(event)
+
+        if q is None:
+            return super().handle(event)
+
+
+
+        global focus_regions
+        global imagersize
+
+        q00 = q - roi_radius
+        q11 = q + roi_radius
+
+        if imagersize is None             or \
+           np.any(q00 < 0)                or \
+           np.any(q11 < 0)                or \
+           np.any(imagersize-1 - q00 < 0) or \
+           np.any(imagersize-1 - q11 < 0):
+            return super().handle(event)
+
+
+        # New region
+        focus_regions.append(dict())
+        region = focus_regions[-1]
+
+        region['roi'] = ( slice(q00[1],q11[1]),
+                          slice(q00[0],q11[0]) )
+        q01 = np.array((q00[0], q11[1]))
+        q10 = np.array((q11[0], q00[1]))
+
+        color_string = color_sequence_rgb[ (len(focus_regions)-1) %
+                                          len(color_sequence_rgb)]
+        color_array = color_array_from_string(color_string)
+        region_marking = dict(points = nps.cat(nps.cat(q00,q01),
+                                               nps.cat(q01,q11),
+                                               nps.cat(q11,q10),
+                                               nps.cat(q10,q00)).astype(np.float32),
+                              color_rgb = color_array )
+        region['region_marking'] = region_marking
+        region['color_string']   = color_string
+        self.set_lines( *[r['region_marking'] for r in focus_regions] )
+
+        region['data'] = np.array(())
+
+        return super().handle(event)
+
+
+window       = Fl_Window                 (800, 600, "mrcam camera-focus")
+image_widget = Fl_Gl_Image_Widget_Derived(0,   0, 400,600,
+                                          double_buffered = False)
+plot_widget  = Fl_Gnuplotlib_Window      (400, 0, 400,600,
+                                          # Plot the last 50 seconds
+                                          _xrange=(-50,0))
+window.resizable(window)
+window.end()
+window.show()
+
+
+# try block needed to avoid potential crashes:
+#   https://sourceforge.net/p/pyfltk/mailman/pyfltk-user/thread/875xx5ncgp.fsf%40secretsauce.net/#msg58754407
+try:
+    c = mrcam.camera()
+except Exception as e:
+    window.hide()
+    raise e
+
+
+tick(c)
+Fl.run()
