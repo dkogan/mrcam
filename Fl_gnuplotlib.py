@@ -25,6 +25,8 @@ class Fl_Gnuplotlib_Window(fltk.Fl_Window):
 
         self._delayed_plot_options = None
 
+        # Might fail if a buggy pyfltk is used:
+        #   https://sourceforge.net/p/pyfltk/mailman/pyfltk-user/thread/87wmpllwt3.fsf%40secretsauce.net/#msg58754412
         xid = fltk.fl_xid(self)
         if xid == 0:
             # I don't have an xid (yet?), so I delay the init
