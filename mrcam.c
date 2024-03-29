@@ -114,7 +114,14 @@ bool mrcam_init(// out
                 mrcam_t* ctx,
                 // in
                 const char* camera_name,
-                const mrcam_pixfmt_t pixfmt)
+                const mrcam_pixfmt_t pixfmt,
+                // if either is <=0, we try to autodetect by asking the camera
+                // for WidthMax and HeightMax. Some cameras report the native
+                // resolution of the imager there, but some others report bugus
+                // values, and the user then MUST provide the correct
+                // dimensions
+                int width,
+                int height)
 {
     bool result = false;
 
@@ -128,10 +135,15 @@ bool mrcam_init(// out
                                                             &error),
                                   ARV_IS_CAMERA(*camera) );
 
-    // I use the maximum available size for the width, height
-    gint dummy,width,height;
-    try_arv( arv_camera_get_width_bounds( *camera, &dummy, &width,  &error) );
-    try_arv( arv_camera_get_height_bounds(*camera, &dummy, &height, &error) );
+    if(width <= 0 || height <= 0)
+    {
+        // Use WidthMax and HeightMax
+        gint dummy,_width,_height;
+        try_arv( arv_camera_get_width_bounds( *camera, &dummy, &_width,  &error) );
+        try_arv( arv_camera_get_height_bounds(*camera, &dummy, &_height, &error) );
+        width  = (int)_width;
+        height = (int)_height;
+    }
 
     try_arv(arv_camera_set_integer(*camera, "Width",  width,  &error));
     try_arv(arv_camera_set_integer(*camera, "Height", height, &error));

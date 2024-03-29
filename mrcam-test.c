@@ -13,14 +13,15 @@
 #include "util.h"
 
 
-
+typedef struct { int width,height; } dimensions_t;
 #define LIST_OPTIONS(_)                                                 \
-    _(int,            Nframes, 1,                   required_argument, " N",          'N', "N:") \
-    _(const char*,    outdir,  ".",                 required_argument, " DIR",        'o', "o:") \
-    _(bool,           jpg,     false,               no_argument,       ,              'j', "j" ) \
-    _(double,         period,  1.0,                 required_argument, " PERIOD_SEC", 'T', "T:") \
-    _(mrcam_pixfmt_t, pixfmt,  MRCAM_PIXFMT_MONO_8, required_argument, " PIXELFORMAT",'F', ""  ) \
-    _(bool,           verbose, false,               no_argument,       ,              'v', "v")
+    _(int,            Nframes, 1,                   required_argument, " N",           'N', "N:") \
+    _(const char*,    outdir,  ".",                 required_argument, " DIR",         'o', "o:") \
+    _(bool,           jpg,     false,               no_argument,       ,               'j', "j" ) \
+    _(double,         period,  1.0,                 required_argument, " PERIOD_SEC",  'T', "T:") \
+    _(mrcam_pixfmt_t, pixfmt,  MRCAM_PIXFMT_MONO_8, required_argument, " PIXELFORMAT", 'F', ""  ) \
+    _(dimensions_t,   dims,    {},                  required_argument, " WIDTH,HEIGHT",'D', ""  ) \
+    _(bool,           verbose, false,               no_argument,       ,               'v', "v")
 
 
 
@@ -143,6 +144,22 @@ static bool parse_args(// out
 #undef MRCAM_PIXFMT_PARSE
             break;
 
+        case 'D':
+            {
+                int Nbytes_consumed;
+                if( 2 != sscanf(optarg,
+                                "%d,%d%n",
+                                &options->dims.width,
+                                &options->dims.height,
+                                &Nbytes_consumed) ||
+                    optarg[Nbytes_consumed] != '\0' )
+                {
+                    MSG("--dims MUST be followed by integer dimensions given by 'WIDTH,HEIGHT'. Couldn't parse '%s' that way",
+                        optarg);
+                    exit(1);
+                }
+                break;
+            }
 
         case '?':
             MSG("Unknown option");
@@ -188,7 +205,9 @@ int main(int argc, char **argv)
     {
         if(!mrcam_init(&ctx[icam],
                        options.camera_names[icam],
-                       options.pixfmt))
+                       options.pixfmt,
+                       options.dims.width,
+                       options.dims.height))
             return 1;
     }
 

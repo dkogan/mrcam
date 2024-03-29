@@ -40,7 +40,14 @@ bool mrcam_init(// out
                 mrcam_t* ctx,
                 // in
                 const char* camera_name,
-                const mrcam_pixfmt_t pixfmt);
+                const mrcam_pixfmt_t pixfmt,
+                // if either is <=0, we try to autodetect by asking the camera
+                // for WidthMax and HeightMax. Some cameras report the native
+                // resolution of the imager there, but some others report bugus
+                // values, and the user then MUST provide the correct
+                // dimensions
+                int width,
+                int height);
 
 // deallocates everything, and sets all the pointers in ctx to NULL
 void mrcam_free(mrcam_t* ctx);
