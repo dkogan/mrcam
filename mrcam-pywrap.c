@@ -122,7 +122,10 @@ camera_get_frame(camera* self, PyObject* args, PyObject* kwargs)
         if(!mrcam_get_frame_uint8( &mrcal_image,
                                    (uint64_t)(timeout_sec * 1e6),
                                    &self->camera))
+        {
+            BARF("mrcam_get_frame...() failed");
             goto done;
+        }
         if(mrcal_image.stride !=
            mrcal_image.width * self->camera.bytes_per_pixel)
         {
@@ -142,7 +145,10 @@ camera_get_frame(camera* self, PyObject* args, PyObject* kwargs)
         if(!mrcam_get_frame_uint16( &mrcal_image,
                                    (uint64_t)(timeout_sec * 1e6),
                                    &self->camera))
+        {
+            BARF("mrcam_get_frame...() failed");
             goto done;
+        }
         if(mrcal_image.stride !=
            mrcal_image.width * self->camera.bytes_per_pixel)
         {
