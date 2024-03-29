@@ -229,7 +229,9 @@ int main(int argc, char **argv)
         bool capturefailed = false;
 
         int icam;
-#pragma omp parallel for private(icam) num_threads(options.Ncameras)
+
+#warning Disabled openmp to avoid gcc bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=114509
+// #pragma omp parallel for private(icam) num_threads(options.Ncameras)
         for(icam=0; icam<options.Ncameras; icam++)
         {
             const char* fmt = "%s/frame-%05d-cam%d.%s"; // in variable to not confuse MSG()
