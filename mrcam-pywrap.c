@@ -17,6 +17,30 @@
 #define BARF(fmt, ...) PyErr_Format(PyExc_RuntimeError, "%s:%d %s(): "fmt, __FILE__, __LINE__, __func__, ## __VA_ARGS__)
 
 
+// Python is silly. There's some nuance about signal handling where it sets a
+// SIGINT (ctrl-c) handler to just set a flag, and the python layer then reads
+// this flag and does the thing. Here I'm running C code, so SIGINT would set a
+// flag, but not quit, so I can't interrupt the capture. Thus I reset the SIGINT
+// handler to the default, and put it back to the python-specific version when
+// I'm done
+#define SET_SIGINT() struct sigaction sigaction_old;                    \
+do {                                                                    \
+    if( 0 != sigaction(SIGINT,                                          \
+                       &(struct sigaction){ .sa_handler = SIG_DFL },    \
+                       &sigaction_old) )                                \
+    {                                                                   \
+        BARF("sigaction() failed");                                     \
+        goto done;                                                      \
+    }                                                                   \
+} while(0)
+#define RESET_SIGINT() do {                                             \
+    if( 0 != sigaction(SIGINT,                                          \
+                       &sigaction_old, NULL ))                          \
+        BARF("sigaction-restore failed"); \
+} while(0)
+
+
+
 typedef struct {
     PyObject_HEAD
 
@@ -110,6 +134,8 @@ camera_get_frame(camera* self, PyObject* args, PyObject* kwargs)
 
     double timeout_sec = 0.0;
 
+    SET_SIGINT();
+
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
                                      "|d", keywords,
                                      &timeout_sec))
@@ -178,6 +204,7 @@ camera_get_frame(camera* self, PyObject* args, PyObject* kwargs)
  done:
     Py_XDECREF(image);
 
+    RESET_SIGINT();
     return result;
 }
 static const char camera_docstring[] =
