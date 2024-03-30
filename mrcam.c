@@ -56,9 +56,7 @@ static bool verbose = false;
 
 #define DEFINE_INTERNALS(ctx)                                           \
     ArvCamera** camera __attribute__((unused)) = (ArvCamera**)(&(ctx)->camera); \
-    ArvBuffer** buffer __attribute__((unused)) = (ArvBuffer**)(&(ctx)->buffer); \
-    ArvStream** stream __attribute__((unused)) = (ArvStream**)(&(ctx)->stream)
-
+    ArvBuffer** buffer __attribute__((unused)) = (ArvBuffer**)(&(ctx)->buffer)
 
 
 
@@ -195,11 +193,6 @@ bool mrcam_init(// out
 
     try(*buffer = arv_buffer_new(payload_size, NULL));
 
-    try_arv_with_extra_condition( *stream = arv_camera_create_stream(*camera, NULL, NULL, &error),
-                                  ARV_IS_STREAM(*stream) );
-    try_arv( arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_SINGLE_FRAME, &error) );
-
-
     result = true;
 
  done:
@@ -216,7 +209,6 @@ void mrcam_free(mrcam_t* ctx)
 {
     DEFINE_INTERNALS(ctx);
 
-    g_clear_object(stream);
     g_clear_object(buffer);
     g_clear_object(camera);
 }
@@ -309,27 +301,26 @@ bool get_frame__internal(mrcam_t* ctx,
     ArvBuffer*  buffer_here = NULL;
     bool        acquiring   = false;
 
-    if(!ctx->buffer_is_pushed_to_stream)
-    {
-        arv_stream_push_buffer(*stream, *buffer);
-        ctx->buffer_is_pushed_to_stream = true;
-    }
+
+    ArvStream* stream;
+
+    try_arv_with_extra_condition( stream = arv_camera_create_stream(*camera, NULL, NULL, &error),
+                                  ARV_IS_STREAM(stream) );
+    try_arv( arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_SINGLE_FRAME, &error) );
+
+    arv_stream_push_buffer(stream, *buffer);
 
     try_arv( arv_camera_start_acquisition(*camera, &error));
     acquiring = true;
 
-    if (timeout_us > 0) buffer_here = arv_stream_timeout_pop_buffer(*stream, timeout_us);
-    else                buffer_here = arv_stream_pop_buffer        (*stream);
+    if (timeout_us > 0) buffer_here = arv_stream_timeout_pop_buffer(stream, timeout_us);
+    else                buffer_here = arv_stream_pop_buffer        (stream);
 
     try_arv(arv_camera_stop_acquisition(*camera, &error));
     acquiring = false;
 
     try(buffer_here == *buffer);
     try(ARV_IS_BUFFER(*buffer));
-
-    // We have our buffer back. It may or may not contain valid data, but it
-    // isn't in the stream anymore
-    ctx->buffer_is_pushed_to_stream = false;
 
     ArvBufferStatus status = arv_buffer_get_status(*buffer);
     // All the statuses from arvbuffer.h, as of aravis 0.8.30
@@ -389,6 +380,8 @@ bool get_frame__internal(mrcam_t* ctx,
     if(acquiring)
         // if still aquiring for some reason, stop that, with no error checking
         arv_camera_stop_acquisition(*camera, &error);
+
+    g_clear_object(&stream);
 
     if(!result)
         return NULL;

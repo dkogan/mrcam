@@ -25,7 +25,6 @@ typedef struct
     // void to not require including arv.h
     void* camera;
     void* buffer;
-    void* stream;
 
     bool buffer_is_pushed_to_stream : 1;
 
