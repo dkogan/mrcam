@@ -5,6 +5,7 @@ import numpy as np
 import numpysane as nps
 from fltk import *
 from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
+import mrcal
 import mrcam
 
 
@@ -51,6 +52,10 @@ def update(*args):
     #   https://sourceforge.net/p/pyfltk/mailman/pyfltk-user/thread/875xx5ncgp.fsf%40secretsauce.net/#msg58754407
     try:
         image = c.get_frame()
+
+        if image.itemsize > 1:
+            image = mrcal.apply_color_map(image)
+
         image_widget.update_image(image_data = image)
     except Exception as e:
         window.hide()
