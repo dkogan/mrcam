@@ -216,6 +216,7 @@ int main(int argc, char **argv)
     {
         mrcal_image_uint8_t  image_uint8 [options.Ncameras];
         mrcal_image_uint16_t image_uint16[options.Ncameras];
+        mrcal_image_bgr_t    image_bgr   [options.Ncameras];
     } images;
 
     printf("# iframe icam cameraname t_system imagepath\n");
@@ -226,14 +227,19 @@ int main(int argc, char **argv)
 
         for(int icam=0; icam<options.Ncameras; icam++)
         {
-            if(ctx[icam].bytes_per_pixel == 1)
+            if(ctx[icam].bytes_per_pixel == 1 && !ctx[icam].is_color)
             {
                 if(!mrcam_get_frame_uint8 (&images.image_uint8 [icam], 0, &ctx[icam]))
                     goto done;
             }
-            else if(ctx[icam].bytes_per_pixel == 2)
+            else if(ctx[icam].bytes_per_pixel == 2 && !ctx[icam].is_color)
             {
                 if(!mrcam_get_frame_uint16(&images.image_uint16[icam], 0, &ctx[icam]))
+                    goto done;
+            }
+            else if(ctx[icam].is_color)
+            {
+                if(!mrcam_get_frame_bgr(&images.image_bgr[icam], 0, &ctx[icam]))
                     goto done;
             }
             else
@@ -268,7 +274,7 @@ int main(int argc, char **argv)
 
             }
 
-            if(ctx[icam].bytes_per_pixel == 1)
+            if(ctx[icam].bytes_per_pixel == 1 && !ctx[icam].is_color)
             {
                 if(!mrcal_image_uint8_save( filename, &images.image_uint8 [icam]))
                 {
@@ -277,9 +283,18 @@ int main(int argc, char **argv)
                     continue;
                 }
             }
-            else if(ctx[icam].bytes_per_pixel == 2)
+            else if(ctx[icam].bytes_per_pixel == 2 && !ctx[icam].is_color)
             {
                 if(!mrcal_image_uint16_save(filename, &images.image_uint16[icam]))
+                {
+                    MSG("Couldn't save to '%s'", filename);
+                    __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
+                    continue;
+                }
+            }
+            else if(ctx[icam].is_color)
+            {
+                if(!mrcal_image_bgr_save(filename, &images.image_bgr[icam]))
                 {
                     MSG("Couldn't save to '%s'", filename);
                     __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);

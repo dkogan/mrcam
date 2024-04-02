@@ -20,7 +20,7 @@ mrcam-test:   LDFLAGS  += -fopenmp
 mrcam-test:   LDLIBS += -lmrcal
 
 CFLAGS += $(shell pkg-config --cflags aravis-0.8)
-LDLIBS += $(shell pkg-config --libs   aravis-0.8)
+LDLIBS += $(shell pkg-config --libs   aravis-0.8) -lavutil -lswscale
 
 
 

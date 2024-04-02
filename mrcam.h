@@ -6,41 +6,41 @@
 // <arv.h>. This is a few common formats. MRCAM_PIXFMT_... has an equivalent
 // ARV_PIXEL_FORMAT
 #define LIST_MRCAM_PIXFMT(_)                    \
-  _(MONO_8,        1)                           \
+  _(MONO_8,        1, false)                    \
   /* Each pixel takes up 16 bits. NOT packed */ \
-  _(MONO_10,       2)                           \
-  _(MONO_12,       2)                           \
-  _(MONO_14,       2)                           \
-  _(MONO_16,       2)                           \
-  _(BAYER_GR_8,    1)                           \
-  _(BAYER_RG_8,    1)                           \
-  _(BAYER_GB_8,    1)                           \
-  _(BAYER_BG_8,    1)                           \
-  _(BAYER_GR_10,   2)                           \
-  _(BAYER_RG_10,   2)                           \
-  _(BAYER_GB_10,   2)                           \
-  _(BAYER_BG_10,   2)                           \
-  _(BAYER_GR_12,   2)                           \
-  _(BAYER_RG_12,   2)                           \
-  _(BAYER_GB_12,   2)                           \
-  _(BAYER_BG_12,   2)                           \
-  _(BAYER_GR_16,   2)                           \
-  _(BAYER_RG_16,   2)                           \
-  _(BAYER_GB_16,   2)                           \
-  _(BAYER_BG_16,   2)                           \
-  _(RGB_8_PACKED,  3)                           \
-  _(BGR_8_PACKED,  3)                           \
-  _(RGBA_8_PACKED, 4)                           \
-  _(BGRA_8_PACKED, 4)                           \
-  _(RGB_10_PACKED, 6)                           \
-  _(BGR_10_PACKED, 6)                           \
-  _(RGB_12_PACKED, 6)                           \
-  _(BGR_12_PACKED, 6)
+  _(MONO_10,       2, false)                    \
+  _(MONO_12,       2, false)                    \
+  _(MONO_14,       2, false)                    \
+  _(MONO_16,       2, false)                    \
+  _(BAYER_GR_8,    1, true)                     \
+  _(BAYER_RG_8,    1, true)                     \
+  _(BAYER_GB_8,    1, true)                     \
+  _(BAYER_BG_8,    1, true)                     \
+  _(BAYER_GR_10,   2, true)                     \
+  _(BAYER_RG_10,   2, true)                     \
+  _(BAYER_GB_10,   2, true)                     \
+  _(BAYER_BG_10,   2, true)                     \
+  _(BAYER_GR_12,   2, true)                     \
+  _(BAYER_RG_12,   2, true)                     \
+  _(BAYER_GB_12,   2, true)                     \
+  _(BAYER_BG_12,   2, true)                     \
+  _(BAYER_GR_16,   2, true)                     \
+  _(BAYER_RG_16,   2, true)                     \
+  _(BAYER_GB_16,   2, true)                     \
+  _(BAYER_BG_16,   2, true)                     \
+  _(RGB_8_PACKED,  3, true)                     \
+  _(BGR_8_PACKED,  3, true)                     \
+  _(RGBA_8_PACKED, 4, true)                     \
+  _(BGRA_8_PACKED, 4, true)                     \
+  _(RGB_10_PACKED, 6, true)                     \
+  _(BGR_10_PACKED, 6, true)                     \
+  _(RGB_12_PACKED, 6, true)                     \
+  _(BGR_12_PACKED, 6, true)
 
 
 typedef enum
 {
-#define MRCAM_PIXFMT_ENUM(name, bytes_per_pixel) MRCAM_PIXFMT_ ## name,
+#define MRCAM_PIXFMT_ENUM(name, bytes_per_pixel, is_color) MRCAM_PIXFMT_ ## name,
     LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_ENUM) MRCAM_PIXFMT_COUNT
 #undef MRCAM_PIXFMT_ENUM
 } mrcam_pixfmt_t;
@@ -53,8 +53,8 @@ typedef struct
 
     // Maybe I don't NEED to store these here, but it makes life easier
     mrcam_pixfmt_t pixfmt;
-    int bytes_per_pixel;
-
+    int            bytes_per_pixel;
+    bool           is_color : 1;
 } mrcam_t;
 
 // camera_name = NULL means "first available camera"
@@ -95,4 +95,8 @@ bool mrcam_get_frame_uint16(// out
                             // in
                             const uint64_t timeout_us,
                             mrcam_t* ctx);
-
+bool mrcam_get_frame_bgr(   // out
+                            mrcal_image_bgr_t* image,
+                            // in
+                            const uint64_t timeout_us,
+                            mrcam_t* ctx);
