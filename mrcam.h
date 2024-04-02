@@ -6,12 +6,37 @@
 // <arv.h>. This is a few common formats. MRCAM_PIXFMT_... has an equivalent
 // ARV_PIXEL_FORMAT
 #define LIST_MRCAM_PIXFMT(_)                    \
-  _(MONO_8,  1)                                 \
+  _(MONO_8,        1)                           \
   /* Each pixel takes up 16 bits. NOT packed */ \
-  _(MONO_10, 2)                                 \
-  _(MONO_12, 2)                                 \
-  _(MONO_14, 2)                                 \
-  _(MONO_16, 2)
+  _(MONO_10,       2)                           \
+  _(MONO_12,       2)                           \
+  _(MONO_14,       2)                           \
+  _(MONO_16,       2)                           \
+  _(BAYER_GR_8,    1)                           \
+  _(BAYER_RG_8,    1)                           \
+  _(BAYER_GB_8,    1)                           \
+  _(BAYER_BG_8,    1)                           \
+  _(BAYER_GR_10,   2)                           \
+  _(BAYER_RG_10,   2)                           \
+  _(BAYER_GB_10,   2)                           \
+  _(BAYER_BG_10,   2)                           \
+  _(BAYER_GR_12,   2)                           \
+  _(BAYER_RG_12,   2)                           \
+  _(BAYER_GB_12,   2)                           \
+  _(BAYER_BG_12,   2)                           \
+  _(BAYER_GR_16,   2)                           \
+  _(BAYER_RG_16,   2)                           \
+  _(BAYER_GB_16,   2)                           \
+  _(BAYER_BG_16,   2)                           \
+  _(RGB_8_PACKED,  3)                           \
+  _(BGR_8_PACKED,  3)                           \
+  _(RGBA_8_PACKED, 4)                           \
+  _(BGRA_8_PACKED, 4)                           \
+  _(RGB_10_PACKED, 6)                           \
+  _(BGR_10_PACKED, 6)                           \
+  _(RGB_12_PACKED, 6)                           \
+  _(BGR_12_PACKED, 6)
+
 
 typedef enum
 {
