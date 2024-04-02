@@ -82,14 +82,14 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 
     if(0) ;
 
-#define MRCAM_PIXFMT_PARSE(name, bytes_per_pixel)       \
+#define MRCAM_PIXFMT_PARSE(name, ...)                   \
     else if(0 == strcmp(pixfmt_string, #name))          \
         pixfmt = MRCAM_PIXFMT_ ## name;
 
     LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_PARSE)
     else
     {
-#define MRCAM_PIXFMT_SAY(name, bytes_per_pixel) "'" #name "', "
+#define MRCAM_PIXFMT_SAY(name, ...) "'" #name "', "
         BARF("Unknown pixel format '%s'; I know about: ("
              LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_SAY)
              ")");

@@ -69,7 +69,7 @@ ArvPixelFormat get_ArvPixelFormat(mrcam_pixfmt_t pixfmt)
 {
     switch(pixfmt)
     {
-#define MRCAM_PIXFMT_CHOOSE(name, bytes_per_pixel) case MRCAM_PIXFMT_ ## name: return ARV_PIXEL_FORMAT_ ## name;
+#define MRCAM_PIXFMT_CHOOSE(name, ...) case MRCAM_PIXFMT_ ## name: return ARV_PIXEL_FORMAT_ ## name;
     LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_CHOOSE)
     default:
         MSG("ERROR: unknown mrcam_pixfmt_t = %d", (int)pixfmt);
@@ -84,7 +84,7 @@ int get_bytes_per_pixel(mrcam_pixfmt_t pixfmt)
 {
     switch(pixfmt)
     {
-#define MRCAM_PIXFMT_CHOOSE(name, bytes_per_pixel) case MRCAM_PIXFMT_ ## name: return bytes_per_pixel;
+#define MRCAM_PIXFMT_CHOOSE(name, bytes_per_pixel, ...) case MRCAM_PIXFMT_ ## name: return bytes_per_pixel;
     LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_CHOOSE)
     default:
         MSG("ERROR: unknown mrcam_pixfmt_t = %d", (int)pixfmt);
@@ -98,7 +98,7 @@ const char* get_pixel_format_string(mrcam_pixfmt_t pixfmt)
 {
     switch(pixfmt)
     {
-#define MRCAM_PIXFMT_CHOOSE(name, bytes_per_pixel) case MRCAM_PIXFMT_ ## name: return #name;
+#define MRCAM_PIXFMT_CHOOSE(name, ...) case MRCAM_PIXFMT_ ## name: return #name;
     LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_CHOOSE)
     default:
         MSG("ERROR: unknown mrcam_pixfmt_t = %d", (int)pixfmt);
