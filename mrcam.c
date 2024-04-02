@@ -189,7 +189,19 @@ bool mrcam_init(// out
     gint payload_size;
     try_arv(payload_size = arv_camera_get_payload(*camera, &error));
 
-    try(payload_size <= width*height*ctx->bytes_per_pixel);
+    // The payload is sometimes larger than expected, if the camera wants to pad
+    // the data. In that case I can simply ignore the trailing bits. If it's
+    // smaller than expected, however, then I don't know what to do, and I give
+    // up
+    if(payload_size < width*height*ctx->bytes_per_pixel)
+    {
+        MSG("Error! Requested pixel format '%s' says it wants payload_size=%d. But this is smaller than expected width*height*bytes_per_pixel = %d*%d*%d = %d",
+            get_pixel_format_string(pixfmt),
+            payload_size,
+            width,height,ctx->bytes_per_pixel,
+            width*height*ctx->bytes_per_pixel);
+        goto done;
+    }
 
     try(*buffer = arv_buffer_new(payload_size, NULL));
 
@@ -242,9 +254,14 @@ bool fill_image_generic(// out
     image->data   = (uint8_t*)arv_buffer_get_image_data(buffer, &size);
 
     image->stride = image->width * sizeof_pixel;
-    if((size_t)(image->height*image->stride) != size)
+
+    // The payload is sometimes larger than expected, if the camera wants to pad
+    // the data. In that case I can simply ignore the trailing bits. If it's
+    // smaller than expected, however, then I don't know what to do, and I give
+    // up
+    if((size_t)(image->height*image->stride) > size)
     {
-        MSG("Unexpected image dimensions. Expected buffersize = height*stride = height*width*bytes_per_pixel = %zd * %zd * %zd = %zd, but got %zd",
+        MSG("Unexpected image dimensions: insufficient data returned. Expected buffersize = height*stride = height*width*bytes_per_pixel = %zd * %zd * %zd = %zd, but got %zd",
             (size_t)(image->height), (size_t)(image->width), sizeof_pixel,
             (size_t)(image->height*image->stride),
             size);
