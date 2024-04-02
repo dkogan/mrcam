@@ -70,7 +70,7 @@ static bool verbose = false;
 
 
 static
-ArvPixelFormat get_ArvPixelFormat(mrcam_pixfmt_t pixfmt)
+ArvPixelFormat pixfmt__ArvPixelFormat(mrcam_pixfmt_t pixfmt)
 {
     switch(pixfmt)
     {
@@ -85,7 +85,7 @@ ArvPixelFormat get_ArvPixelFormat(mrcam_pixfmt_t pixfmt)
 }
 
 static
-int get_bytes_per_pixel(mrcam_pixfmt_t pixfmt)
+int pixfmt__bytes_per_pixel(mrcam_pixfmt_t pixfmt)
 {
     switch(pixfmt)
     {
@@ -99,7 +99,7 @@ int get_bytes_per_pixel(mrcam_pixfmt_t pixfmt)
 }
 
 static
-bool get_is_color(mrcam_pixfmt_t pixfmt)
+bool pixfmt__is_color(mrcam_pixfmt_t pixfmt)
 {
     switch(pixfmt)
     {
@@ -113,7 +113,7 @@ bool get_is_color(mrcam_pixfmt_t pixfmt)
 }
 
 static
-const char* get_pixel_format_string(mrcam_pixfmt_t pixfmt)
+const char* pixfmt__name(mrcam_pixfmt_t pixfmt)
 {
     switch(pixfmt)
     {
@@ -166,12 +166,12 @@ bool mrcam_init(// out
     try_arv(arv_camera_set_integer(*camera, "Height", height, &error));
 
     ctx->pixfmt          = pixfmt;
-    ctx->is_color        = get_is_color(pixfmt);
-    ctx->bytes_per_pixel = get_bytes_per_pixel(pixfmt);
+    ctx->is_color        = pixfmt__is_color(pixfmt);
+    ctx->bytes_per_pixel = pixfmt__bytes_per_pixel(pixfmt);
     if(ctx->bytes_per_pixel == 0)
         goto done;
 
-    ArvPixelFormat arv_pixfmt = get_ArvPixelFormat(pixfmt);
+    ArvPixelFormat arv_pixfmt = pixfmt__ArvPixelFormat(pixfmt);
     if(arv_pixfmt == 0)
         goto done;
 
@@ -179,7 +179,7 @@ bool mrcam_init(// out
     if(error != NULL)
     {
         MSG("Failure!!! Couldn't set the requested pixel format: '%s': '%s'",
-            get_pixel_format_string(pixfmt),
+            pixfmt__name(pixfmt),
             error->message);
         g_error_free(error);
         error = NULL;
@@ -216,7 +216,7 @@ bool mrcam_init(// out
     if(payload_size < width*height*ctx->bytes_per_pixel)
     {
         MSG("Error! Requested pixel format '%s' says it wants payload_size=%d. But this is smaller than expected width*height*bytes_per_pixel = %d*%d*%d = %d",
-            get_pixel_format_string(pixfmt),
+            pixfmt__name(pixfmt),
             payload_size,
             width,height,ctx->bytes_per_pixel,
             width*height*ctx->bytes_per_pixel);
