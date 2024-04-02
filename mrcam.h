@@ -51,8 +51,6 @@ typedef struct
     void* camera;
     void* buffer;
 
-    bool buffer_is_pushed_to_stream : 1;
-
     // Maybe I don't NEED to store these here, but it makes life easier
     mrcam_pixfmt_t pixfmt;
     int bytes_per_pixel;
