@@ -383,9 +383,7 @@ bool get_frame__internal(mrcam_t* ctx,
 
     g_clear_object(&stream);
 
-    if(!result)
-        return NULL;
-    return buffer;
+    return result;
 }
 
 // timeout_us=0 means "wait forever"
