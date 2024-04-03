@@ -171,6 +171,19 @@ bool pixfmt__av_pixfmt(// input
     return true;
 }
 
+static
+int pixfmt__output_bytes_per_pixel(mrcam_pixfmt_t pixfmt)
+{
+    switch(mrcam_output_type(pixfmt))
+    {
+    case MRCAM_uint8:  return 1;
+    case MRCAM_uint16: return 2;
+    case MRCAM_bgr:    return 3;
+    default: ;
+    }
+    return 0;
+}
+
 
 
 
@@ -264,15 +277,6 @@ bool mrcam_init(// out
     }
     else
     {
-        int output_bytes_per_pixel;
-        switch(mrcam_output_type(pixfmt))
-        {
-        case MRCAM_uint8:  output_bytes_per_pixel = 1; break;
-        case MRCAM_uint16: output_bytes_per_pixel = 2; break;
-        case MRCAM_bgr:    output_bytes_per_pixel = 3; break;
-        default: goto done;
-        }
-
         // We need to convert stuff. Use libswscale (ffmpeg) to set up the
         // converter
         try(NULL !=
@@ -287,7 +291,9 @@ bool mrcam_init(// out
 
                             // misc stuff
                             SWS_POINT, NULL, NULL, NULL)));
-        try(NULL != (ctx->output_image_buffer = malloc(output_bytes_per_pixel * width * height)));
+        try(NULL != (ctx->output_image_buffer =
+                     malloc(pixfmt__output_bytes_per_pixel(pixfmt) *
+                            width * height)));
     }
 
     result = true;
