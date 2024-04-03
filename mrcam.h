@@ -7,7 +7,16 @@
 // ARV_PIXEL_FORMAT.
 //
 // An ffmpeg pixel format of AV_PIX_FMT_NONE means "the input is already packed,
-// and there's no need to invoke ffmmpeg at all"
+// and there's no need to invoke ffmpeg at all"
+//
+// Today I don't yet support the high-deptch color formats because there's no
+// corresponding mrcal_image_XXXX_t
+//
+// The packed formats are not yet supported because they're weird. I just tried
+// to support ARV_PIXEL_FORMAT_MONO_10_PACKED. I'm seeing that my camera is
+// packing each pixel into 12 bits instead of 10. And I see that libswscale
+// doesn't support this: AV_PIX_FMT_GRAY10BE and AV_PIX_FMT_GRAY12BE use 16 bits
+// per pixel, not 10 or 12
 #define LIST_MRCAM_PIXFMT(_)                            \
   _(MONO_8,        uint8,  AV_PIX_FMT_NONE)             \
   /* Each pixel takes up 16 bits. NOT packed */         \
