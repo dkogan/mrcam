@@ -44,7 +44,7 @@ do {                                                                    \
 typedef struct {
     PyObject_HEAD
 
-    mrcam_t camera;
+    mrcam_t ctx;
 
 } camera;
 
@@ -98,7 +98,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     }
 #undef MRCAM_PIXFMT_PARSE
 
-    if(!mrcam_init(&self->camera,
+    if(!mrcam_init(&self->ctx,
                    camera_name,
                    pixfmt,
                    width, height))
@@ -118,7 +118,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 
 static void camera_dealloc(camera* self)
 {
-    mrcam_free(&self->camera);
+    mrcam_free(&self->ctx);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
