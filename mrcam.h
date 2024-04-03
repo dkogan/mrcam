@@ -16,27 +16,10 @@
   _(BAYER_RG_8,    bgr)                                                 \
   _(BAYER_GB_8,    bgr)                                                 \
   _(BAYER_BG_8,    bgr)                                                 \
-  /* Higher-depth color images are converted down to 8 bits/pixel for now*/ \
-  _(BAYER_GR_10,   bgr)                                                 \
-  _(BAYER_RG_10,   bgr)                                                 \
-  _(BAYER_GB_10,   bgr)                                                 \
-  _(BAYER_BG_10,   bgr)                                                 \
-  _(BAYER_GR_12,   bgr)                                                 \
-  _(BAYER_RG_12,   bgr)                                                 \
-  _(BAYER_GB_12,   bgr)                                                 \
-  _(BAYER_BG_12,   bgr)                                                 \
-  _(BAYER_GR_16,   bgr)                                                 \
-  _(BAYER_RG_16,   bgr)                                                 \
-  _(BAYER_GB_16,   bgr)                                                 \
-  _(BAYER_BG_16,   bgr)                                                 \
   _(RGB_8_PACKED,  bgr)                                                 \
   _(BGR_8_PACKED,  bgr)                                                 \
   _(RGBA_8_PACKED, bgr)                                                 \
-  _(BGRA_8_PACKED, bgr)                                                 \
-  _(RGB_10_PACKED, bgr)                                                 \
-  _(BGR_10_PACKED, bgr)                                                 \
-  _(RGB_12_PACKED, bgr)                                                 \
-  _(BGR_12_PACKED, bgr)
+  _(BGRA_8_PACKED, bgr)
 
 
 typedef enum
