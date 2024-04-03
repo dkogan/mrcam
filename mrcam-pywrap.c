@@ -141,56 +141,85 @@ camera_get_frame(camera* self, PyObject* args, PyObject* kwargs)
                                      &timeout_sec))
         goto done;
 
+    switch(mrcam_output_type(self->ctx.pixfmt))
+    {
+    case MRCAM_uint8:
+        {
+            const int bytes_per_pixel__output = 1;
+            mrcal_image_uint8_t mrcal_image;
+            if(!mrcam_get_frame_uint8( &mrcal_image,
+                                       (uint64_t)(timeout_sec * 1e6),
+                                       &self->ctx))
+            {
+                BARF("mrcam_get_frame...() failed");
+                goto done;
+            }
+            if(mrcal_image.stride != mrcal_image.width * bytes_per_pixel__output)
+            {
+                BARF("Image returned by mrcam_get_frame_...() is not contiguous");
+                goto done;
+            }
+            image =
+                PyArray_SimpleNewFromData(2,
+                                          ((npy_intp[]){mrcal_image.height,
+                                                        mrcal_image.width}),
+                                          NPY_UINT8,
+                                          mrcal_image.data);
+        }
+        break;
 
-    if(self->camera.bytes_per_pixel == 1)
-    {
-        mrcal_image_uint8_t mrcal_image;
-        if(!mrcam_get_frame_uint8( &mrcal_image,
-                                   (uint64_t)(timeout_sec * 1e6),
-                                   &self->camera))
+    case MRCAM_uint16:
         {
-            BARF("mrcam_get_frame...() failed");
-            goto done;
+            const int bytes_per_pixel__output = 2;
+            mrcal_image_uint16_t mrcal_image;
+            if(!mrcam_get_frame_uint16( &mrcal_image,
+                                        (uint64_t)(timeout_sec * 1e6),
+                                        &self->ctx))
+            {
+                BARF("mrcam_get_frame...() failed");
+                goto done;
+            }
+            if(mrcal_image.stride != mrcal_image.width * bytes_per_pixel__output)
+            {
+                BARF("Image returned by mrcam_get_frame_...() is not contiguous");
+                goto done;
+            }
+            image =
+                PyArray_SimpleNewFromData(2,
+                                          ((npy_intp[]){mrcal_image.height,
+                                                        mrcal_image.width}),
+                                          NPY_UINT16,
+                                          mrcal_image.data);
         }
-        if(mrcal_image.stride !=
-           mrcal_image.width * self->camera.bytes_per_pixel)
+        break;
+
+    case MRCAM_bgr:
         {
-            BARF("Image returned by mrcam_get_frame_...() is not contiguous");
-            goto done;
+            const int bytes_per_pixel__output = 3;
+            mrcal_image_bgr_t mrcal_image;
+            if(!mrcam_get_frame_bgr( &mrcal_image,
+                                     (uint64_t)(timeout_sec * 1e6),
+                                     &self->ctx))
+            {
+                BARF("mrcam_get_frame...() failed");
+                goto done;
+            }
+            if(mrcal_image.stride != mrcal_image.width * bytes_per_pixel__output)
+            {
+                BARF("Image returned by mrcam_get_frame_...() is not contiguous");
+                goto done;
+            }
+            image =
+                PyArray_SimpleNewFromData(3,
+                                          ((npy_intp[]){mrcal_image.height,
+                                                        mrcal_image.width,
+                                                        3}),
+                                          NPY_UINT8,
+                                          mrcal_image.data);
         }
-        image =
-            PyArray_SimpleNewFromData(2,
-                                      ((npy_intp[]){mrcal_image.height,
-                                                    mrcal_image.width}),
-                                      NPY_UINT8,
-                                      mrcal_image.data);
-    }
-    else if(self->camera.bytes_per_pixel == 2)
-    {
-        mrcal_image_uint16_t mrcal_image;
-        if(!mrcam_get_frame_uint16( &mrcal_image,
-                                   (uint64_t)(timeout_sec * 1e6),
-                                   &self->camera))
-        {
-            BARF("mrcam_get_frame...() failed");
-            goto done;
-        }
-        if(mrcal_image.stride !=
-           mrcal_image.width * self->camera.bytes_per_pixel)
-        {
-            BARF("Image returned by mrcam_get_frame_...() is not contiguous");
-            goto done;
-        }
-        image =
-            PyArray_SimpleNewFromData(2,
-                                      ((npy_intp[]){mrcal_image.height,
-                                                    mrcal_image.width}),
-                                      NPY_UINT16,
-                                      mrcal_image.data);
-    }
-    else
-    {
-        BARF("Supported values of bytes_per_pixel are (1,2), but got %d. Giving up", self->camera.bytes_per_pixel);
+        break;
+
+    default:
         goto done;
     }
 

@@ -68,6 +68,20 @@ static bool verbose = false;
 
 
 
+mrcam_output_type_t mrcam_output_type(mrcam_pixfmt_t pixfmt)
+{
+    switch(pixfmt)
+    {
+#define CHOOSE(name, T, ...) case MRCAM_PIXFMT_ ## name: return MRCAM_ ## T;
+        LIST_MRCAM_PIXFMT(CHOOSE)
+    default: break;
+#undef CHOOSE
+    }
+
+    MSG("Unknown pixfmt. This is a bug");
+    return MRCAM_UNKNOWN;
+}
+
 
 static
 ArvPixelFormat pixfmt__ArvPixelFormat(mrcam_pixfmt_t pixfmt)
@@ -85,34 +99,6 @@ ArvPixelFormat pixfmt__ArvPixelFormat(mrcam_pixfmt_t pixfmt)
 }
 
 static
-int pixfmt__bytes_per_pixel(mrcam_pixfmt_t pixfmt)
-{
-    switch(pixfmt)
-    {
-#define MRCAM_PIXFMT_CHOOSE(name, bytes_per_pixel, ...) case MRCAM_PIXFMT_ ## name: return bytes_per_pixel;
-    LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_CHOOSE)
-    default:
-        MSG("ERROR: unknown mrcam_pixfmt_t = %d", (int)pixfmt);
-        return 0;
-    }
-#undef MRCAM_PIXFMT_CHOOSE
-}
-
-static
-bool pixfmt__is_color(mrcam_pixfmt_t pixfmt)
-{
-    switch(pixfmt)
-    {
-#define MRCAM_PIXFMT_CHOOSE(name, bytes_per_pixel, is_color) case MRCAM_PIXFMT_ ## name: return is_color;
-    LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_CHOOSE)
-    default:
-        MSG("ERROR: unknown mrcam_pixfmt_t = %d", (int)pixfmt);
-        return 0;
-    }
-#undef MRCAM_PIXFMT_CHOOSE
-}
-
-static
 const char* pixfmt__name(mrcam_pixfmt_t pixfmt)
 {
     switch(pixfmt)
@@ -125,6 +111,22 @@ const char* pixfmt__name(mrcam_pixfmt_t pixfmt)
     }
 #undef MRCAM_PIXFMT_CHOOSE
 }
+
+static
+bool pixfmt__av_pixfmt(// input
+                       enum AVPixelFormat* av_pixfmt_input,
+                       enum AVPixelFormat* av_pixfmt_output,
+                       // output
+                       mrcam_pixfmt_t pixfmt)
+{
+
+    *av_pixfmt_output = AV_PIX_FMT_NONE;
+    *av_pixfmt_input  = AV_PIX_FMT_NONE;
+
+    return true;
+}
+
+
 
 
 bool mrcam_init(// out
@@ -165,11 +167,7 @@ bool mrcam_init(// out
     try_arv(arv_camera_set_integer(*camera, "Width",  width,  &error));
     try_arv(arv_camera_set_integer(*camera, "Height", height, &error));
 
-    ctx->pixfmt          = pixfmt;
-    ctx->is_color        = pixfmt__is_color(pixfmt);
-    ctx->bytes_per_pixel = pixfmt__bytes_per_pixel(pixfmt);
-    if(ctx->bytes_per_pixel == 0)
-        goto done;
+    ctx->pixfmt = pixfmt;
 
     ArvPixelFormat arv_pixfmt = pixfmt__ArvPixelFormat(pixfmt);
     if(arv_pixfmt == 0)
@@ -208,22 +206,44 @@ bool mrcam_init(// out
 
     gint payload_size;
     try_arv(payload_size = arv_camera_get_payload(*camera, &error));
-
-    // The payload is sometimes larger than expected, if the camera wants to pad
-    // the data. In that case I can simply ignore the trailing bits. If it's
-    // smaller than expected, however, then I don't know what to do, and I give
-    // up
-    if(payload_size < width*height*ctx->bytes_per_pixel)
-    {
-        MSG("Error! Requested pixel format '%s' says it wants payload_size=%d. But this is smaller than expected width*height*bytes_per_pixel = %d*%d*%d = %d",
-            pixfmt__name(pixfmt),
-            payload_size,
-            width,height,ctx->bytes_per_pixel,
-            width*height*ctx->bytes_per_pixel);
-        goto done;
-    }
-
     try(*buffer = arv_buffer_new(payload_size, NULL));
+
+    enum AVPixelFormat av_pixfmt_input, av_pixfmt_output;
+    try(pixfmt__av_pixfmt(&av_pixfmt_input, &av_pixfmt_output,
+                          pixfmt));
+
+    if(av_pixfmt_input == AV_PIX_FMT_NONE)
+    {
+        // The pixel format is already unpacked. We don't need to do any
+        // conversions
+    }
+    else
+    {
+        int output_bytes_per_pixel;
+        switch(mrcam_output_type(pixfmt))
+        {
+        case MRCAM_uint8:  output_bytes_per_pixel = 1; break;
+        case MRCAM_uint16: output_bytes_per_pixel = 2; break;
+        case MRCAM_bgr:    output_bytes_per_pixel = 3; break;
+        default: goto done;
+        }
+
+        // We need to convert stuff. Use libswscale (ffmpeg) to set up the
+        // converter
+        try(NULL !=
+            (ctx->sws_context =
+             sws_getContext(// source
+                            width,height,
+                            av_pixfmt_input,
+
+                            // destination
+                            width,height,
+                            av_pixfmt_output,
+
+                            // misc stuff
+                            SWS_POINT, NULL, NULL, NULL)));
+        try(NULL != (ctx->output_image_buffer = malloc(output_bytes_per_pixel * width * height)));
+    }
 
     result = true;
 
@@ -243,6 +263,15 @@ void mrcam_free(mrcam_t* ctx)
 
     g_clear_object(buffer);
     g_clear_object(camera);
+
+    if(ctx->sws_context)
+    {
+        sws_freeContext(ctx->sws_context);
+        ctx->sws_context = NULL;
+    }
+
+    free(ctx->output_image_buffer);
+    ctx->output_image_buffer = NULL;
 }
 
 bool mrcam_is_inited(mrcam_t* ctx)
@@ -260,11 +289,11 @@ void mrcam_set_verbose(void)
 
 // Fill in the image. Assumes that the buffer has valid data
 static
-bool fill_image_generic(// out
-                        mrcal_image_uint8_t* image, // type doesn't matter in this function
-                        // in
-                        ArvBuffer* buffer,
-                        const size_t sizeof_pixel)
+bool fill_image_unpacked(// out
+                         mrcal_image_uint8_t* image, // type doesn't matter in this function
+                         // in
+                         ArvBuffer* buffer,
+                         const size_t sizeof_pixel)
 {
     bool result = false;
     size_t size;
@@ -294,67 +323,86 @@ bool fill_image_generic(// out
     return result;
 }
 
+
+static bool is_pixfmt_matching(ArvPixelFormat pixfmt,
+                               mrcam_pixfmt_t mrcam_pixfmt)
+{
+#define CHECK(name, T) if(pixfmt == ARV_PIXEL_FORMAT_ ## name && mrcam_pixfmt == MRCAM_PIXFMT_ ## name) return true;
+    LIST_MRCAM_PIXFMT(CHECK);
+#undef CHECK
+    MSG("Mismatched pixel format! I asked for '%s', but got ArvPixelFormat 0x%x",
+        pixfmt__name(mrcam_pixfmt), (unsigned int)pixfmt);
+    return false;
+}
+
 static
 bool fill_image_uint8(// out
                       mrcal_image_uint8_t* image,
                       // in
-                      ArvBuffer* buffer)
+                      ArvBuffer* buffer,
+                      mrcam_t* ctx)
 {
     ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(buffer);
 
-#define MRCAM_PIXFMT_CHECK(name, bytes_per_pixel, is_color) || (bytes_per_pixel==1 && !is_color && pixfmt == ARV_PIXEL_FORMAT_ ## name)
-    const bool acceptable_pixfmt =
-        false LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_CHECK);
-#undef MRCAM_PIXFMT_CHECK
-    try(acceptable_pixfmt);
+    if(!is_pixfmt_matching(pixfmt, ctx->pixfmt))
+        return false;
 
-    return fill_image_generic((mrcal_image_uint8_t*)image, buffer, sizeof(uint8_t));
+    if(mrcam_output_type(ctx->pixfmt) != MRCAM_uint8)
+    {
+        MSG("%s() unexpected image type", __func__);
+        return false;
+    }
 
- done:
-    return false;
+    return fill_image_unpacked((mrcal_image_uint8_t*)image, buffer, sizeof(uint8_t));
 }
 
 static
 bool fill_image_uint16(// out
                        mrcal_image_uint16_t* image,
                        // in
-                       ArvBuffer* buffer)
+                       ArvBuffer* buffer,
+                       mrcam_t* ctx)
 {
     ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(buffer);
 
-#define MRCAM_PIXFMT_CHECK(name, bytes_per_pixel, is_color) || (bytes_per_pixel==2 && !is_color && pixfmt == ARV_PIXEL_FORMAT_ ## name)
-    const bool acceptable_pixfmt =
-        false LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_CHECK);
-#undef MRCAM_PIXFMT_CHECK
-    try(acceptable_pixfmt);
+    if(!is_pixfmt_matching(pixfmt, ctx->pixfmt))
+        return false;
 
-    return fill_image_generic((mrcal_image_uint8_t*)image, buffer, sizeof(uint16_t));
+    if(mrcam_output_type(ctx->pixfmt) != MRCAM_uint16)
+    {
+        MSG("%s() unexpected image type", __func__);
+        return false;
+    }
 
-
- done:
-    return false;
+    return fill_image_unpacked((mrcal_image_uint8_t*)image, buffer, sizeof(uint16_t));
 }
 
 static
 bool fill_image_bgr(// out
                     mrcal_image_bgr_t* image,
                     // in
-                    ArvBuffer* buffer)
+                    ArvBuffer* buffer,
+                    mrcam_t* ctx)
 {
     ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(buffer);
 
-#define MRCAM_PIXFMT_CHECK(name, bytes_per_pixel, is_color) || (is_color && pixfmt == ARV_PIXEL_FORMAT_ ## name)
-    const bool acceptable_pixfmt =
-        false LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_CHECK);
-#undef MRCAM_PIXFMT_CHECK
-    try(acceptable_pixfmt);
+    if(!is_pixfmt_matching(pixfmt, ctx->pixfmt))
+        return false;
+
+    if(mrcam_output_type(ctx->pixfmt) != MRCAM_bgr)
+    {
+        MSG("%s() unexpected image type", __func__);
+        return false;
+    }
+
+
 
     bool result = false;
 
-    // I have SOME color format. Today I don't actually support them all, so I
-    // put the known logic here
+    // I have SOME color format. Today I don't actually support them all, and I
+    // put what I have so far
     if(pixfmt == ARV_PIXEL_FORMAT_BGR_8_PACKED)
-        return fill_image_generic((mrcal_image_uint8_t*)image, buffer, sizeof(mrcal_bgr_t));
+        return fill_image_unpacked((mrcal_image_uint8_t*)image, buffer, sizeof(mrcal_bgr_t));
 
     const size_t sizeof_pixel = 3;
 
@@ -365,34 +413,6 @@ bool fill_image_bgr(// out
 
         const int output_stride = width*3;
         const int input_stride  = width*1;
-
-        static struct SwsContext* sws_context;
-        static uint8_t*           image_buffer;
-
-        if(sws_context == NULL)
-        {
-            try(NULL !=
-                (sws_context =
-                 sws_getContext(// source
-                                width,height,
-                                AV_PIX_FMT_BAYER_RGGB8,
-
-                                // destination
-                                width,height,
-                                AV_PIX_FMT_BGR24,
-
-                                // misc stuff
-                                SWS_POINT, NULL, NULL, NULL)));
-
-            // If I were to dealloc, I'd do this:
-            //   if(sws_context)
-            //   {
-            //       sws_freeContext(sws_context);
-            //       sws_context = NULL;
-            //   }
-
-            try(NULL != (image_buffer = malloc(output_stride * height)));
-        }
 
         size_t size;
         const uint8_t* bytes_frame = (uint8_t*)arv_buffer_get_image_data(buffer, &size);
@@ -419,25 +439,25 @@ bool fill_image_bgr(// out
                                      width,height,
                                      1) );
 
-        sws_scale(sws_context,
+        sws_scale(ctx->sws_context,
                   // source
                   (const uint8_t*const*)scale_source_value,
                   scale_stride_value,
                   0, height,
                   // destination buffer, stride
-                  (uint8_t*const*)&image_buffer,
+                  (uint8_t*const*)&ctx->output_image_buffer,
                   &output_stride);
 
         image->width  = width;
         image->height = height;
-        image->data   = (mrcal_bgr_t*)image_buffer;
+        image->data   = (mrcal_bgr_t*)ctx->output_image_buffer;
         image->stride = output_stride;
 
         result = true;
         goto done;
     }
 
-    MSG("I don't know how to handle ARV_PIXEL_FORMAT %d", pixfmt);
+    MSG("I don't yet know how to handle ARV_PIXEL_FORMAT 0x%x", pixfmt);
     goto done;
 
  done:
@@ -553,7 +573,7 @@ bool mrcam_get_frame_uint8(// out
     if(!get_frame__internal(ctx, timeout_us))
         return false;
 
-    return fill_image_uint8(image, *buffer);
+    return fill_image_uint8(image, *buffer, ctx);
 }
 
 // timeout_us=0 means "wait forever"
@@ -568,7 +588,7 @@ bool mrcam_get_frame_uint16(// out
     if(!get_frame__internal(ctx, timeout_us))
         return false;
 
-    return fill_image_uint16(image, *buffer);
+    return fill_image_uint16(image, *buffer, ctx);
 }
 
 // timeout_us=0 means "wait forever"
@@ -583,5 +603,5 @@ bool mrcam_get_frame_bgr(// out
     if(!get_frame__internal(ctx, timeout_us))
         return false;
 
-    return fill_image_bgr(image, *buffer);
+    return fill_image_bgr(image, *buffer, ctx);
 }

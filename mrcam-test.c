@@ -227,24 +227,24 @@ int main(int argc, char **argv)
 
         for(int icam=0; icam<options.Ncameras; icam++)
         {
-            if(ctx[icam].bytes_per_pixel == 1 && !ctx[icam].is_color)
+            switch(mrcam_output_type(ctx[icam].pixfmt))
             {
-                if(!mrcam_get_frame_uint8 (&images.image_uint8 [icam], 0, &ctx[icam]))
+            case MRCAM_uint8:
+                if(!mrcam_get_frame_uint8( &images.image_uint8 [icam], 0, &ctx[icam]))
                     goto done;
-            }
-            else if(ctx[icam].bytes_per_pixel == 2 && !ctx[icam].is_color)
-            {
+                break;
+
+            case MRCAM_uint16:
                 if(!mrcam_get_frame_uint16(&images.image_uint16[icam], 0, &ctx[icam]))
                     goto done;
-            }
-            else if(ctx[icam].is_color)
-            {
-                if(!mrcam_get_frame_bgr(&images.image_bgr[icam], 0, &ctx[icam]))
+                break;
+
+            case MRCAM_bgr:
+                if(!mrcam_get_frame_bgr(   &images.image_bgr   [icam], 0, &ctx[icam]))
                     goto done;
-            }
-            else
-            {
-                MSG("Unknown bytes_per_pixel=%d", ctx[icam].bytes_per_pixel);
+                break;
+
+            default:
                 goto done;
             }
         }
@@ -274,39 +274,42 @@ int main(int argc, char **argv)
 
             }
 
-            if(ctx[icam].bytes_per_pixel == 1 && !ctx[icam].is_color)
+            bool err = false;
+            switch(mrcam_output_type(ctx[icam].pixfmt))
             {
-                if(!mrcal_image_uint8_save( filename, &images.image_uint8 [icam]))
+            case MRCAM_uint8:
+                if(!mrcal_image_uint8_save(  filename, &images.image_uint8 [icam]))
                 {
                     MSG("Couldn't save to '%s'", filename);
                     __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
-                    continue;
+                    err = true;
                 }
-            }
-            else if(ctx[icam].bytes_per_pixel == 2 && !ctx[icam].is_color)
-            {
-                if(!mrcal_image_uint16_save(filename, &images.image_uint16[icam]))
+                break;
+
+            case MRCAM_uint16:
+                if(!mrcal_image_uint16_save( filename, &images.image_uint16[icam]))
                 {
                     MSG("Couldn't save to '%s'", filename);
                     __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
-                    continue;
+                    err = true;
                 }
-            }
-            else if(ctx[icam].is_color)
-            {
-                if(!mrcal_image_bgr_save(filename, &images.image_bgr[icam]))
+                break;
+
+            case MRCAM_bgr:
+                if(!mrcal_image_bgr_save(   filename, &images.image_bgr   [icam]))
                 {
                     MSG("Couldn't save to '%s'", filename);
                     __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
-                    continue;
+                    err = true;
                 }
+                break;
+
+            default:
+                err = true;
+                break;
             }
-            else
-            {
-                MSG("Unknown bytes_per_pixel=%d", ctx[icam].bytes_per_pixel);
-                __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
-                continue;
-            }
+            if(err) continue;
+
 
             printf("%d %d %s %ld.%06ld %s\n",
                    iframe, icam, options.camera_names[icam],
