@@ -126,22 +126,22 @@ static bool parse_args(// out
 
             if(0) ;
 
-#define MRCAM_PIXFMT_PARSE(name, ...)                           \
+#define PARSE(name, ...)                                        \
             else if(0 == strcmp(optarg, #name))                 \
                 options->pixfmt = MRCAM_PIXFMT_ ## name;
 
-            LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_PARSE)
+            LIST_MRCAM_PIXFMT(PARSE)
             else
             {
                 MSG("Unknown pixel format '%s'; I know about:", optarg);
 
-#define MRCAM_PIXFMT_SAY(name, ...) MSG("  " #name);
-                LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_SAY);
-#undef MRCAM_PIXFMT_SAY
+#define SAY(name, ...) MSG("  " #name);
+                LIST_MRCAM_PIXFMT(SAY);
+#undef SAY
 
                 exit(1);
             }
-#undef MRCAM_PIXFMT_PARSE
+#undef PARSE
             break;
 
         case 'D':

@@ -40,9 +40,9 @@
 
 typedef enum
 {
-#define MRCAM_PIXFMT_ENUM(name, bytes_per_pixel, is_color) MRCAM_PIXFMT_ ## name,
-    LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_ENUM) MRCAM_PIXFMT_COUNT
-#undef MRCAM_PIXFMT_ENUM
+#define ENUM(name, bytes_per_pixel, is_color) MRCAM_PIXFMT_ ## name,
+    LIST_MRCAM_PIXFMT(ENUM) MRCAM_PIXFMT_COUNT
+#undef ENUM
 } mrcam_pixfmt_t;
 
 typedef struct
