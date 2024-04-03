@@ -4,22 +4,23 @@
 
 // I define this myself, in order to avoid requiring the user to #include
 // <arv.h>. This is a few common formats. MRCAM_PIXFMT_... has an equivalent
-// ARV_PIXEL_FORMAT
-#define LIST_MRCAM_PIXFMT(_)                                            \
-  _(MONO_8,        uint8)                                               \
-  /* Each pixel takes up 16 bits. NOT packed */                         \
-  _(MONO_10,       uint16)                                              \
-  _(MONO_12,       uint16)                                              \
-  _(MONO_14,       uint16)                                              \
-  _(MONO_16,       uint16)                                              \
-  _(BAYER_GR_8,    bgr)                                                 \
-  _(BAYER_RG_8,    bgr)                                                 \
-  _(BAYER_GB_8,    bgr)                                                 \
-  _(BAYER_BG_8,    bgr)                                                 \
-  _(RGB_8_PACKED,  bgr)                                                 \
-  _(BGR_8_PACKED,  bgr)                                                 \
-  _(RGBA_8_PACKED, bgr)                                                 \
-  _(BGRA_8_PACKED, bgr)
+// ARV_PIXEL_FORMAT.
+//
+// An ffmpeg pixel format of AV_PIX_FMT_NONE means "the input is already packed,
+// and there's no need to invoke ffmmpeg at all"
+#define LIST_MRCAM_PIXFMT(_)                            \
+  _(MONO_8,        uint8,  AV_PIX_FMT_NONE)             \
+  /* Each pixel takes up 16 bits. NOT packed */         \
+  _(MONO_10,       uint16, AV_PIX_FMT_NONE)             \
+  _(MONO_12,       uint16, AV_PIX_FMT_NONE)             \
+  _(MONO_14,       uint16, AV_PIX_FMT_NONE)             \
+  _(MONO_16,       uint16, AV_PIX_FMT_NONE)             \
+  _(BAYER_GR_8,    bgr,    AV_PIX_FMT_BAYER_GRBG8)      \
+  _(BAYER_RG_8,    bgr,    AV_PIX_FMT_BAYER_RGGB8)      \
+  _(BAYER_GB_8,    bgr,    AV_PIX_FMT_BAYER_GBRG8)      \
+  _(BAYER_BG_8,    bgr,    AV_PIX_FMT_BAYER_BGGR8)      \
+  _(RGB_8_PACKED,  bgr,    AV_PIX_FMT_NONE)             \
+  _(BGR_8_PACKED,  bgr,    AV_PIX_FMT_NONE)
 
 
 typedef enum

@@ -88,13 +88,13 @@ ArvPixelFormat pixfmt__ArvPixelFormat(mrcam_pixfmt_t pixfmt)
 {
     switch(pixfmt)
     {
-#define MRCAM_PIXFMT_CHOOSE(name, ...) case MRCAM_PIXFMT_ ## name: return ARV_PIXEL_FORMAT_ ## name;
-    LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_CHOOSE)
+#define CHOOSE(name, ...) case MRCAM_PIXFMT_ ## name: return ARV_PIXEL_FORMAT_ ## name;
+    LIST_MRCAM_PIXFMT(CHOOSE)
     default:
         MSG("ERROR: unknown mrcam_pixfmt_t = %d", (int)pixfmt);
         return 0;
     }
-#undef MRCAM_PIXFMT_CHOOSE
+#undef CHOOSE
 
 }
 
@@ -103,15 +103,29 @@ const char* pixfmt__name(mrcam_pixfmt_t pixfmt)
 {
     switch(pixfmt)
     {
-#define MRCAM_PIXFMT_CHOOSE(name, ...) case MRCAM_PIXFMT_ ## name: return #name;
-    LIST_MRCAM_PIXFMT(MRCAM_PIXFMT_CHOOSE)
+#define CHOOSE(name, ...) case MRCAM_PIXFMT_ ## name: return #name;
+    LIST_MRCAM_PIXFMT(CHOOSE)
     default:
         MSG("ERROR: unknown mrcam_pixfmt_t = %d", (int)pixfmt);
         return "UNKNOWN";
     }
-#undef MRCAM_PIXFMT_CHOOSE
+#undef CHOOSE
 }
 
+static
+bool is_little_endian(void)
+{
+    union
+    {
+        uint16_t u16;
+        uint8_t  u8[2];
+    } u = {.u16 = 1};
+    return u.u8[0] == 1;
+}
+
+// Returns the input/output pixel formats, as denoted by ffmpeg. AV_PIX_FMT_NONE
+// means "the data already comes in fully unpacked; no ffmpeg processing is
+// needed"
 static
 bool pixfmt__av_pixfmt(// input
                        enum AVPixelFormat* av_pixfmt_input,
@@ -119,9 +133,40 @@ bool pixfmt__av_pixfmt(// input
                        // output
                        mrcam_pixfmt_t pixfmt)
 {
+    // output
+    switch(mrcam_output_type(pixfmt))
+    {
+    case MRCAM_uint8:
+        *av_pixfmt_output = AV_PIX_FMT_GRAY8;
+        break;
+    case MRCAM_uint16:
+        *av_pixfmt_output = is_little_endian() ?
+            AV_PIX_FMT_GRAY16LE :
+            AV_PIX_FMT_GRAY16BE;
+        break;
+    case MRCAM_bgr:
+        *av_pixfmt_output = AV_PIX_FMT_BGR24;
+        break;
+    default:
+        MSG("Unknown pixfmt. This is a bug");
+        return false;
+    }
 
-    *av_pixfmt_output = AV_PIX_FMT_NONE;
-    *av_pixfmt_input  = AV_PIX_FMT_NONE;
+    switch(pixfmt)
+    {
+
+#define CHOOSE(name, T, av_pixfmt)              \
+        case MRCAM_PIXFMT_ ## name:             \
+            *av_pixfmt_input = av_pixfmt;       \
+            break;
+
+        LIST_MRCAM_PIXFMT(CHOOSE)
+    default:
+        MSG("ERROR: unknown mrcam_pixfmt_t = '%s'",
+            pixfmt__name(pixfmt));
+        return false;
+#undef CHOOSE
+    }
 
     return true;
 }
@@ -327,7 +372,7 @@ bool fill_image_unpacked(// out
 static bool is_pixfmt_matching(ArvPixelFormat pixfmt,
                                mrcam_pixfmt_t mrcam_pixfmt)
 {
-#define CHECK(name, T) if(pixfmt == ARV_PIXEL_FORMAT_ ## name && mrcam_pixfmt == MRCAM_PIXFMT_ ## name) return true;
+#define CHECK(name, T, ...) if(pixfmt == ARV_PIXEL_FORMAT_ ## name && mrcam_pixfmt == MRCAM_PIXFMT_ ## name) return true;
     LIST_MRCAM_PIXFMT(CHECK);
 #undef CHECK
     MSG("Mismatched pixel format! I asked for '%s', but got ArvPixelFormat 0x%x",
