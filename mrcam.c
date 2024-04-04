@@ -32,8 +32,7 @@ static bool verbose = false;
         {                                               \
             MSG("Failure!!! '" #expr "' produced '%s'", \
                 error->message);                        \
-            g_error_free(error);                        \
-            error = NULL;                               \
+            g_clear_error(&error);                      \
             goto done;                                  \
         }                                               \
     } while(0)
@@ -46,8 +45,7 @@ static bool verbose = false;
         {                                                               \
             MSG("Failure!!! '" #expr "' produced '%s'",                 \
                 error->message);                                        \
-            g_error_free(error);                                        \
-            error = NULL;                                               \
+            g_clear_error(&error);                                      \
             goto done;                                                  \
         }                                                               \
         if(!(condition))                                                \
@@ -237,8 +235,7 @@ bool mrcam_init(// out
         MSG("Failure!!! Couldn't set the requested pixel format: '%s': '%s'",
             pixfmt__name(pixfmt),
             error->message);
-        g_error_free(error);
-        error = NULL;
+        g_clear_error(&error);
 
 
         MSG("Available pixel formats supported by the camera:");
