@@ -311,6 +311,38 @@ bool mrcam_init(// out
                             width * height)));
     }
 
+    // Set the triggering strategy. I'd like to just be able to grab a frame and
+    // be done with it: TriggerMode=Off. Doesn't work on some cameras, though.
+    // On the Emergent HR-20000 cameras I need to TriggerMode=Off and then I
+    // need to explicitly send a trigger command. Otherwise no images are
+    // forthcoming. So I do that here unconditionally, since it should work for
+    // other cameras as well
+
+    try_arv_ok_if( arv_camera_set_string(*camera, "TriggerMode", "On", &error),
+                   error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
+    if(error != NULL)
+    {
+        // No TriggerMode is available at all. I ignore the error. If there WAS
+        // a TriggerMode, and I couldn't set it to "On", then I DO flag an error
+        g_clear_error(&error);
+    }
+
+    // For the Emergent HR-20000 cameras. If either the feature or the requested
+    // enum don't exist, I let it go
+    try_arv_ok_if( arv_camera_set_string(*camera, "TriggerSelector", "FrameStart", &error),
+                   error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
+                   error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+    if(error != NULL)
+        g_clear_error(&error);
+
+    // For the Emergent HR-20000 cameras. If either the feature or the requested
+    // enum don't exist, I let it go
+    try_arv_ok_if( arv_camera_set_string(*camera, "TriggerSource",   "Software", &error),
+                   error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
+                   error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+    if(error != NULL)
+        g_clear_error(&error);
+
     result = true;
 
  done:
@@ -596,6 +628,13 @@ bool get_frame__internal(mrcam_t* ctx,
 
     try_arv( arv_camera_start_acquisition(*camera, &error));
     acquiring = true;
+
+    // For the Emergent HR-20000 cameras. If the feature doesn't exist, I let it
+    // go
+    try_arv_ok_if(arv_camera_execute_command(*camera, "TriggerSoftware", &error),
+                  error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
+    if(error != NULL)
+        g_clear_error(&error);
 
     if (timeout_us > 0) buffer_here = arv_stream_timeout_pop_buffer(stream, timeout_us);
     else                buffer_here = arv_stream_pop_buffer        (stream);
