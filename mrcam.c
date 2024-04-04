@@ -374,6 +374,71 @@ bool fill_image_unpacked(// out
     return result;
 }
 
+static
+bool fill_image_swscale(// out
+                        mrcal_image_uint8_t* image, // any type
+                        // in
+                        ArvBuffer* buffer,
+                        mrcam_t* ctx)
+{
+    bool result = false;
+
+    const unsigned int width  = (unsigned int)arv_buffer_get_image_width (buffer);
+    const unsigned int height = (unsigned int)arv_buffer_get_image_height(buffer);
+
+    const int output_stride = width*pixfmt__output_bytes_per_pixel(ctx->pixfmt);
+
+    enum AVPixelFormat av_pixfmt_input, av_pixfmt_output;
+    try(pixfmt__av_pixfmt(&av_pixfmt_input, &av_pixfmt_output,
+                          ctx->pixfmt));
+
+    size_t size;
+    const uint8_t* bytes_frame = (uint8_t*)arv_buffer_get_image_data(buffer, &size);
+
+    // This is overly-complex because ffmpeg supports lots of weird
+    // pixel formats, including planar ones
+    int      scale_stride_value[4];
+    uint8_t* scale_source_value[4];
+    try(0 < av_image_fill_arrays(scale_source_value, scale_stride_value,
+                                 bytes_frame,
+                                 av_pixfmt_input,
+                                 width,height,
+                                 1) );
+
+    const int input_stride = scale_stride_value[0];
+    // The payload is sometimes larger than expected, if the camera wants to pad
+    // the data. In that case I can simply ignore the trailing bits. If it's
+    // smaller than expected, however, then I don't know what to do, and I give
+    // up
+    if((size_t)(height*input_stride) > size)
+    {
+        MSG("Unexpected image dimensions: insufficient data returned. Expected buffersize = height*stride = %zd * %zd = %zd, but got %zd",
+            (size_t)(height), (size_t)(input_stride),
+            (size_t)(height)* (size_t)(input_stride),
+            size);
+        goto done;
+    }
+
+    sws_scale(ctx->sws_context,
+              // source
+              (const uint8_t*const*)scale_source_value,
+              scale_stride_value,
+              0, height,
+              // destination buffer, stride
+              (uint8_t*const*)&ctx->output_image_buffer,
+              &output_stride);
+
+    image->width  = width;
+    image->height = height;
+    image->data   = (uint8_t*)ctx->output_image_buffer;
+    image->stride = output_stride;
+
+    result = true;
+
+ done:
+
+    return result;
+}
 
 static bool is_pixfmt_matching(ArvPixelFormat pixfmt,
                                mrcam_pixfmt_t mrcam_pixfmt)
@@ -459,50 +524,9 @@ bool fill_image_bgr(// out
 
     if(pixfmt == ARV_PIXEL_FORMAT_BAYER_RG_8)
     {
-        const unsigned int width  = (unsigned int)arv_buffer_get_image_width (buffer);
-        const unsigned int height = (unsigned int)arv_buffer_get_image_height(buffer);
-
-        const int output_stride = width*3;
-        const int input_stride  = width*1;
-
-        size_t size;
-        const uint8_t* bytes_frame = (uint8_t*)arv_buffer_get_image_data(buffer, &size);
-        // The payload is sometimes larger than expected, if the camera wants to pad
-        // the data. In that case I can simply ignore the trailing bits. If it's
-        // smaller than expected, however, then I don't know what to do, and I give
-        // up
-        if((size_t)(height*input_stride) > size)
-        {
-            MSG("Unexpected image dimensions: insufficient data returned. Expected buffersize = height*stride = height*width*bytes_per_pixel = %zd * %zd * %zd = %zd, but got %zd",
-                (size_t)(height), (size_t)(width), sizeof_pixel,
-                (size_t)(height*output_stride),
-                size);
+        if(!fill_image_swscale((mrcal_image_uint8_t*)image,
+                               buffer, ctx))
             goto done;
-        }
-
-        // This is overly-complex because ffmpeg supports lots of weird
-        // pixel formats, including planar ones
-        int      scale_stride_value[4];
-        uint8_t* scale_source_value[4];
-        try(0 < av_image_fill_arrays(scale_source_value, scale_stride_value,
-                                     bytes_frame,
-                                     AV_PIX_FMT_BAYER_RGGB8,
-                                     width,height,
-                                     1) );
-
-        sws_scale(ctx->sws_context,
-                  // source
-                  (const uint8_t*const*)scale_source_value,
-                  scale_stride_value,
-                  0, height,
-                  // destination buffer, stride
-                  (uint8_t*const*)&ctx->output_image_buffer,
-                  &output_stride);
-
-        image->width  = width;
-        image->height = height;
-        image->data   = (mrcal_bgr_t*)ctx->output_image_buffer;
-        image->stride = output_stride;
 
         result = true;
         goto done;
