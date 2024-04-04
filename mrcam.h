@@ -43,6 +43,14 @@ typedef enum {MRCAM_UNKNOWN = -1,
               MRCAM_uint8, MRCAM_uint16, MRCAM_bgr } mrcam_output_type_t;
 mrcam_output_type_t mrcam_output_type(mrcam_pixfmt_t pixfmt);
 
+typedef void (mrcam_callback_image_uint8_t )(mrcal_image_uint8_t image,
+                                             int64_t timestamp_us);
+typedef void (mrcam_callback_image_uint16_t)(mrcal_image_uint16_t image,
+                                             int64_t timestamp_us);
+typedef void (mrcam_callback_image_bgr_t)(   mrcal_image_bgr_t image,
+                                             int64_t timestamp_us);
+
+
 
 typedef struct
 {
@@ -60,6 +68,11 @@ typedef struct
     // Unused for all others
     struct SwsContext* sws_context;
     uint8_t*           output_image_buffer;
+
+
+    // current active callback. Type may not be 100% right (may be uint8 or
+    // uint16, or bgr, ...), but the data layout is the same
+    mrcam_callback_image_uint8_t* active_callback;
 
     bool acquiring : 1;
 
@@ -85,6 +98,7 @@ void mrcam_free(mrcam_t* ctx);
 bool mrcam_is_inited(mrcam_t* ctx);
 
 void mrcam_set_verbose(void);
+
 
 
 // Synchronous get-image functions.
@@ -121,3 +135,45 @@ bool mrcam_get_image_bgr(   // out
                             // in
                             const uint64_t timeout_us,
                             mrcam_t* ctx);
+
+// Asynchronous get-image functions
+//
+// Asynchronous usage:
+//
+//   void cb(mrcal_image_uint8_t image,
+//           int64_t timestamp_us)
+//   {
+//       // no free(image.data); image structure valid until next
+//       // mrcam_request_image... call.
+//       // we may or may not be in the same thread where the image
+//       // was requested
+//   }
+//   ....
+//   some_other_function
+//   {
+//     ...
+//     mrcam_request_image_uint8(&cb, &ctx);
+//     // no free(image.data)
+//     // mrcam_request_image_uint8() returned immediately. we do other
+//     // unrelated stuff now. When the image comes in, the callback will
+//     // be called
+//     ...
+//   }
+//
+// If mrcam_request_image_...() failed, there will be no callback call.
+//
+// If mrcam_request_image_...() succeeded, there will be exactly ONE callback
+// call. If there was a problem, the callback will have image.data==NULL
+//
+// To give up waiting on a callback, call mrcam_cancel_request_image()
+// Requesting an image before the previous one was processed is an error
+bool mrcam_request_image_uint8( // in
+                                mrcam_callback_image_uint8_t* cb,
+                                mrcam_t* ctx);
+bool mrcam_request_image_uint16(// in
+                                mrcam_callback_image_uint16_t* cb,
+                                mrcam_t* ctx);
+bool mrcam_request_image_bgr(   // in
+                                mrcam_callback_image_bgr_t* cb,
+                                mrcam_t* ctx);
+bool mrcam_cancel_request_image(mrcam_t* ctx);

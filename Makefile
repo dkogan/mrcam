@@ -15,6 +15,10 @@ BIN_SOURCES := \
 CFLAGS    += --std=gnu99
 CCXXFLAGS += -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
 
+# to avoid benign warnings about casting the various mrcam_callback_image_TYPE_t
+# to each other. These don't matter
+CCXXFLAGS += -Wno-cast-function-type
+
 mrcam-test.o: CPPFLAGS += -fopenmp
 mrcam-test:   LDFLAGS  += -fopenmp
 mrcam-test:   LDLIBS += -lmrcal

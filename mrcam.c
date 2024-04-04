@@ -603,60 +603,8 @@ void clean_up_acquisition(mrcam_t* ctx)
     }
     if(*stream != NULL)
         g_clear_object(stream);
-}
 
-static
-bool request_image(mrcam_t* ctx)
-{
-    DEFINE_INTERNALS(ctx);
-    bool    result = false;
-    GError *error  = NULL;
-
-    ctx->acquiring = false;
-
-    try_arv_with_extra_condition( *stream = arv_camera_create_stream(*camera, NULL, NULL, &error),
-                                  ARV_IS_STREAM(*stream) );
-
-
-    const ArvAcquisitionMode modes_to_try[] =
-        { ARV_ACQUISITION_MODE_SINGLE_FRAME,
-          ARV_ACQUISITION_MODE_MULTI_FRAME,
-          ARV_ACQUISITION_MODE_CONTINUOUS };
-    int imode = 0;
-    const int Nmodes = (int)(sizeof(modes_to_try)/sizeof(modes_to_try[0]));
-    for(; imode < Nmodes; imode++)
-    {
-        try_arv_ok_if( arv_camera_set_acquisition_mode(*camera, modes_to_try[imode], &error),
-                       error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
-        if(error == NULL) break; // success; done
-        g_clear_error(&error);
-    }
-    if(imode == Nmodes)
-    {
-        MSG("Failure!!! arv_camera_set_acquisition_mode() couldn't set any common mode. All were rejected");
-        goto done;
-    }
-
-
-    arv_stream_push_buffer(*stream, *buffer);
-
-    try_arv( arv_camera_start_acquisition(*camera, &error));
-    ctx->acquiring = true;
-
-    // For the Emergent HR-20000 cameras. If the feature doesn't exist, I let it
-    // go
-    try_arv_ok_if(arv_camera_execute_command(*camera, "TriggerSoftware", &error),
-                  error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
-    if(error != NULL)
-        g_clear_error(&error);
-
-    result = true;
-
- done:
-    if(!result)
-        clean_up_acquisition(ctx);
-
-    return result;
+    ctx->active_callback = NULL;
 }
 
 static
@@ -733,11 +681,138 @@ bool receive_image(mrcam_t* ctx,
     result = true;
 
  done:
+    clean_up_acquisition(ctx);
+
+    return result;
+}
+
+static void
+callback_inner(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
+{
+    mrcam_t* ctx = (mrcam_t*)cookie;
+
+    switch (type)
+    {
+    case ARV_STREAM_CALLBACK_TYPE_INIT:
+        /* Stream thread started.
+         *
+         * Here you may want to change the thread priority arv_make_thread_realtime() or
+         * arv_make_thread_high_priority() */
+        break;
+    case ARV_STREAM_CALLBACK_TYPE_START_BUFFER:
+        /* The first packet of a new frame was received */
+        break;
+    case ARV_STREAM_CALLBACK_TYPE_BUFFER_DONE:
+        /* The buffer is received, successfully or not. It is already pushed in
+         * the output FIFO.
+         *
+         * You could here signal the new buffer to another thread than the main
+         * one, and pull/push the buffer from this another thread.
+         *
+         * Or use the buffer here. We need to pull it, process it, then push it
+         * back for reuse by the stream receiving thread */
+        {
+            // type may not be right; it doesn't matter
+            mrcal_image_uint8_t image = (mrcal_image_uint8_t){};
+            if( receive_image(ctx, 0) )
+                switch(mrcam_output_type(ctx->pixfmt))
+                {
+                case MRCAM_uint8:
+                    if(!fill_image_uint8((mrcal_image_uint8_t*)&image, ctx))
+                        image = (mrcal_image_uint8_t){}; // indicate error
+                    break;
+                case MRCAM_uint16:
+                    if(!fill_image_uint16((mrcal_image_uint16_t*)&image, ctx))
+                        image = (mrcal_image_uint8_t){}; // indicate error
+                    break;
+                case MRCAM_bgr:
+                    if(!fill_image_bgr((mrcal_image_bgr_t*)&image, ctx))
+                        image = (mrcal_image_uint8_t){}; // indicate error
+                    break;
+                default:
+                    MSG("Unknown pixfmt. This is a bug");
+                }
+
+            // On error image is {0}, which indicates an error. We invoke the
+            // callback regardless
+
+            #warning finish timestamping
+            int64_t timestamp = 0;
+            ctx->active_callback(image, timestamp);
+            clean_up_acquisition(ctx);
+        }
+
+        break;
+    case ARV_STREAM_CALLBACK_TYPE_EXIT:
+        break;
+    }
+}
+
+static
+bool request_image(mrcam_t* ctx,
+                   mrcam_callback_image_uint8_t* callback)
+{
+    DEFINE_INTERNALS(ctx);
+    bool    result = false;
+    GError *error  = NULL;
+
+    if(ctx->acquiring || *stream != NULL)
+    {
+        MSG("Acquisition already in progress. If mrcam_request_image_...() was called, wait for the callback or call mrcam_cancel_request_image()");
+        goto done;
+    }
+    ctx->acquiring = false;
+
+    ctx->active_callback = callback;
+
+    try_arv_with_extra_condition( *stream = arv_camera_create_stream(*camera,
+                                                                     (callback == NULL) ? NULL : callback_inner,
+                                                                     ctx,
+                                                                     &error),
+                                  ARV_IS_STREAM(*stream) );
+
+
+    const ArvAcquisitionMode modes_to_try[] =
+        { ARV_ACQUISITION_MODE_SINGLE_FRAME,
+          ARV_ACQUISITION_MODE_MULTI_FRAME,
+          ARV_ACQUISITION_MODE_CONTINUOUS };
+    int imode = 0;
+    const int Nmodes = (int)(sizeof(modes_to_try)/sizeof(modes_to_try[0]));
+    for(; imode < Nmodes; imode++)
+    {
+        try_arv_ok_if( arv_camera_set_acquisition_mode(*camera, modes_to_try[imode], &error),
+                       error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+        if(error == NULL) break; // success; done
+        g_clear_error(&error);
+    }
+    if(imode == Nmodes)
+    {
+        MSG("Failure!!! arv_camera_set_acquisition_mode() couldn't set any common mode. All were rejected");
+        goto done;
+    }
+
+
+    arv_stream_push_buffer(*stream, *buffer);
+
+    try_arv( arv_camera_start_acquisition(*camera, &error));
+    ctx->acquiring = true;
+
+    // For the Emergent HR-20000 cameras. If the feature doesn't exist, I let it
+    // go
+    try_arv_ok_if(arv_camera_execute_command(*camera, "TriggerSoftware", &error),
+                  error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
+    if(error != NULL)
+        g_clear_error(&error);
+
+    result = true;
+
+ done:
     if(!result)
         clean_up_acquisition(ctx);
 
     return result;
 }
+
 
 // timeout_us=0 means "wait forever"
 bool mrcam_get_image_uint8(// out
@@ -747,12 +822,11 @@ bool mrcam_get_image_uint8(// out
                            mrcam_t* ctx)
 {
     return
-        request_image(ctx) &&
+        request_image(ctx, NULL) &&
+        // may block
         receive_image(ctx, timeout_us) &&
         fill_image_uint8(image, ctx);
 }
-
-// timeout_us=0 means "wait forever"
 bool mrcam_get_image_uint16(// out
                             mrcal_image_uint16_t* image,
                             // in
@@ -760,12 +834,11 @@ bool mrcam_get_image_uint16(// out
                             mrcam_t* ctx)
 {
     return
-        request_image(ctx) &&
+        request_image(ctx, NULL) &&
+        // may block
         receive_image(ctx, timeout_us) &&
         fill_image_uint16(image, ctx);
 }
-
-// timeout_us=0 means "wait forever"
 bool mrcam_get_image_bgr(// out
                          mrcal_image_bgr_t* image,
                          // in
@@ -773,7 +846,38 @@ bool mrcam_get_image_bgr(// out
                          mrcam_t* ctx)
 {
     return
-        request_image(ctx) &&
+        request_image(ctx, NULL) &&
+        // may block
         receive_image(ctx, timeout_us) &&
         fill_image_bgr(image, ctx);
+}
+
+
+bool mrcam_request_image_uint8( // in
+                                mrcam_callback_image_uint8_t* cb,
+                                mrcam_t* ctx)
+{
+    return
+        request_image(ctx, (mrcam_callback_image_uint8_t*)cb);
+}
+
+bool mrcam_request_image_uint16(// in
+                                mrcam_callback_image_uint16_t* cb,
+                                mrcam_t* ctx)
+{
+    return
+        request_image(ctx, (mrcam_callback_image_uint8_t*)cb);
+}
+
+bool mrcam_request_image_bgr(   // in
+                                mrcam_callback_image_bgr_t* cb,
+                                mrcam_t* ctx)
+{
+    return
+        request_image(ctx, (mrcam_callback_image_uint8_t*)cb);
+}
+bool mrcam_cancel_request_image(mrcam_t* ctx)
+{
+#warning finish this
+    return false;
 }
