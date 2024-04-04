@@ -123,7 +123,7 @@ static void camera_dealloc(camera* self)
 }
 
 static PyObject*
-camera_get_frame(camera* self, PyObject* args, PyObject* kwargs)
+camera_get_image(camera* self, PyObject* args, PyObject* kwargs)
 {
     // error by default
     PyObject* result = NULL;
@@ -147,16 +147,16 @@ camera_get_frame(camera* self, PyObject* args, PyObject* kwargs)
         {
             const int bytes_per_pixel__output = 1;
             mrcal_image_uint8_t mrcal_image;
-            if(!mrcam_get_frame_uint8( &mrcal_image,
+            if(!mrcam_get_image_uint8( &mrcal_image,
                                        (uint64_t)(timeout_sec * 1e6),
                                        &self->ctx))
             {
-                BARF("mrcam_get_frame...() failed");
+                BARF("mrcam_get_image...() failed");
                 goto done;
             }
             if(mrcal_image.stride != mrcal_image.width * bytes_per_pixel__output)
             {
-                BARF("Image returned by mrcam_get_frame_...() is not contiguous");
+                BARF("Image returned by mrcam_get_image_...() is not contiguous");
                 goto done;
             }
             image =
@@ -172,16 +172,16 @@ camera_get_frame(camera* self, PyObject* args, PyObject* kwargs)
         {
             const int bytes_per_pixel__output = 2;
             mrcal_image_uint16_t mrcal_image;
-            if(!mrcam_get_frame_uint16( &mrcal_image,
+            if(!mrcam_get_image_uint16( &mrcal_image,
                                         (uint64_t)(timeout_sec * 1e6),
                                         &self->ctx))
             {
-                BARF("mrcam_get_frame...() failed");
+                BARF("mrcam_get_image...() failed");
                 goto done;
             }
             if(mrcal_image.stride != mrcal_image.width * bytes_per_pixel__output)
             {
-                BARF("Image returned by mrcam_get_frame_...() is not contiguous");
+                BARF("Image returned by mrcam_get_image_...() is not contiguous");
                 goto done;
             }
             image =
@@ -197,16 +197,16 @@ camera_get_frame(camera* self, PyObject* args, PyObject* kwargs)
         {
             const int bytes_per_pixel__output = 3;
             mrcal_image_bgr_t mrcal_image;
-            if(!mrcam_get_frame_bgr( &mrcal_image,
+            if(!mrcam_get_image_bgr( &mrcal_image,
                                      (uint64_t)(timeout_sec * 1e6),
                                      &self->ctx))
             {
-                BARF("mrcam_get_frame...() failed");
+                BARF("mrcam_get_image...() failed");
                 goto done;
             }
             if(mrcal_image.stride != mrcal_image.width * bytes_per_pixel__output)
             {
-                BARF("Image returned by mrcam_get_frame_...() is not contiguous");
+                BARF("Image returned by mrcam_get_image_...() is not contiguous");
                 goto done;
             }
             image =
@@ -239,13 +239,13 @@ camera_get_frame(camera* self, PyObject* args, PyObject* kwargs)
 static const char camera_docstring[] =
 #include "camera.docstring.h"
     ;
-static const char camera_get_frame_docstring[] =
-#include "camera_get_frame.docstring.h"
+static const char camera_get_image_docstring[] =
+#include "camera_get_image.docstring.h"
     ;
 
 static PyMethodDef camera_methods[] =
     {
-        PYMETHODDEF_ENTRY(camera_, get_frame, METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(camera_, get_image, METH_VARARGS | METH_KEYWORDS),
         {}
     };
 

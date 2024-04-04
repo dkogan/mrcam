@@ -88,19 +88,19 @@ void mrcam_set_verbose(void);
 // The image structure should exist in memory, but the data buffer doesn't need
 // to be preallocated or freed. Usage:
 //   mrcal_image_uintX_t image;
-//   mrcam_get_frame_uintX(&image, timeout_us, &ctx);
+//   mrcam_get_image_uintX(&image, timeout_us, &ctx);
 //   // no free(image.data)
-bool mrcam_get_frame_uint8( // out
+bool mrcam_get_image_uint8( // out
                             mrcal_image_uint8_t* image,
                             // in
                             const uint64_t timeout_us,
                             mrcam_t* ctx);
-bool mrcam_get_frame_uint16(// out
+bool mrcam_get_image_uint16(// out
                             mrcal_image_uint16_t* image,
                             // in
                             const uint64_t timeout_us,
                             mrcam_t* ctx);
-bool mrcam_get_frame_bgr(   // out
+bool mrcam_get_image_bgr(   // out
                             mrcal_image_bgr_t* image,
                             // in
                             const uint64_t timeout_us,

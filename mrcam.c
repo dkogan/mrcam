@@ -586,7 +586,7 @@ bool fill_image_bgr(// out
 }
 
 static
-bool get_frame__internal(mrcam_t* ctx,
+bool get_image__internal(mrcam_t* ctx,
                          const uint64_t timeout_us)
 {
     DEFINE_INTERNALS(ctx);
@@ -710,7 +710,7 @@ bool get_frame__internal(mrcam_t* ctx,
 }
 
 // timeout_us=0 means "wait forever"
-bool mrcam_get_frame_uint8(// out
+bool mrcam_get_image_uint8(// out
                            mrcal_image_uint8_t* image,
                            // in
                            const uint64_t timeout_us,
@@ -718,14 +718,14 @@ bool mrcam_get_frame_uint8(// out
 {
     DEFINE_INTERNALS(ctx);
 
-    if(!get_frame__internal(ctx, timeout_us))
+    if(!get_image__internal(ctx, timeout_us))
         return false;
 
     return fill_image_uint8(image, *buffer, ctx);
 }
 
 // timeout_us=0 means "wait forever"
-bool mrcam_get_frame_uint16(// out
+bool mrcam_get_image_uint16(// out
                             mrcal_image_uint16_t* image,
                             // in
                             const uint64_t timeout_us,
@@ -733,14 +733,14 @@ bool mrcam_get_frame_uint16(// out
 {
     DEFINE_INTERNALS(ctx);
 
-    if(!get_frame__internal(ctx, timeout_us))
+    if(!get_image__internal(ctx, timeout_us))
         return false;
 
     return fill_image_uint16(image, *buffer, ctx);
 }
 
 // timeout_us=0 means "wait forever"
-bool mrcam_get_frame_bgr(// out
+bool mrcam_get_image_bgr(// out
                          mrcal_image_bgr_t* image,
                          // in
                          const uint64_t timeout_us,
@@ -748,7 +748,7 @@ bool mrcam_get_frame_bgr(// out
 {
     DEFINE_INTERNALS(ctx);
 
-    if(!get_frame__internal(ctx, timeout_us))
+    if(!get_image__internal(ctx, timeout_us))
         return false;
 
     return fill_image_bgr(image, *buffer, ctx);
