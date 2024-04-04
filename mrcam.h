@@ -49,6 +49,7 @@ typedef struct
     // arv stuff; void to not require including arv.h
     void* camera;
     void* buffer;
+    void* stream;
 
     // Details about the requested pixel format, that I'm using to talk to the
     // camera. I don't NEED to store all these here, but it makes life easier
@@ -59,6 +60,8 @@ typedef struct
     // Unused for all others
     struct SwsContext* sws_context;
     uint8_t*           output_image_buffer;
+
+    bool acquiring : 1;
 
 } mrcam_t;
 
@@ -83,13 +86,26 @@ bool mrcam_is_inited(mrcam_t* ctx);
 
 void mrcam_set_verbose(void);
 
+
+// Synchronous get-image functions.
+//
 // timeout_us=0 means "wait forever"
 //
 // The image structure should exist in memory, but the data buffer doesn't need
-// to be preallocated or freed. Usage:
-//   mrcal_image_uintX_t image;
-//   mrcam_get_image_uintX(&image, timeout_us, &ctx);
-//   // no free(image.data)
+// to be preallocated or freed
+//
+// Usage:
+//
+//   {
+//     ...
+//     mrcal_image_uint8_t image;
+//     mrcam_get_image_uint8(&image, timeout_us, &ctx);
+//     // no free(image.data); image structure valid until next
+//     // mrcam_get_image... call.
+//     //
+//     // do stuff with image
+//     ...
+//   }
 bool mrcam_get_image_uint8( // out
                             mrcal_image_uint8_t* image,
                             // in

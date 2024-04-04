@@ -72,7 +72,8 @@ static bool verbose = false;
 
 #define DEFINE_INTERNALS(ctx)                                           \
     ArvCamera** camera __attribute__((unused)) = (ArvCamera**)(&(ctx)->camera); \
-    ArvBuffer** buffer __attribute__((unused)) = (ArvBuffer**)(&(ctx)->buffer)
+    ArvBuffer** buffer __attribute__((unused)) = (ArvBuffer**)(&(ctx)->buffer); \
+    ArvStream** stream __attribute__((unused)) = (ArvStream**)(&(ctx)->stream)
 
 
 
@@ -502,10 +503,11 @@ static
 bool fill_image_uint8(// out
                       mrcal_image_uint8_t* image,
                       // in
-                      ArvBuffer* buffer,
                       mrcam_t* ctx)
 {
-    ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(buffer);
+    DEFINE_INTERNALS(ctx);
+
+    ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(*buffer);
 
     if(!is_pixfmt_matching(pixfmt, ctx->pixfmt))
         return false;
@@ -516,17 +518,18 @@ bool fill_image_uint8(// out
         return false;
     }
 
-    return fill_image_unpacked((mrcal_image_uint8_t*)image, buffer, sizeof(uint8_t));
+    return fill_image_unpacked((mrcal_image_uint8_t*)image, *buffer, sizeof(uint8_t));
 }
 
 static
 bool fill_image_uint16(// out
                        mrcal_image_uint16_t* image,
                        // in
-                       ArvBuffer* buffer,
                        mrcam_t* ctx)
 {
-    ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(buffer);
+    DEFINE_INTERNALS(ctx);
+
+    ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(*buffer);
 
     if(!is_pixfmt_matching(pixfmt, ctx->pixfmt))
         return false;
@@ -537,17 +540,18 @@ bool fill_image_uint16(// out
         return false;
     }
 
-    return fill_image_unpacked((mrcal_image_uint8_t*)image, buffer, sizeof(uint16_t));
+    return fill_image_unpacked((mrcal_image_uint8_t*)image, *buffer, sizeof(uint16_t));
 }
 
 static
 bool fill_image_bgr(// out
                     mrcal_image_bgr_t* image,
                     // in
-                    ArvBuffer* buffer,
                     mrcam_t* ctx)
 {
-    ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(buffer);
+    DEFINE_INTERNALS(ctx);
+
+    ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(*buffer);
 
     if(!is_pixfmt_matching(pixfmt, ctx->pixfmt))
         return false;
@@ -566,12 +570,12 @@ bool fill_image_bgr(// out
     // I have SOME color format. Today I don't actually support them all, and I
     // put what I have so far
     if(pixfmt == ARV_PIXEL_FORMAT_BGR_8_PACKED)
-        return fill_image_unpacked((mrcal_image_uint8_t*)image, buffer, sizeof(mrcal_bgr_t));
+        return fill_image_unpacked((mrcal_image_uint8_t*)image, *buffer, sizeof(mrcal_bgr_t));
 
     if(pixfmt == ARV_PIXEL_FORMAT_BAYER_RG_8)
     {
         if(!fill_image_swscale((mrcal_image_uint8_t*)image,
-                               buffer, ctx))
+                               *buffer, ctx))
             goto done;
 
         result = true;
@@ -586,22 +590,32 @@ bool fill_image_bgr(// out
 }
 
 static
-bool get_image__internal(mrcam_t* ctx,
-                         const uint64_t timeout_us)
+void clean_up_acquisition(mrcam_t* ctx)
 {
     DEFINE_INTERNALS(ctx);
 
-    bool result = false;
+    if(ctx->acquiring)
+    {
+        // if still aquiring for some reason, stop that, with no error checking
+        GError *error = NULL;
+        arv_camera_stop_acquisition(*camera, &error);
+        ctx->acquiring = false;
+    }
+    if(*stream != NULL)
+        g_clear_object(stream);
+}
 
-    GError     *error       = NULL;
-    ArvBuffer*  buffer_here = NULL;
-    bool        acquiring   = false;
+static
+bool request_image(mrcam_t* ctx)
+{
+    DEFINE_INTERNALS(ctx);
+    bool    result = false;
+    GError *error  = NULL;
 
+    ctx->acquiring = false;
 
-    ArvStream* stream;
-
-    try_arv_with_extra_condition( stream = arv_camera_create_stream(*camera, NULL, NULL, &error),
-                                  ARV_IS_STREAM(stream) );
+    try_arv_with_extra_condition( *stream = arv_camera_create_stream(*camera, NULL, NULL, &error),
+                                  ARV_IS_STREAM(*stream) );
 
 
     const ArvAcquisitionMode modes_to_try[] =
@@ -624,10 +638,10 @@ bool get_image__internal(mrcam_t* ctx,
     }
 
 
-    arv_stream_push_buffer(stream, *buffer);
+    arv_stream_push_buffer(*stream, *buffer);
 
     try_arv( arv_camera_start_acquisition(*camera, &error));
-    acquiring = true;
+    ctx->acquiring = true;
 
     // For the Emergent HR-20000 cameras. If the feature doesn't exist, I let it
     // go
@@ -636,11 +650,31 @@ bool get_image__internal(mrcam_t* ctx,
     if(error != NULL)
         g_clear_error(&error);
 
-    if (timeout_us > 0) buffer_here = arv_stream_timeout_pop_buffer(stream, timeout_us);
-    else                buffer_here = arv_stream_pop_buffer        (stream);
+    result = true;
+
+ done:
+    if(!result)
+        clean_up_acquisition(ctx);
+
+    return result;
+}
+
+static
+bool receive_image(mrcam_t* ctx,
+                   const uint64_t timeout_us)
+{
+    DEFINE_INTERNALS(ctx);
+    bool        result      = false;
+    GError     *error       = NULL;
+    ArvBuffer*  buffer_here = NULL;
+
+    // May block. If we don't want to block, it's our job to make sure to have
+    // called receive_image() when an output image has already been buffered
+    if (timeout_us > 0) buffer_here = arv_stream_timeout_pop_buffer(*stream, timeout_us);
+    else                buffer_here = arv_stream_pop_buffer        (*stream);
 
     try_arv(arv_camera_stop_acquisition(*camera, &error));
-    acquiring = false;
+    ctx->acquiring = false;
 
     try(buffer_here == *buffer);
     try(ARV_IS_BUFFER(*buffer));
@@ -699,12 +733,8 @@ bool get_image__internal(mrcam_t* ctx,
     result = true;
 
  done:
-
-    if(acquiring)
-        // if still aquiring for some reason, stop that, with no error checking
-        arv_camera_stop_acquisition(*camera, &error);
-
-    g_clear_object(&stream);
+    if(!result)
+        clean_up_acquisition(ctx);
 
     return result;
 }
@@ -716,12 +746,10 @@ bool mrcam_get_image_uint8(// out
                            const uint64_t timeout_us,
                            mrcam_t* ctx)
 {
-    DEFINE_INTERNALS(ctx);
-
-    if(!get_image__internal(ctx, timeout_us))
-        return false;
-
-    return fill_image_uint8(image, *buffer, ctx);
+    return
+        request_image(ctx) &&
+        receive_image(ctx, timeout_us) &&
+        fill_image_uint8(image, ctx);
 }
 
 // timeout_us=0 means "wait forever"
@@ -731,12 +759,10 @@ bool mrcam_get_image_uint16(// out
                             const uint64_t timeout_us,
                             mrcam_t* ctx)
 {
-    DEFINE_INTERNALS(ctx);
-
-    if(!get_image__internal(ctx, timeout_us))
-        return false;
-
-    return fill_image_uint16(image, *buffer, ctx);
+    return
+        request_image(ctx) &&
+        receive_image(ctx, timeout_us) &&
+        fill_image_uint16(image, ctx);
 }
 
 // timeout_us=0 means "wait forever"
@@ -746,10 +772,8 @@ bool mrcam_get_image_bgr(// out
                          const uint64_t timeout_us,
                          mrcam_t* ctx)
 {
-    DEFINE_INTERNALS(ctx);
-
-    if(!get_image__internal(ctx, timeout_us))
-        return false;
-
-    return fill_image_bgr(image, *buffer, ctx);
+    return
+        request_image(ctx) &&
+        receive_image(ctx, timeout_us) &&
+        fill_image_bgr(image, ctx);
 }
