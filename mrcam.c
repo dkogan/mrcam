@@ -37,6 +37,19 @@ static bool verbose = false;
         }                                               \
     } while(0)
 
+#define try_arv_ok_if(expr, ok_if_cond) do {            \
+        if(verbose)                                     \
+            MSG("Calling   '" #expr "'");               \
+        expr;                                           \
+        if(error != NULL && !(ok_if_cond))              \
+        {                                               \
+            MSG("Failure!!! '" #expr "' produced '%s'", \
+                error->message);                        \
+            g_clear_error(&error);                      \
+            goto done;                                  \
+        }                                               \
+    } while(0)
+
 #define try_arv_with_extra_condition(expr, condition) do {              \
         if(verbose)                                                     \
             MSG("Calling   '" #expr "'");                               \
@@ -252,12 +265,17 @@ bool mrcam_init(// out
     }
 
     // Some cameras start up with the test-pattern enabled. So I turn it off
-    // unconditionally. This setting doesn't exist on all cameras. And if it
-    // doesn't, this will fail, and I ignore the failure
-    arv_camera_set_string (*camera, "TestPattern", "Off", &error);
+    // unconditionally. This setting doesn't exist on all cameras; if it
+    // doesn't, I ignore that failure
+
+
+    try_arv_ok_if(arv_camera_set_string (*camera, "TestPattern", "Off", &error),
+                  error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND);
     if(error != NULL)
-        g_error_free(error);
-    error = NULL;
+    {
+        // No TestPattern setting exists. I ignore the error
+        g_clear_error(&error);
+    }
 
     gint payload_size;
     try_arv(payload_size = arv_camera_get_payload(*camera, &error));
