@@ -570,7 +570,27 @@ bool get_frame__internal(mrcam_t* ctx,
 
     try_arv_with_extra_condition( stream = arv_camera_create_stream(*camera, NULL, NULL, &error),
                                   ARV_IS_STREAM(stream) );
-    try_arv( arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_SINGLE_FRAME, &error) );
+
+
+    const ArvAcquisitionMode modes_to_try[] =
+        { ARV_ACQUISITION_MODE_SINGLE_FRAME,
+          ARV_ACQUISITION_MODE_MULTI_FRAME,
+          ARV_ACQUISITION_MODE_CONTINUOUS };
+    int imode = 0;
+    const int Nmodes = (int)(sizeof(modes_to_try)/sizeof(modes_to_try[0]));
+    for(; imode < Nmodes; imode++)
+    {
+        try_arv_ok_if( arv_camera_set_acquisition_mode(*camera, modes_to_try[imode], &error),
+                       error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+        if(error == NULL) break; // success; done
+        g_clear_error(&error);
+    }
+    if(imode == Nmodes)
+    {
+        MSG("Failure!!! arv_camera_set_acquisition_mode() couldn't set any common mode. All were rejected");
+        goto done;
+    }
+
 
     arv_stream_push_buffer(stream, *buffer);
 
