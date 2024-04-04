@@ -512,6 +512,7 @@ bool fill_image_bgr(// out
     }
 
 
+    const size_t sizeof_pixel = 3;
 
     bool result = false;
 
@@ -519,8 +520,6 @@ bool fill_image_bgr(// out
     // put what I have so far
     if(pixfmt == ARV_PIXEL_FORMAT_BGR_8_PACKED)
         return fill_image_unpacked((mrcal_image_uint8_t*)image, buffer, sizeof(mrcal_bgr_t));
-
-    const size_t sizeof_pixel = 3;
 
     if(pixfmt == ARV_PIXEL_FORMAT_BAYER_RG_8)
     {
