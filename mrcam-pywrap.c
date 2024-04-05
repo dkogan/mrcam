@@ -192,7 +192,7 @@ numpy_image_from_mrcal_image(// type not exact
 }
 
 static PyObject*
-camera_pull(camera* self, PyObject* args, PyObject* kwargs)
+pull(camera* self, PyObject* args, PyObject* kwargs)
 {
     // error by default
     PyObject* result = NULL;
@@ -348,7 +348,7 @@ callback_generic(mrcal_image_uint8_t mrcal_image, // type might not be exact
 }
 
 static PyObject*
-camera_request(camera* self, PyObject* args, PyObject* kwargs)
+request(camera* self, PyObject* args, PyObject* kwargs)
 {
     PyObject* callback = NULL;
 
@@ -425,17 +425,17 @@ camera_request(camera* self, PyObject* args, PyObject* kwargs)
 static const char camera_docstring[] =
 #include "camera.docstring.h"
     ;
-static const char camera_pull_docstring[] =
-#include "camera_pull.docstring.h"
+static const char pull_docstring[] =
+#include "pull.docstring.h"
     ;
-static const char camera_request_docstring[] =
-#include "camera_request.docstring.h"
+static const char request_docstring[] =
+#include "request.docstring.h"
     ;
 
 static PyMethodDef camera_methods[] =
     {
-        PYMETHODDEF_ENTRY(camera_, pull,    METH_VARARGS | METH_KEYWORDS),
-        PYMETHODDEF_ENTRY(camera_, request, METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(, pull,    METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(, request, METH_VARARGS | METH_KEYWORDS),
         {}
     };
 
