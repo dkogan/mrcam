@@ -355,10 +355,16 @@ bool mrcam_init(// out
                                   ARV_IS_STREAM(*stream) );
 
 
+    // In case we end up with ARV_ACQUISITION_MODE_MULTI_FRAME, I ask for just
+    // one frame. If it fails, I guess that's fine.
+    try_arv_ok_if( arv_camera_set_integer(*camera, "AcquisitionFrameCount", 1, &error),
+                   true );
+    if(error != NULL)
+        g_clear_error(&error);
+
     const ArvAcquisitionMode modes_to_try[] =
         { ARV_ACQUISITION_MODE_SINGLE_FRAME,
-          ARV_ACQUISITION_MODE_MULTI_FRAME,
-          ARV_ACQUISITION_MODE_CONTINUOUS };
+          ARV_ACQUISITION_MODE_MULTI_FRAME };
     int imode = 0;
     const int Nmodes = (int)(sizeof(modes_to_try)/sizeof(modes_to_try[0]));
     for(; imode < Nmodes; imode++)
