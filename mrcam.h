@@ -117,28 +117,28 @@ void mrcam_set_verbose(void);
 //   {
 //     ...
 //     mrcal_image_uint8_t image;
-//     mrcam_get_image_uint8(&image, timeout_us, &ctx);
+//     mrcam_pull_uint8(&image, timeout_us, &ctx);
 //     // no free(image.data); image structure valid until next
-//     // mrcam_get_image... call.
+//     // mrcam_pull... call.
 //     //
 //     // do stuff with image
 //     ...
 //   }
-bool mrcam_get_image_uint8( // out
-                            mrcal_image_uint8_t* image,
-                            // in
-                            const uint64_t timeout_us,
-                            mrcam_t* ctx);
-bool mrcam_get_image_uint16(// out
-                            mrcal_image_uint16_t* image,
-                            // in
-                            const uint64_t timeout_us,
-                            mrcam_t* ctx);
-bool mrcam_get_image_bgr(   // out
-                            mrcal_image_bgr_t* image,
-                            // in
-                            const uint64_t timeout_us,
-                            mrcam_t* ctx);
+bool mrcam_pull_uint8( // out
+                       mrcal_image_uint8_t* image,
+                       // in
+                       const uint64_t timeout_us,
+                       mrcam_t* ctx);
+bool mrcam_pull_uint16(// out
+                       mrcal_image_uint16_t* image,
+                       // in
+                       const uint64_t timeout_us,
+                       mrcam_t* ctx);
+bool mrcam_pull_bgr(   // out
+                       mrcal_image_bgr_t* image,
+                       // in
+                       const uint64_t timeout_us,
+                       mrcam_t* ctx);
 
 // Asynchronous get-image functions
 //
@@ -148,7 +148,7 @@ bool mrcam_get_image_bgr(   // out
 //           uint64_t timestamp_us)
 //   {
 //       // no free(image.data); image structure valid until next
-//       // mrcam_request_image... call.
+//       // mrcam_request... call.
 //       // we may or may not be in the same thread where the image
 //       // was requested
 //   }
@@ -156,31 +156,31 @@ bool mrcam_get_image_bgr(   // out
 //   some_other_function
 //   {
 //     ...
-//     mrcam_request_image_uint8(&cb, &ctx);
+//     mrcam_request_uint8(&cb, &ctx);
 //     // no free(image.data)
-//     // mrcam_request_image_uint8() returned immediately. we do other
+//     // mrcam_request_uint8() returned immediately. we do other
 //     // unrelated stuff now. When the image comes in, the callback will
 //     // be called
 //     ...
 //   }
 //
-// If mrcam_request_image_...() failed, there will be no callback call.
+// If mrcam_request_...() failed, there will be no callback call.
 //
-// If mrcam_request_image_...() succeeded, there will be exactly ONE callback
+// If mrcam_request_...() succeeded, there will be exactly ONE callback
 // call. If there was a problem, the callback will have image.data==NULL
 //
-// To give up waiting on a callback, call mrcam_cancel_request_image()
+// To give up waiting on a callback, call mrcam_cancel_request()
 // Requesting an image before the previous one was processed is an error
-bool mrcam_request_image_uint8( // in
-                                mrcam_callback_image_uint8_t* cb,
-                                void* cookie,
-                                mrcam_t* ctx);
-bool mrcam_request_image_uint16(// in
-                                mrcam_callback_image_uint16_t* cb,
-                                void* cookie,
-                                mrcam_t* ctx);
-bool mrcam_request_image_bgr(   // in
-                                mrcam_callback_image_bgr_t* cb,
-                                void* cookie,
-                                mrcam_t* ctx);
-bool mrcam_cancel_request_image(mrcam_t* ctx);
+bool mrcam_request_uint8( // in
+                          mrcam_callback_image_uint8_t* cb,
+                          void* cookie,
+                          mrcam_t* ctx);
+bool mrcam_request_uint16(// in
+                          mrcam_callback_image_uint16_t* cb,
+                          void* cookie,
+                          mrcam_t* ctx);
+bool mrcam_request_bgr(   // in
+                          mrcam_callback_image_bgr_t* cb,
+                          void* cookie,
+                          mrcam_t* ctx);
+bool mrcam_cancel_request(mrcam_t* ctx);

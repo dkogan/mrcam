@@ -230,17 +230,17 @@ int main(int argc, char **argv)
             switch(mrcam_output_type(ctx[icam].pixfmt))
             {
             case MRCAM_uint8:
-                if(!mrcam_get_image_uint8( &images.image_uint8 [icam], 0, &ctx[icam]))
+                if(!mrcam_pull_uint8( &images.image_uint8 [icam], 0, &ctx[icam]))
                     goto done;
                 break;
 
             case MRCAM_uint16:
-                if(!mrcam_get_image_uint16(&images.image_uint16[icam], 0, &ctx[icam]))
+                if(!mrcam_pull_uint16(&images.image_uint16[icam], 0, &ctx[icam]))
                     goto done;
                 break;
 
             case MRCAM_bgr:
-                if(!mrcam_get_image_bgr(   &images.image_bgr   [icam], 0, &ctx[icam]))
+                if(!mrcam_pull_bgr(   &images.image_bgr   [icam], 0, &ctx[icam]))
                     goto done;
                 break;
 

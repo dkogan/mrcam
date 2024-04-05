@@ -138,7 +138,7 @@ numpy_image_from_mrcal_image(// type not exact
             const int bytes_per_pixel__output = 1;
             if(mrcal_image->stride != mrcal_image->width * bytes_per_pixel__output)
             {
-                BARF("Image returned by mrcam_get_image_...() is not contiguous");
+                BARF("Image returned by mrcam_pull_...() is not contiguous");
                 return NULL;
             }
             return
@@ -155,7 +155,7 @@ numpy_image_from_mrcal_image(// type not exact
             const int bytes_per_pixel__output = 2;
             if(mrcal_image->stride != mrcal_image->width * bytes_per_pixel__output)
             {
-                BARF("Image returned by mrcam_get_image_...() is not contiguous");
+                BARF("Image returned by mrcam_pull_...() is not contiguous");
                 return NULL;
             }
             return
@@ -172,7 +172,7 @@ numpy_image_from_mrcal_image(// type not exact
             const int bytes_per_pixel__output = 3;
             if(mrcal_image->stride != mrcal_image->width * bytes_per_pixel__output)
             {
-                BARF("Image returned by mrcam_get_image_...() is not contiguous");
+                BARF("Image returned by mrcam_pull_...() is not contiguous");
                 return NULL;
             }
             return
@@ -192,7 +192,7 @@ numpy_image_from_mrcal_image(// type not exact
 }
 
 static PyObject*
-camera_get_image(camera* self, PyObject* args, PyObject* kwargs)
+camera_pull(camera* self, PyObject* args, PyObject* kwargs)
 {
     // error by default
     PyObject* result = NULL;
@@ -216,11 +216,11 @@ camera_get_image(camera* self, PyObject* args, PyObject* kwargs)
     {
     case MRCAM_uint8:
         {
-            if(!mrcam_get_image_uint8( (mrcal_image_uint8_t*)&mrcal_image,
-                                       (uint64_t)(timeout_sec * 1e6),
-                                       &self->ctx))
+            if(!mrcam_pull_uint8( (mrcal_image_uint8_t*)&mrcal_image,
+                                  (uint64_t)(timeout_sec * 1e6),
+                                  &self->ctx))
             {
-                BARF("mrcam_get_image...() failed");
+                BARF("mrcam_pull...() failed");
                 goto done;
             }
         }
@@ -228,11 +228,11 @@ camera_get_image(camera* self, PyObject* args, PyObject* kwargs)
 
     case MRCAM_uint16:
         {
-            if(!mrcam_get_image_uint16( (mrcal_image_uint16_t*)&mrcal_image,
-                                        (uint64_t)(timeout_sec * 1e6),
-                                        &self->ctx))
+            if(!mrcam_pull_uint16( (mrcal_image_uint16_t*)&mrcal_image,
+                                   (uint64_t)(timeout_sec * 1e6),
+                                   &self->ctx))
             {
-                BARF("mrcam_get_image...() failed");
+                BARF("mrcam_pull...() failed");
                 goto done;
             }
         }
@@ -240,11 +240,11 @@ camera_get_image(camera* self, PyObject* args, PyObject* kwargs)
 
     case MRCAM_bgr:
         {
-            if(!mrcam_get_image_bgr( (mrcal_image_bgr_t*)&mrcal_image,
-                                     (uint64_t)(timeout_sec * 1e6),
-                                     &self->ctx))
+            if(!mrcam_pull_bgr( (mrcal_image_bgr_t*)&mrcal_image,
+                                (uint64_t)(timeout_sec * 1e6),
+                                &self->ctx))
             {
-                BARF("mrcam_get_image...() failed");
+                BARF("mrcam_pull...() failed");
                 goto done;
             }
         }
@@ -348,7 +348,7 @@ callback_generic(mrcal_image_uint8_t mrcal_image, // type might not be exact
 }
 
 static PyObject*
-camera_request_image(camera* self, PyObject* args, PyObject* kwargs)
+camera_request(camera* self, PyObject* args, PyObject* kwargs)
 {
     PyObject* callback = NULL;
 
@@ -379,31 +379,31 @@ camera_request_image(camera* self, PyObject* args, PyObject* kwargs)
     switch(mrcam_output_type(self->ctx.pixfmt))
     {
     case MRCAM_uint8:
-        if(!mrcam_request_image_uint8( (mrcam_callback_image_uint8_t* )&callback_generic,
-                                       self,
-                                       &self->ctx))
+        if(!mrcam_request_uint8( (mrcam_callback_image_uint8_t* )&callback_generic,
+                                 self,
+                                 &self->ctx))
         {
-            BARF("mrcam_request_image...() failed");
+            BARF("mrcam_request...() failed");
             goto done;
         }
         break;
 
     case MRCAM_uint16:
-        if(!mrcam_request_image_uint16((mrcam_callback_image_uint16_t*)&callback_generic,
-                                       self,
-                                       &self->ctx))
+        if(!mrcam_request_uint16((mrcam_callback_image_uint16_t*)&callback_generic,
+                                 self,
+                                 &self->ctx))
         {
-            BARF("mrcam_request_image...() failed");
+            BARF("mrcam_request...() failed");
             goto done;
         }
         break;
 
     case MRCAM_bgr:
-        if(!mrcam_request_image_bgr(   (mrcam_callback_image_bgr_t*   )&callback_generic,
-                                       self,
-                                       &self->ctx))
+        if(!mrcam_request_bgr(   (mrcam_callback_image_bgr_t*   )&callback_generic,
+                                 self,
+                                 &self->ctx))
         {
-            BARF("mrcam_request_image...() failed");
+            BARF("mrcam_request...() failed");
             goto done;
         }
         break;
@@ -425,17 +425,17 @@ camera_request_image(camera* self, PyObject* args, PyObject* kwargs)
 static const char camera_docstring[] =
 #include "camera.docstring.h"
     ;
-static const char camera_get_image_docstring[] =
-#include "camera_get_image.docstring.h"
+static const char camera_pull_docstring[] =
+#include "camera_pull.docstring.h"
     ;
-static const char camera_request_image_docstring[] =
-#include "camera_request_image.docstring.h"
+static const char camera_request_docstring[] =
+#include "camera_request.docstring.h"
     ;
 
 static PyMethodDef camera_methods[] =
     {
-        PYMETHODDEF_ENTRY(camera_, get_image,     METH_VARARGS | METH_KEYWORDS),
-        PYMETHODDEF_ENTRY(camera_, request_image, METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(camera_, pull,    METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(camera_, request, METH_VARARGS | METH_KEYWORDS),
         {}
     };
 
