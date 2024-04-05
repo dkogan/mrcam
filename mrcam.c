@@ -200,7 +200,7 @@ int pixfmt__output_bytes_per_pixel(mrcam_pixfmt_t pixfmt)
 
 
 static void
-callback_inner(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer);
+callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer);
 
 bool mrcam_init(// out
                 mrcam_t* ctx,
@@ -350,7 +350,7 @@ bool mrcam_init(// out
 
 
     try_arv_with_extra_condition( *stream = arv_camera_create_stream(*camera,
-                                                                     callback_inner, ctx,
+                                                                     callback_arv, ctx,
                                                                      &error),
                                   ARV_IS_STREAM(*stream) );
 
@@ -715,7 +715,7 @@ bool receive_image(mrcam_t* ctx,
 }
 
 static void
-callback_inner(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
+callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
 {
     mrcam_t* ctx = (mrcam_t*)cookie;
 
