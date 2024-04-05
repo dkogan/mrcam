@@ -772,7 +772,7 @@ callback_inner(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
             // callback regardless
 
             #warning finish timestamping
-            int64_t timestamp = 0;
+            uint64_t timestamp = 0;
             ctx->active_callback(image, timestamp, ctx->active_callback_cookie);
             clean_up_acquisition(ctx);
         }

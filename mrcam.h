@@ -145,7 +145,7 @@ bool mrcam_get_image_bgr(   // out
 // Asynchronous usage:
 //
 //   void cb(mrcal_image_uint8_t image,
-//           int64_t timestamp_us)
+//           uint64_t timestamp_us)
 //   {
 //       // no free(image.data); image structure valid until next
 //       // mrcam_request_image... call.
