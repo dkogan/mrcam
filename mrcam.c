@@ -773,7 +773,7 @@ callback_inner(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
 
             #warning finish timestamping
             int64_t timestamp = 0;
-            ctx->active_callback(image, timestamp);
+            ctx->active_callback(image, timestamp, ctx->active_callback_cookie);
             clean_up_acquisition(ctx);
         }
 
@@ -785,7 +785,8 @@ callback_inner(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
 
 static
 bool request_image(mrcam_t* ctx,
-                   mrcam_callback_image_uint8_t* callback)
+                   mrcam_callback_image_uint8_t* callback,
+                   void* cookie)
 {
     DEFINE_INTERNALS(ctx);
     bool    result = false;
@@ -799,6 +800,7 @@ bool request_image(mrcam_t* ctx,
     ctx->acquiring = false;
 
     ctx->active_callback        = callback;
+    ctx->active_callback_cookie = cookie;
 
     arv_stream_push_buffer(*stream, *buffer);
 
@@ -830,7 +832,7 @@ bool mrcam_get_image_uint8(// out
                            mrcam_t* ctx)
 {
     return
-        request_image(ctx, NULL) &&
+        request_image(ctx, NULL, NULL) &&
         // may block
         receive_image(ctx, timeout_us) &&
         fill_image_uint8(image, ctx);
@@ -842,7 +844,7 @@ bool mrcam_get_image_uint16(// out
                             mrcam_t* ctx)
 {
     return
-        request_image(ctx, NULL) &&
+        request_image(ctx, NULL, NULL) &&
         // may block
         receive_image(ctx, timeout_us) &&
         fill_image_uint16(image, ctx);
@@ -854,7 +856,7 @@ bool mrcam_get_image_bgr(// out
                          mrcam_t* ctx)
 {
     return
-        request_image(ctx, NULL) &&
+        request_image(ctx, NULL, NULL) &&
         // may block
         receive_image(ctx, timeout_us) &&
         fill_image_bgr(image, ctx);
@@ -863,26 +865,29 @@ bool mrcam_get_image_bgr(// out
 
 bool mrcam_request_image_uint8( // in
                                 mrcam_callback_image_uint8_t* cb,
+                                void* cookie,
                                 mrcam_t* ctx)
 {
     return
-        request_image(ctx, (mrcam_callback_image_uint8_t*)cb);
+        request_image(ctx, (mrcam_callback_image_uint8_t*)cb, cookie);
 }
 
 bool mrcam_request_image_uint16(// in
                                 mrcam_callback_image_uint16_t* cb,
+                                void* cookie,
                                 mrcam_t* ctx)
 {
     return
-        request_image(ctx, (mrcam_callback_image_uint8_t*)cb);
+        request_image(ctx, (mrcam_callback_image_uint8_t*)cb, cookie);
 }
 
 bool mrcam_request_image_bgr(   // in
                                 mrcam_callback_image_bgr_t* cb,
+                                void* cookie,
                                 mrcam_t* ctx)
 {
     return
-        request_image(ctx, (mrcam_callback_image_uint8_t*)cb);
+        request_image(ctx, (mrcam_callback_image_uint8_t*)cb, cookie);
 }
 bool mrcam_cancel_request_image(mrcam_t* ctx)
 {

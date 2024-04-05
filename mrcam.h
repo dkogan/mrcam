@@ -44,11 +44,14 @@ typedef enum {MRCAM_UNKNOWN = -1,
 mrcam_output_type_t mrcam_output_type(mrcam_pixfmt_t pixfmt);
 
 typedef void (mrcam_callback_image_uint8_t )(mrcal_image_uint8_t image,
-                                             int64_t timestamp_us);
+                                             uint64_t timestamp_us,
+                                             void* cookie);
 typedef void (mrcam_callback_image_uint16_t)(mrcal_image_uint16_t image,
-                                             int64_t timestamp_us);
+                                             uint64_t timestamp_us,
+                                             void* cookie);
 typedef void (mrcam_callback_image_bgr_t)(   mrcal_image_bgr_t image,
-                                             int64_t timestamp_us);
+                                             uint64_t timestamp_us,
+                                             void* cookie);
 
 
 
@@ -73,6 +76,7 @@ typedef struct
     // current active callback. Type may not be 100% right (may be uint8 or
     // uint16, or bgr, ...), but the data layout is the same
     mrcam_callback_image_uint8_t* active_callback;
+    void*                         active_callback_cookie;
 
     bool acquiring : 1;
 
@@ -169,11 +173,14 @@ bool mrcam_get_image_bgr(   // out
 // Requesting an image before the previous one was processed is an error
 bool mrcam_request_image_uint8( // in
                                 mrcam_callback_image_uint8_t* cb,
+                                void* cookie,
                                 mrcam_t* ctx);
 bool mrcam_request_image_uint16(// in
                                 mrcam_callback_image_uint16_t* cb,
+                                void* cookie,
                                 mrcam_t* ctx);
 bool mrcam_request_image_bgr(   // in
                                 mrcam_callback_image_bgr_t* cb,
+                                void* cookie,
                                 mrcam_t* ctx);
 bool mrcam_cancel_request_image(mrcam_t* ctx);
