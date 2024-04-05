@@ -633,8 +633,6 @@ void clean_up_acquisition(mrcam_t* ctx)
         arv_camera_stop_acquisition(*camera, &error);
         ctx->acquiring = false;
     }
-
-    ctx->active_callback = NULL;
 }
 
 static
@@ -750,6 +748,7 @@ callback_inner(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
             // type may not be right; it doesn't matter
             mrcal_image_uint8_t image = (mrcal_image_uint8_t){};
             if( receive_image(ctx, 0) )
+            {
                 switch(mrcam_output_type(ctx->pixfmt))
                 {
                 case MRCAM_uint8:
@@ -768,13 +767,15 @@ callback_inner(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
                     MSG("Unknown pixfmt. This is a bug");
                 }
 
-            // On error image is {0}, which indicates an error. We invoke the
-            // callback regardless
+                // On error image is {0}, which indicates an error. We invoke the
+                // callback regardless
 
-            #warning finish timestamping
-            uint64_t timestamp = 0;
-            ctx->active_callback(image, timestamp, ctx->active_callback_cookie);
-            clean_up_acquisition(ctx);
+#warning finish timestamping
+                uint64_t timestamp = 0;
+                ctx->active_callback(image, timestamp, ctx->active_callback_cookie);
+            }
+
+            ctx->active_callback = NULL;
         }
 
         break;
