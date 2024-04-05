@@ -8,6 +8,7 @@
 #include <assert.h>
 
 #include "mrcam.h"
+#include "util.h"
 
 #define PYMETHODDEF_ENTRY(function_prefix, name, args) {#name,          \
                                                         (PyCFunction)function_prefix ## name, \
@@ -45,6 +46,7 @@ typedef struct {
     PyObject_HEAD
 
     mrcam_t ctx;
+    PyObject* active_callback;
 
 } camera;
 
@@ -109,6 +111,8 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 
     if(verbose)
         mrcam_set_verbose();
+
+    self->active_callback = NULL;
 
     result = 0;
 
@@ -261,16 +265,177 @@ camera_get_image(camera* self, PyObject* args, PyObject* kwargs)
     RESET_SIGINT();
     return result;
 }
+
+static
+void
+callback_generic(mrcal_image_uint8_t mrcal_image, // type might not be exact
+                 uint64_t timestamp_us,
+                 void* cookie)
+{
+#warning test
+    MSG("top of glue into python callback");
+
+
+
+
+    camera* self = (camera*)cookie;
+
+    PyObject* args          = NULL;
+    PyObject* kwargs        = NULL;
+    PyObject* image         = NULL;
+    PyObject* return_object = NULL;
+
+    #warning grabbing GIL does not work if I am not focusing the window
+    PyGILState_STATE gil_state = PyGILState_Ensure();
+
+    MSG("grabbed GIL");
+
+    args = PyTuple_New(0);
+    if(args == NULL)
+    {
+        MSG("FATAL ERROR: COULDN'T CREATE args OBJECT IN CALLBACK");
+        goto done;
+    }
+
+    if(mrcal_image.data != NULL)
+    {
+        image = numpy_image_from_mrcal_image(&mrcal_image, mrcam_output_type(self->ctx.pixfmt));
+        if(image == NULL)
+        {
+            MSG("FATAL ERROR: COULDN'T CONSTRUCT NUMPY ARRAY FROM IMAGE IN CALLBACK");
+            goto done;
+        }
+    }
+    else
+    {
+        // Error occurred. I return None as the image
+        image = Py_None;
+        Py_INCREF(image);
+    }
+
+    kwargs = Py_BuildValue("{sOsk}",
+                           "image",        image,
+                           "timestamp_us", timestamp_us);
+    if(kwargs == NULL)
+    {
+        MSG("FATAL ERROR: COULDN'T CREATE kwargs OBJECT IN CALLBACK");
+        goto done;
+    }
+
+    MSG("calling python callback...");
+    PyObject_Print(self->active_callback, stderr, 0);
+
+
+#warning errors in this PyObject_Call() are ignored: wrong kwarg names for instance
+
+
+    return_object = PyObject_Call( self->active_callback, args, kwargs );
+    MSG("... called python callback");
+
+    #warning what if the python callback throws an exception?
+
+ done:
+    Py_XDECREF(args);
+    Py_XDECREF(kwargs);
+    Py_XDECREF(image);
+    Py_XDECREF(return_object);
+    Py_XDECREF(self->active_callback);
+    self->active_callback = NULL;
+
+    MSG("releasing GIL");
+    PyGILState_Release(gil_state);
+    MSG("did release GIL");
+}
+
+static PyObject*
+camera_request_image(camera* self, PyObject* args, PyObject* kwargs)
+{
+    PyObject* callback = NULL;
+
+    char* keywords[] = {"callback",
+                        NULL};
+
+
+    if(self->active_callback != NULL)
+    {
+        BARF("Python callback already registered");
+        goto done;
+    }
+
+    if( !PyArg_ParseTupleAndKeywords(args, kwargs,
+                                     "O", keywords,
+                                     &callback))
+        goto done;
+
+    if(!PyCallable_Check(callback))
+    {
+        BARF("The given callback must be callable");
+        goto done;
+    }
+
+    self->active_callback = callback;
+    Py_INCREF(self->active_callback);
+
+    switch(mrcam_output_type(self->ctx.pixfmt))
+    {
+    case MRCAM_uint8:
+        if(!mrcam_request_image_uint8( (mrcam_callback_image_uint8_t* )&callback_generic,
+                                       self,
+                                       &self->ctx))
+        {
+            BARF("mrcam_request_image...() failed");
+            goto done;
+        }
+        break;
+
+    case MRCAM_uint16:
+        if(!mrcam_request_image_uint16((mrcam_callback_image_uint16_t*)&callback_generic,
+                                       self,
+                                       &self->ctx))
+        {
+            BARF("mrcam_request_image...() failed");
+            goto done;
+        }
+        break;
+
+    case MRCAM_bgr:
+        if(!mrcam_request_image_bgr(   (mrcam_callback_image_bgr_t*   )&callback_generic,
+                                       self,
+                                       &self->ctx))
+        {
+            BARF("mrcam_request_image...() failed");
+            goto done;
+        }
+        break;
+
+    default:
+        goto done;
+    }
+
+    Py_RETURN_NONE;
+
+ done:
+    // error occurred
+    Py_XDECREF(self->active_callback);
+    self->active_callback = NULL;
+
+    return NULL;
+}
+
 static const char camera_docstring[] =
 #include "camera.docstring.h"
     ;
 static const char camera_get_image_docstring[] =
 #include "camera_get_image.docstring.h"
     ;
+static const char camera_request_image_docstring[] =
+#include "camera_request_image.docstring.h"
+    ;
 
 static PyMethodDef camera_methods[] =
     {
-        PYMETHODDEF_ENTRY(camera_, get_image, METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(camera_, get_image,     METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(camera_, request_image, METH_VARARGS | METH_KEYWORDS),
         {}
     };
 
