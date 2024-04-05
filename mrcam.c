@@ -199,6 +199,9 @@ int pixfmt__output_bytes_per_pixel(mrcam_pixfmt_t pixfmt)
 
 
 
+static void
+callback_inner(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer);
+
 bool mrcam_init(// out
                 mrcam_t* ctx,
                 // in
@@ -344,6 +347,34 @@ bool mrcam_init(// out
     if(error != NULL)
         g_clear_error(&error);
 
+
+
+    try_arv_with_extra_condition( *stream = arv_camera_create_stream(*camera,
+                                                                     callback_inner, ctx,
+                                                                     &error),
+                                  ARV_IS_STREAM(*stream) );
+
+
+    const ArvAcquisitionMode modes_to_try[] =
+        { ARV_ACQUISITION_MODE_SINGLE_FRAME,
+          ARV_ACQUISITION_MODE_MULTI_FRAME,
+          ARV_ACQUISITION_MODE_CONTINUOUS };
+    int imode = 0;
+    const int Nmodes = (int)(sizeof(modes_to_try)/sizeof(modes_to_try[0]));
+    for(; imode < Nmodes; imode++)
+    {
+        try_arv_ok_if( arv_camera_set_acquisition_mode(*camera, modes_to_try[imode], &error),
+                       error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+        if(error == NULL) break; // success; done
+        g_clear_error(&error);
+    }
+    if(imode == Nmodes)
+    {
+        MSG("Failure!!! arv_camera_set_acquisition_mode() couldn't set any common mode. All were rejected");
+        goto done;
+    }
+
+
     result = true;
 
  done:
@@ -360,6 +391,7 @@ void mrcam_free(mrcam_t* ctx)
 {
     DEFINE_INTERNALS(ctx);
 
+    g_clear_object(stream);
     g_clear_object(buffer);
     g_clear_object(camera);
 
@@ -601,8 +633,6 @@ void clean_up_acquisition(mrcam_t* ctx)
         arv_camera_stop_acquisition(*camera, &error);
         ctx->acquiring = false;
     }
-    if(*stream != NULL)
-        g_clear_object(stream);
 
     ctx->active_callback = NULL;
 }
@@ -691,6 +721,11 @@ callback_inner(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
 {
     mrcam_t* ctx = (mrcam_t*)cookie;
 
+
+    if(ctx->active_callback == NULL)
+        return;
+
+
     switch (type)
     {
     case ARV_STREAM_CALLBACK_TYPE_INIT:
@@ -756,41 +791,14 @@ bool request_image(mrcam_t* ctx,
     bool    result = false;
     GError *error  = NULL;
 
-    if(ctx->acquiring || *stream != NULL)
+    if(ctx->acquiring)
     {
         MSG("Acquisition already in progress. If mrcam_request_image_...() was called, wait for the callback or call mrcam_cancel_request_image()");
         goto done;
     }
     ctx->acquiring = false;
 
-    ctx->active_callback = callback;
-
-    try_arv_with_extra_condition( *stream = arv_camera_create_stream(*camera,
-                                                                     (callback == NULL) ? NULL : callback_inner,
-                                                                     ctx,
-                                                                     &error),
-                                  ARV_IS_STREAM(*stream) );
-
-
-    const ArvAcquisitionMode modes_to_try[] =
-        { ARV_ACQUISITION_MODE_SINGLE_FRAME,
-          ARV_ACQUISITION_MODE_MULTI_FRAME,
-          ARV_ACQUISITION_MODE_CONTINUOUS };
-    int imode = 0;
-    const int Nmodes = (int)(sizeof(modes_to_try)/sizeof(modes_to_try[0]));
-    for(; imode < Nmodes; imode++)
-    {
-        try_arv_ok_if( arv_camera_set_acquisition_mode(*camera, modes_to_try[imode], &error),
-                       error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
-        if(error == NULL) break; // success; done
-        g_clear_error(&error);
-    }
-    if(imode == Nmodes)
-    {
-        MSG("Failure!!! arv_camera_set_acquisition_mode() couldn't set any common mode. All were rejected");
-        goto done;
-    }
-
+    ctx->active_callback        = callback;
 
     arv_stream_push_buffer(*stream, *buffer);
 
