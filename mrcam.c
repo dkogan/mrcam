@@ -627,20 +627,7 @@ bool fill_image_bgr(// out
     return result;
 }
 
-static
-void clean_up_acquisition(mrcam_t* ctx)
-{
-    DEFINE_INTERNALS(ctx);
-
-    if(ctx->acquiring)
-    {
-        // if still aquiring for some reason, stop that, with no error checking
-        GError *error = NULL;
-        arv_camera_stop_acquisition(*camera, &error);
-        ctx->acquiring = false;
-    }
-}
-
+// meant to be called after request_image()
 static
 bool receive_image(mrcam_t* ctx,
                    const uint64_t timeout_us)
@@ -650,12 +637,22 @@ bool receive_image(mrcam_t* ctx,
     GError     *error       = NULL;
     ArvBuffer*  buffer_here = NULL;
 
+    if(!ctx->acquiring)
+    {
+        MSG("No acquisition in progress. Nothing to receive");
+        goto done;
+    }
+
+
     // May block. If we don't want to block, it's our job to make sure to have
     // called receive_image() when an output image has already been buffered
     if (timeout_us > 0) buffer_here = arv_stream_timeout_pop_buffer(*stream, timeout_us);
     else                buffer_here = arv_stream_pop_buffer        (*stream);
 
+    // This MUST have been done by this function, regardless of things failing
     try_arv(arv_camera_stop_acquisition(*camera, &error));
+    // if it failed, ctx->acquiring will remain at true. Probably there's no way
+    // to recover anyway
     ctx->acquiring = false;
 
     try(buffer_here == *buffer);
@@ -715,8 +712,10 @@ bool receive_image(mrcam_t* ctx,
     result = true;
 
  done:
-    clean_up_acquisition(ctx);
 
+    // I want to make sure that arv_camera_stop_acquisition() was called by this
+    // function. That happened on top. If it failed, there isn't anything I can
+    // do about it.
     return result;
 }
 
@@ -725,6 +724,22 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
 {
     mrcam_t* ctx = (mrcam_t*)cookie;
 
+    // This is going to be called from a different thread than the rest of the
+    // application. The sequence SHOULD be:
+    //
+    // - request_image()
+    // - internal machinery causes this callback_arv() to be called
+    // - this callback does its thing to call receive_image(), which should
+    //   disable future callbacks until the next request
+    //
+    // Something COULD break this though. Extra calls of callback_arv() should
+    // be benign: ctx->active_callback == NULL will be true. Insufficient calls
+    // of callback_arv() will cause us to wait forever for the callback, and
+    // will permanently break stuff. We'll see if this happens.
+    //
+    // Furthermore, while this function is called from another thread, it was
+    // set up to work synchronously, so no locking of any sort should be needed.
+    // We'll see if that happens also
 
     if(ctx->active_callback == NULL)
         return;
@@ -772,14 +787,14 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
                 default:
                     MSG("Unknown pixfmt. This is a bug");
                 }
-
-                // On error image is {0}, which indicates an error. We invoke the
-                // callback regardless
+            }
+            // On error image is {0}, which indicates an error. We invoke the
+            // callback regardless. I want to make sure that the caller can be
+            // sure to expect ONE callback with each request
 
 #warning finish timestamping
-                uint64_t timestamp = 0;
-                ctx->active_callback(image, timestamp, ctx->active_callback_cookie);
-            }
+            uint64_t timestamp = 0;
+            ctx->active_callback(image, timestamp, ctx->active_callback_cookie);
 
             ctx->active_callback = NULL;
         }
@@ -799,12 +814,11 @@ bool request_image(mrcam_t* ctx,
     bool    result = false;
     GError *error  = NULL;
 
-    if(ctx->acquiring)
+    if(ctx->acquiring || ctx->active_callback != NULL)
     {
         MSG("Acquisition already in progress. If mrcam_request_image_...() was called, wait for the callback or call mrcam_cancel_request_image()");
         goto done;
     }
-    ctx->acquiring = false;
 
     ctx->active_callback        = callback;
     ctx->active_callback_cookie = cookie;
@@ -825,7 +839,23 @@ bool request_image(mrcam_t* ctx,
 
  done:
     if(!result)
-        clean_up_acquisition(ctx);
+    {
+        if(ctx->acquiring)
+        {
+            // if still acquiring for some reason, stop that, with limited error checking
+            arv_camera_stop_acquisition(*camera, &error);
+            if(error != NULL)
+            {
+                MSG("Failure!!! Couldn't arv_camera_stop_acquisition() in the error handler: '%s'",
+                    error->message);
+                g_clear_error(&error);
+            }
+
+            // I set the no-acquiring flag even if we failed to stop. Unlikely
+            // we can recover from this.
+            ctx->acquiring = false;
+        }
+    }
 
     return result;
 }
