@@ -95,7 +95,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     mrcam_pixfmt_t pixfmt;
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "|ssiip", keywords,
+                                     "|s$siip:mrcam.__init__", keywords,
                                      &camera_name,
                                      &pixfmt_string,
                                      &width, &height,
@@ -269,7 +269,7 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
     SET_SIGINT();
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "|d", keywords,
+                                     "|$d:mrcam.pull", keywords,
                                      &timeout_sec))
         goto done;
 
@@ -473,7 +473,7 @@ requested_image(camera* self, PyObject* args, PyObject* kwargs)
     SET_SIGINT();
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "|p", keywords,
+                                     "|$p:mrcam.requested_image", keywords,
                                      &block))
         goto done;
 
