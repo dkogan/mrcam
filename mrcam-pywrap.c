@@ -464,6 +464,7 @@ requested_image(camera* self, PyObject* args, PyObject* kwargs)
 {
     // error by default
     PyObject* result = NULL;
+    PyObject* image  = NULL;
 
     char* keywords[] = {"block",
                         NULL};
@@ -482,8 +483,6 @@ requested_image(camera* self, PyObject* args, PyObject* kwargs)
         BARF("Non-blocking mode requestd, but no data is available to be read");
         goto done;
     }
-
-    PyObject* image  = NULL;
 
     image_ready_t s;
     if(sizeof(s) != read_persistent(self->fd_read, (uint8_t*)&s, sizeof(s)))
