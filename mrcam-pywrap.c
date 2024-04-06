@@ -46,7 +46,14 @@ typedef struct {
     PyObject_HEAD
 
     mrcam_t ctx;
-    PyObject* active_callback;
+
+#warning DOCUMENT THIS
+    // should be a part of currently_processing_image()
+    // should have bits to indicate "empty"
+    // error means "not empty, but image.data=NULL"
+    mrcal_image_uint8_t mrcal_image;
+    uint64_t            timestamp_us;
+    int                 pipefd[2];
 
 } camera;
 
@@ -112,7 +119,11 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     if(verbose)
         mrcam_set_verbose();
 
-    self->active_callback = NULL;
+    if(0 != pipe(self->pipefd))
+    {
+        BARF("Couldn't init pipe");
+        goto done;
+    }
 
     result = 0;
 
@@ -123,6 +134,10 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 static void camera_dealloc(camera* self)
 {
     mrcam_free(&self->ctx);
+
+    close(self->pipefd[0]);
+    close(self->pipefd[1]);
+
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
@@ -191,6 +206,12 @@ numpy_image_from_mrcal_image(// type not exact
     }
 }
 
+static bool currently_processing_image(const camera* self)
+{
+#warning finish this
+    return false;
+}
+
 static PyObject*
 pull(camera* self, PyObject* args, PyObject* kwargs)
 {
@@ -201,6 +222,13 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
                         NULL};
 
     double timeout_sec = 0.0;
+
+    if(currently_processing_image(self))
+    {
+        BARF("An image is already being processed...");
+        goto done;
+    }
+
 
     SET_SIGINT();
 
@@ -241,8 +269,8 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
     case MRCAM_bgr:
         {
             if(!mrcam_pull_bgr( (mrcal_image_bgr_t*)&mrcal_image,
-                                (uint64_t)(timeout_sec * 1e6),
-                                &self->ctx))
+                                     (uint64_t)(timeout_sec * 1e6),
+                                     &self->ctx))
             {
                 BARF("mrcam_pull...() failed");
                 goto done;
@@ -272,39 +300,38 @@ callback_generic(mrcal_image_uint8_t mrcal_image, // type might not be exact
                  uint64_t timestamp_us,
                  void* cookie)
 {
-#warning test
-    MSG("top of glue into python callback");
-
-
-
-
     camera* self = (camera*)cookie;
 
-    PyObject* args          = NULL;
-    PyObject* kwargs        = NULL;
-    PyObject* image         = NULL;
-    PyObject* return_object = NULL;
-
-    #warning grabbing GIL does not work if I am not focusing the window
-    PyGILState_STATE gil_state = PyGILState_Ensure();
-
-    MSG("grabbed GIL");
-
-    args = PyTuple_New(0);
-    if(args == NULL)
+    if(1 != write(self->pipefd[1], &(char){'x'}, 1))
     {
-        MSG("FATAL ERROR: COULDN'T CREATE args OBJECT IN CALLBACK");
+        MSG("Couldn't write to pipe!");
+        return;
+    }
+
+    self->mrcal_image  = mrcal_image;
+    self->timestamp_us = timestamp_us;
+}
+
+static PyObject*
+requested_image(camera* self, PyObject* args)
+{
+    // error by default
+    PyObject* result = NULL;
+    PyObject* image  = NULL;
+
+    char buf;
+    if(1 != read(self->pipefd[0], &buf, 1))
+    {
+        BARF("Couldn't read pipe!");
         goto done;
     }
 
-    if(mrcal_image.data != NULL)
+    if(self->mrcal_image.data != NULL)
     {
-        image = numpy_image_from_mrcal_image(&mrcal_image, mrcam_output_type(self->ctx.pixfmt));
+        image = numpy_image_from_mrcal_image(&self->mrcal_image, mrcam_output_type(self->ctx.pixfmt));
         if(image == NULL)
-        {
-            MSG("FATAL ERROR: COULDN'T CONSTRUCT NUMPY ARRAY FROM IMAGE IN CALLBACK");
+            // BARF() already called
             goto done;
-        }
     }
     else
     {
@@ -313,68 +340,29 @@ callback_generic(mrcal_image_uint8_t mrcal_image, // type might not be exact
         Py_INCREF(image);
     }
 
-    kwargs = Py_BuildValue("{sOsk}",
+    result = Py_BuildValue("{sOsk}",
                            "image",        image,
-                           "timestamp_us", timestamp_us);
-    if(kwargs == NULL)
+                           "timestamp_us", self->timestamp_us);
+    if(result == NULL)
     {
-        MSG("FATAL ERROR: COULDN'T CREATE kwargs OBJECT IN CALLBACK");
+        BARF("Couldn't build %s() result", __func__);
         goto done;
     }
 
-    MSG("calling python callback...");
-    PyObject_Print(self->active_callback, stderr, 0);
-
-
-#warning errors in this PyObject_Call() are ignored: wrong kwarg names for instance
-
-
-    return_object = PyObject_Call( self->active_callback, args, kwargs );
-    MSG("... called python callback");
-
-    #warning what if the python callback throws an exception?
-
  done:
-    Py_XDECREF(args);
-    Py_XDECREF(kwargs);
     Py_XDECREF(image);
-    Py_XDECREF(return_object);
-    Py_XDECREF(self->active_callback);
-    self->active_callback = NULL;
 
-    MSG("releasing GIL");
-    PyGILState_Release(gil_state);
-    MSG("did release GIL");
+    return result;
 }
 
 static PyObject*
-request(camera* self, PyObject* args, PyObject* kwargs)
+request(camera* self, PyObject* args)
 {
-    PyObject* callback = NULL;
-
-    char* keywords[] = {"callback",
-                        NULL};
-
-
-    if(self->active_callback != NULL)
+    if(currently_processing_image(self))
     {
-        BARF("Python callback already registered");
+        BARF("An image is already being processed...");
         goto done;
     }
-
-    if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "O", keywords,
-                                     &callback))
-        goto done;
-
-    if(!PyCallable_Check(callback))
-    {
-        BARF("The given callback must be callable");
-        goto done;
-    }
-
-    self->active_callback = callback;
-    Py_INCREF(self->active_callback);
 
     switch(mrcam_output_type(self->ctx.pixfmt))
     {
@@ -415,9 +403,8 @@ request(camera* self, PyObject* args, PyObject* kwargs)
     Py_RETURN_NONE;
 
  done:
-    // error occurred
-    Py_XDECREF(self->active_callback);
-    self->active_callback = NULL;
+
+    // already called BARF()
 
     return NULL;
 }
@@ -431,11 +418,25 @@ static const char pull_docstring[] =
 static const char request_docstring[] =
 #include "request.docstring.h"
     ;
+static const char requested_image_docstring[] =
+#include "requested_image.docstring.h"
+    ;
+static const char fd_image_ready_docstring[] =
+#include "fd_image_ready.docstring.h"
+    ;
+
 
 static PyMethodDef camera_methods[] =
     {
-        PYMETHODDEF_ENTRY(, pull,    METH_VARARGS | METH_KEYWORDS),
-        PYMETHODDEF_ENTRY(, request, METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(, pull,           METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(, request,        METH_NOARGS),
+        PYMETHODDEF_ENTRY(, requested_image,METH_NOARGS),
+        {}
+    };
+
+static PyMemberDef camera_members[] =
+    {
+        {"fd_image_ready", T_INT, offsetof(camera,pipefd[0]), READONLY, fd_image_ready_docstring},
         {}
     };
 
@@ -454,6 +455,7 @@ static PyTypeObject camera_type =
     .tp_init      = (initproc)camera_init,
     .tp_dealloc   = (destructor)camera_dealloc,
     .tp_methods   = camera_methods,
+    .tp_members   = camera_members,
     .tp_flags     = Py_TPFLAGS_DEFAULT,
     .tp_doc       = camera_docstring,
 };
