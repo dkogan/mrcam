@@ -46,23 +46,44 @@ except Exception as e:
     raise e
 
 
-def update(*args):
 
-    # try block needed to avoid potential crashes:
-    #   https://sourceforge.net/p/pyfltk/mailman/pyfltk-user/thread/875xx5ncgp.fsf%40secretsauce.net/#msg58754407
-    try:
-        image = c.get_image()
+
+
+
+def callback_image_ready(fd):
+    frame = c.requested_image()
+
+    image        = frame['image']
+    timestamp_us = frame['timestamp_us']
+
+    if image is not None:
 
         if image.itemsize > 1:
             image = mrcal.apply_color_map(image)
 
         image_widget.update_image(image_data = image)
+
+    else:
+        print("Error capturing the image. I will try again",
+              file=sys.stder)
+
+    Fl.add_timeout(period, update)
+
+def update(*args):
+
+    # try block needed to avoid potential crashes:
+    #   https://sourceforge.net/p/pyfltk/mailman/pyfltk-user/thread/875xx5ncgp.fsf%40secretsauce.net/#msg58754407
+    try:
+        c.request()
     except Exception as e:
         window.hide()
         raise e
 
 
-    Fl.add_timeout(period, update)
+
+
+Fl.add_fd( c.fd_image_ready,
+           callback_image_ready )
 
 update()
 
