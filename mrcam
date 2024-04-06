@@ -123,15 +123,16 @@ def callback_image_ready(fd):
     timestamp_us = frame['timestamp_us']
 
     if image is not None:
-
+        # Update the image preview; deep images are shown as a heat map
         if image.itemsize > 1:
-            image = mrcal.apply_color_map(image)
-
-        image_widget.update_image(image_data = image)
-
+            if image.ndim > 2:
+                raise Exception("high-depth color images not supported yet")
+            image_widget.update_image(image_data = mrcal.apply_color_map(image))
+        else:
+            image_widget.update_image(image_data = image)
     else:
         print("Error capturing the image. I will try again",
-              file=sys.stder)
+              file=sys.stderr)
 
     Fl.add_timeout(args.period, update)
 
@@ -152,5 +153,4 @@ Fl.add_fd( c.fd_image_ready,
            callback_image_ready )
 
 update()
-
 Fl.run()
