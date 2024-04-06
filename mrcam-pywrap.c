@@ -5,6 +5,7 @@
 #include <structmember.h>
 #include <numpy/arrayobject.h>
 #include <signal.h>
+#include <poll.h>
 #include <assert.h>
 
 #include "mrcam.h"
@@ -48,12 +49,15 @@ typedef struct {
     mrcam_t ctx;
 
 #warning DOCUMENT THIS
-    // should be a part of currently_processing_image()
-    // should have bits to indicate "empty"
-    // error means "not empty, but image.data=NULL"
-    mrcal_image_uint8_t mrcal_image;
-    uint64_t            timestamp_us;
-    int                 pipefd[2];
+    // Returned from pipe()
+    union
+    {
+        int pipefd[2];
+        struct
+        {
+            int fd_read, fd_write;
+        };
+    };
 
 } camera;
 
@@ -135,8 +139,8 @@ static void camera_dealloc(camera* self)
 {
     mrcam_free(&self->ctx);
 
-    close(self->pipefd[0]);
-    close(self->pipefd[1]);
+    close(self->fd_read);
+    close(self->fd_write);
 
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
@@ -206,10 +210,25 @@ numpy_image_from_mrcal_image(// type not exact
     }
 }
 
+static bool fd_has_data(int fd)
+{
+    struct pollfd fds = {.fd     = fd,
+                         .events = POLLIN};
+    int result = poll(&fds, 1, 0);
+    if(result < 0)
+    {
+        MSG("poll() failed... reporting that no data is available. Recovery is likely impossible");
+        return false;
+    }
+
+    return result > 0;
+}
+
 static bool currently_processing_image(const camera* self)
 {
-#warning finish this
-    return false;
+#warning need to know if request() but not yet ready
+    return
+        fd_has_data(self->fd_read);
 }
 
 static PyObject*
@@ -295,6 +314,61 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
 }
 
 static
+ssize_t read_persistent(int fd, uint8_t* buf, size_t count)
+{
+    ssize_t N      = 0;
+    ssize_t Nremaining = count;
+    ssize_t Nhere;
+    do
+    {
+        Nhere = read(fd, buf, Nremaining);
+        if(Nhere < 0)
+        {
+            if(errno==EINTR)
+                continue;
+            return Nhere;
+        }
+        if(Nhere == 0)
+            return N;
+        N          += Nhere;
+        Nremaining -= Nhere;
+        buf        = &buf[Nhere];
+    } while(Nremaining);
+    return N;
+}
+static
+ssize_t write_persistent(int fd, const uint8_t* buf, size_t count)
+{
+    ssize_t N      = 0;
+    ssize_t Nremaining = count;
+    ssize_t Nhere;
+    do
+    {
+        Nhere = write(fd, buf, Nremaining);
+        if(Nhere < 0)
+        {
+            if(errno==EINTR)
+                continue;
+            return Nhere;
+        }
+        if(Nhere == 0)
+            return N;
+        N          += Nhere;
+        Nremaining -= Nhere;
+        buf        = &buf[Nhere];
+    } while(Nremaining);
+    return N;
+}
+
+// The structure being sent over the pipe
+typedef struct
+{
+    mrcal_image_uint8_t mrcal_image; // type might not be exact
+    uint64_t            timestamp_us;
+} image_ready_t;
+
+
+static
 void
 callback_generic(mrcal_image_uint8_t mrcal_image, // type might not be exact
                  uint64_t timestamp_us,
@@ -302,14 +376,14 @@ callback_generic(mrcal_image_uint8_t mrcal_image, // type might not be exact
 {
     camera* self = (camera*)cookie;
 
-    if(1 != write(self->pipefd[1], &(char){'x'}, 1))
+    image_ready_t s = {.mrcal_image  = mrcal_image,
+                       .timestamp_us = timestamp_us};
+
+    if(sizeof(s) != write_persistent(self->fd_write, (uint8_t*)&s, sizeof(s)))
     {
-        MSG("Couldn't write to pipe!");
+        MSG("Couldn't write image metadata to pipe!");
         return;
     }
-
-    self->mrcal_image  = mrcal_image;
-    self->timestamp_us = timestamp_us;
 }
 
 static PyObject*
@@ -367,22 +441,41 @@ request(camera* self, PyObject* args)
 }
 
 static PyObject*
-requested_image(camera* self, PyObject* args)
+requested_image(camera* self, PyObject* args, PyObject* kwargs)
 {
     // error by default
     PyObject* result = NULL;
-    PyObject* image  = NULL;
 
-    char buf;
-    if(1 != read(self->pipefd[0], &buf, 1))
+    char* keywords[] = {"block",
+                        NULL};
+
+    int block = 0;
+
+    SET_SIGINT();
+
+    if( !PyArg_ParseTupleAndKeywords(args, kwargs,
+                                     "|p", keywords,
+                                     &block))
+        goto done;
+
+    if(!block && !fd_has_data(self->fd_read))
     {
-        BARF("Couldn't read pipe!");
+        BARF("Non-blocking mode requestd, but no data is available to be read");
         goto done;
     }
 
-    if(self->mrcal_image.data != NULL)
+    PyObject* image  = NULL;
+
+    image_ready_t s;
+    if(sizeof(s) != read_persistent(self->fd_read, (uint8_t*)&s, sizeof(s)))
     {
-        image = numpy_image_from_mrcal_image(&self->mrcal_image, mrcam_output_type(self->ctx.pixfmt));
+        BARF("Couldn't read image metadata from pipe!");
+        goto done;
+    }
+
+    if(s.mrcal_image.data != NULL)
+    {
+        image = numpy_image_from_mrcal_image(&s.mrcal_image, mrcam_output_type(self->ctx.pixfmt));
         if(image == NULL)
             // BARF() already called
             goto done;
@@ -396,7 +489,7 @@ requested_image(camera* self, PyObject* args)
 
     result = Py_BuildValue("{sOsk}",
                            "image",        image,
-                           "timestamp_us", self->timestamp_us);
+                           "timestamp_us", s.timestamp_us);
     if(result == NULL)
     {
         BARF("Couldn't build %s() result", __func__);
@@ -406,6 +499,7 @@ requested_image(camera* self, PyObject* args)
  done:
     Py_XDECREF(image);
 
+    RESET_SIGINT();
     return result;
 }
 
@@ -429,8 +523,8 @@ static const char fd_image_ready_docstring[] =
 static PyMethodDef camera_methods[] =
     {
         PYMETHODDEF_ENTRY(, pull,           METH_VARARGS | METH_KEYWORDS),
-        PYMETHODDEF_ENTRY(, request,        METH_NOARGS),
-        PYMETHODDEF_ENTRY(, requested_image,METH_NOARGS),
+        PYMETHODDEF_ENTRY(, request,        METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(, requested_image,METH_VARARGS | METH_KEYWORDS),
         {}
     };
 
