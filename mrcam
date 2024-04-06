@@ -71,8 +71,6 @@ def parse_args():
 
 args = parse_args()
 
-import numpy as np
-import numpysane as nps
 from fltk import *
 from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
 import mrcal
