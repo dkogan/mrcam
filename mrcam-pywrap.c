@@ -313,49 +313,6 @@ callback_generic(mrcal_image_uint8_t mrcal_image, // type might not be exact
 }
 
 static PyObject*
-requested_image(camera* self, PyObject* args)
-{
-    // error by default
-    PyObject* result = NULL;
-    PyObject* image  = NULL;
-
-    char buf;
-    if(1 != read(self->pipefd[0], &buf, 1))
-    {
-        BARF("Couldn't read pipe!");
-        goto done;
-    }
-
-    if(self->mrcal_image.data != NULL)
-    {
-        image = numpy_image_from_mrcal_image(&self->mrcal_image, mrcam_output_type(self->ctx.pixfmt));
-        if(image == NULL)
-            // BARF() already called
-            goto done;
-    }
-    else
-    {
-        // Error occurred. I return None as the image
-        image = Py_None;
-        Py_INCREF(image);
-    }
-
-    result = Py_BuildValue("{sOsk}",
-                           "image",        image,
-                           "timestamp_us", self->timestamp_us);
-    if(result == NULL)
-    {
-        BARF("Couldn't build %s() result", __func__);
-        goto done;
-    }
-
- done:
-    Py_XDECREF(image);
-
-    return result;
-}
-
-static PyObject*
 request(camera* self, PyObject* args)
 {
     if(currently_processing_image(self))
@@ -407,6 +364,49 @@ request(camera* self, PyObject* args)
     // already called BARF()
 
     return NULL;
+}
+
+static PyObject*
+requested_image(camera* self, PyObject* args)
+{
+    // error by default
+    PyObject* result = NULL;
+    PyObject* image  = NULL;
+
+    char buf;
+    if(1 != read(self->pipefd[0], &buf, 1))
+    {
+        BARF("Couldn't read pipe!");
+        goto done;
+    }
+
+    if(self->mrcal_image.data != NULL)
+    {
+        image = numpy_image_from_mrcal_image(&self->mrcal_image, mrcam_output_type(self->ctx.pixfmt));
+        if(image == NULL)
+            // BARF() already called
+            goto done;
+    }
+    else
+    {
+        // Error occurred. I return None as the image
+        image = Py_None;
+        Py_INCREF(image);
+    }
+
+    result = Py_BuildValue("{sOsk}",
+                           "image",        image,
+                           "timestamp_us", self->timestamp_us);
+    if(result == NULL)
+    {
+        BARF("Couldn't build %s() result", __func__);
+        goto done;
+    }
+
+ done:
+    Py_XDECREF(image);
+
+    return result;
 }
 
 static const char camera_docstring[] =
