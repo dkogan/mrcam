@@ -254,7 +254,7 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
     const uint64_t timestamp_us = 0;
 
 
-    char* keywords[] = {"timeout_us",
+    char* keywords[] = {"timeout",
                         NULL};
 
     double timeout_sec = 0.0;
