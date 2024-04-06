@@ -16,7 +16,73 @@ this tool.
 
 '''
 
+
 import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--verbose',
+                        action='store_true',
+                        help='''If given, we turn on mrcam verbose reporting.
+                        This is separate from the deeper diagnostics provided by
+                        aravis using the ARV_DEBUG environment variable. See the
+                        aravis documentation for those details''')
+
+    parser.add_argument('--period',
+                        type=float,
+                        default = 1.0,
+                        help='''Image capture period, in seconds. Defaults to
+                        1.0sec/frame''')
+
+    parser.add_argument('--single-buffered',
+                        action='store_true',
+                        help='''By default the image display is double-buffered
+                        to avoid flickering. Some graphics hardare (in
+                        particular my old i915-based system) are buggy, and
+                        don't work right in this mode, so --single-buffered is
+                        available to disable double-buffering to work around
+                        those bugs''')
+
+
+
+
+    parser.add_argument('--radius',
+                        type=int,
+                        default = 50,
+                        help='''The radius of the boxes that define the focusing
+                        region-of-interest. If omitted, defaults to 50 pixels''')
+    parser.add_argument('--plot-history',
+                        type=float,
+                        default = 30,
+                        help='''The width of the sharpness plot. If omitted,
+                        defaults to 30 seconds''')
+
+
+
+    parser.add_argument('camera',
+                        type = str,
+                        nargs = '?',
+                        default = '',
+                        help='''The camera to talk to. This is a string passed
+                        to the arv_camera_new() function; see that function's
+                        documentation for details. The string can be IP
+                        addresses or MAC addresses or vendor-model-serialnumber
+                        strings. If omitted, we take the first available camera''')
+
+    args = parser.parse_args()
+
+    return args
+
+
+args = parse_args()
+
 import numpy as np
 import numpysane as nps
 import cv2
@@ -27,66 +93,9 @@ from Fl_gnuplotlib import *
 import mrcam
 
 
-def sharpness(image):
-    '''Reports a measure of sharpness in an image.
-
-    There're many ways to do this. I look at this:
-
-        Said Pertuz, Domenec Puig, Miguel Angel Garcia, "Analysis of focus
-        measure operators for shape-from-focus", Pattern Recognition Volume 46,
-        Isue 5, May 2013.
-
-    They looked at a bunch of operators, and there wasn't a standout. I use the
-    basic norm2(laplacian) since it's simple, and they had decent results with
-    it. This is LAP1 described in section A.17.
-
-    '''
-    L = cv2.Laplacian(image,
-                      ddepth = cv2.CV_32F,
-                      borderType = cv2.BORDER_REFLECT)
-    return nps.norm2(L.ravel())
-
 focus_regions = []
-
 imagersize = None
-
-period     = 0.5
-roi_radius = 50
-
-
-
-def tick(c):
-
-    global imagersize
-
-    # try block needed to avoid potential crashes:
-    #   https://sourceforge.net/p/pyfltk/mailman/pyfltk-user/thread/875xx5ncgp.fsf%40secretsauce.net/#msg58754407
-    try:
-        image = c.get_image()
-        imagersize = np.array((image.shape[1], image.shape[0]), dtype=int)
-
-        image_widget.update_image(image_data = image)
-    except Exception as e:
-        window.hide()
-        raise e
-
-    if not hasattr(tick, 't'): tick.t = 0
-
-    for region in focus_regions:
-        roi  = region['roi']
-        region['data'] = nps.glue(region['data'],
-                                  np.array((tick.t, sharpness(image[roi[0],roi[1]])),
-                                           dtype=float),
-                                  axis = -2)
-
-    if focus_regions:
-        plot_widget.plot(*[(region['data'] - tick.t,
-                            dict(tuplesize = -2,
-                                 _with     = f"lines lw 2 lc \"{region['color_string']}\"")) \
-                           for region in focus_regions])
-
-    tick.t += period
-    Fl.add_timeout(period, tick, c)
+t = 0
 
 
 
@@ -112,6 +121,57 @@ def color_array_from_string(c):
     b = (x >>  0) & 255
     return np.array((r,g,b), dtype=np.float32) / 255.
 
+def sharpness(image):
+    '''Reports a measure of sharpness in an image.
+
+    There're many ways to do this. I look at this:
+
+        Said Pertuz, Domenec Puig, Miguel Angel Garcia, "Analysis of focus
+        measure operators for shape-from-focus", Pattern Recognition Volume 46,
+        Isue 5, May 2013.
+
+    They looked at a bunch of operators, and there wasn't a standout. I use the
+    basic norm2(laplacian) since it's simple, and they had decent results with
+    it. This is LAP1 described in section A.17.
+
+    '''
+
+    # image may be high-depth and it may be in color
+    if image.ndim == 3:
+        image = nps.mag( image.astype(np.float32) )
+    elif image.ndim == 2:
+        image = image.astype(np.float32)
+    else:
+        raise Exception(f"image.shape must be 2 or 3; dont't know what to do with {image.shape=}")
+
+    L = cv2.Laplacian(image,
+                      ddepth = cv2.CV_32F,
+                      borderType = cv2.BORDER_REFLECT)
+    return nps.norm2(L.ravel())
+
+def update_sharpness(image):
+    global t
+    global imagersize
+    if imagersize is None:
+        imagersize = np.array((image.shape[1], image.shape[0]),)
+
+    for region in focus_regions:
+        roi  = region['roi']
+        region['data'] = nps.glue(region['data'],
+                                  np.array((t, sharpness(image[roi[0],roi[1]])),
+                                           dtype=float),
+                                  axis = -2)
+
+    if focus_regions:
+        plot_widget.plot(*[(region['data'] - np.array((t,0),),
+                            dict(tuplesize = -2,
+                                 _with     = f"lines lw 2 lc \"{region['color_string']}\"")) \
+                           for region in focus_regions])
+
+    t += args.period
+
+
+
 
 class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
     def handle(self, event):
@@ -134,8 +194,8 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
         global focus_regions
         global imagersize
 
-        q00 = q - roi_radius
-        q11 = q + roi_radius
+        q00 = q - args.radius
+        q11 = q + args.radius
 
         if imagersize is None             or \
            np.any(q00 < 0)                or \
@@ -171,12 +231,13 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
         return super().handle(event)
 
 
-window       = Fl_Window                 (800, 600, "mrcam camera-focus")
-image_widget = Fl_Gl_Image_Widget_Derived(0,   0, 400,600,
-                                          double_buffered = False)
-plot_widget  = Fl_Gnuplotlib_Window      (400, 0, 400,600,
-                                          # Plot the last 50 seconds
-                                          _xrange=(-50,0))
+window        = Fl_Window(800, 600, "mrcam focus tool")
+image_widget  = Fl_Gl_Image_Widget_Derived(0,  0, 400,600,
+                                           double_buffered = not args.single_buffered)
+plot_widget   = Fl_Gnuplotlib_Window      (400, 0, 400,600,
+                                           ymin = 0,
+                                           _xrange=(-args.plot_history,0)
+                                           )
 window.resizable(window)
 window.end()
 window.show()
@@ -185,11 +246,55 @@ window.show()
 # try block needed to avoid potential crashes:
 #   https://sourceforge.net/p/pyfltk/mailman/pyfltk-user/thread/875xx5ncgp.fsf%40secretsauce.net/#msg58754407
 try:
-    c = mrcam.camera()
+    c = mrcam.camera(args.camera,
+                     verbose = args.verbose)
 except Exception as e:
     window.hide()
     raise e
 
 
-tick(c)
+
+
+
+
+def callback_image_ready(fd):
+    frame = c.requested_image()
+
+    image        = frame['image']
+    timestamp_us = frame['timestamp_us']
+
+    if image is not None:
+        # Update the image preview; deep images are shown as a heat map
+        if image.itemsize > 1:
+            if image.ndim > 2:
+                raise Exception("high-depth color images not supported yet")
+            image_widget.update_image(image_data = mrcal.apply_color_map(image))
+        else:
+            image_widget.update_image(image_data = image)
+
+        update_sharpness(image)
+
+    else:
+        print("Error capturing the image. I will try again",
+              file=sys.stderr)
+
+    Fl.add_timeout(args.period, update)
+
+def update(*args):
+
+    # try block needed to avoid potential crashes:
+    #   https://sourceforge.net/p/pyfltk/mailman/pyfltk-user/thread/875xx5ncgp.fsf%40secretsauce.net/#msg58754407
+    try:
+        c.request()
+    except Exception as e:
+        window.hide()
+        raise e
+
+
+
+
+Fl.add_fd( c.fd_image_ready,
+           callback_image_ready )
+
+update()
 Fl.run()
