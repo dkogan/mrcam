@@ -48,8 +48,10 @@ typedef struct {
 
     mrcam_t ctx;
 
-#warning DOCUMENT THIS
-    // Returned from pipe()
+    // Returned from pipe(). Used by the asynchronous frame grabbing using the
+    // request() function. When a frame is available, a image_ready_t structure
+    // is sent over this pipe. The Python main thread can then read the pipe to
+    // process the frame
     union
     {
         int pipefd[2];
@@ -60,6 +62,13 @@ typedef struct {
     };
 
 } camera;
+
+// The structure being sent over the pipe
+typedef struct
+{
+    mrcal_image_uint8_t mrcal_image; // type might not be exact
+    uint64_t            timestamp_us;
+} image_ready_t;
 
 
 static int
@@ -93,12 +102,19 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
                                      &verbose))
         goto done;
 
-    if(0) ;
 
+    if(0 != pipe(self->pipefd))
+    {
+        BARF("Couldn't init pipe");
+        goto done;
+    }
+
+
+
+    if(0) ;
 #define PARSE(name, ...)                        \
     else if(0 == strcmp(pixfmt_string, #name))  \
         pixfmt = MRCAM_PIXFMT_ ## name;
-
     LIST_MRCAM_PIXFMT(PARSE)
     else
     {
@@ -111,6 +127,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     }
 #undef PARSE
 
+
     if(!mrcam_init(&self->ctx,
                    camera_name,
                    pixfmt,
@@ -122,12 +139,6 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 
     if(verbose)
         mrcam_set_verbose();
-
-    if(0 != pipe(self->pipefd))
-    {
-        BARF("Couldn't init pipe");
-        goto done;
-    }
 
     result = 0;
 
@@ -231,6 +242,7 @@ static bool currently_processing_image(const camera* self)
         fd_has_data(self->fd_read);
 }
 
+// Synchronous frame processing. May block. No pipe
 static PyObject*
 pull(camera* self, PyObject* args, PyObject* kwargs)
 {
@@ -359,14 +371,6 @@ ssize_t write_persistent(int fd, const uint8_t* buf, size_t count)
     } while(Nremaining);
     return N;
 }
-
-// The structure being sent over the pipe
-typedef struct
-{
-    mrcal_image_uint8_t mrcal_image; // type might not be exact
-    uint64_t            timestamp_us;
-} image_ready_t;
-
 
 static
 void
