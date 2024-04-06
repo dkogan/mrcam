@@ -6,6 +6,7 @@ r'''mrcam camera preview tool
 SYNOPSIS
 
   $ mrcam
+
   [ A window pops up showing a live view of the first available camera ]
 
 This tool provides the most basic camera tools: an image preview with some
