@@ -248,6 +248,11 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
 {
     // error by default
     PyObject* result = NULL;
+    PyObject* image  = NULL;
+
+#warning add timestamping
+    const uint64_t timestamp_us = 0;
+
 
     char* keywords[] = {"timeout_us",
                         NULL};
@@ -313,13 +318,23 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
         goto done;
     }
 
-    result = numpy_image_from_mrcal_image(&mrcal_image, mrcam_output_type(self->ctx.pixfmt));
+    image = numpy_image_from_mrcal_image(&mrcal_image, mrcam_output_type(self->ctx.pixfmt));
+    if(image == NULL)
+        // BARF() already called
+        goto done;
 
-    // result =
-    //     Py_BuildValue("(KO)",
-    //                   timestamp_us, image);
+    result = Py_BuildValue("{sOsk}",
+                           "image",        image,
+                           "timestamp_us", timestamp_us);
+    if(result == NULL)
+    {
+        BARF("Couldn't build %s() result", __func__);
+        goto done;
+    }
 
  done:
+
+    Py_XDECREF(image);
 
     RESET_SIGINT();
     return result;
