@@ -381,6 +381,12 @@ bool mrcam_init(// out
     if(error != NULL)
         g_clear_error(&error);
 
+    // For the Emergent HR-20000 cameras. I get lost packets otherwise
+    try_arv_or( arv_camera_set_integer(*camera, "GevSCPSPacketSize", 9000, &error),
+                error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
+    if(error != NULL)
+        g_clear_error(&error);
+
 
 
     try_arv_and( *stream = arv_camera_create_stream(*camera,
