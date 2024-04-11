@@ -118,13 +118,15 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
         return super().handle(event)
 
 
-window        = Fl_Window(800, 600, "mrcam stream")
-group         = Fl_Group(0,0,800,580)
-image_widget  = Fl_Gl_Image_Widget_Derived(0,  0, 800,580,
-                                           double_buffered = not args.single_buffered)
-group.end()
-status_widget = Fl_Output(0, 580, 800, 20)
-window.resizable(group)
+W = 800
+H = 600
+H_STATUS = 20
+window        = Fl_Window(W, H, "mrcam stream")
+image_widget  = Fl_Gl_Image_Widget_Derived(0,  0, W,H-H_STATUS,
+                                           double_buffered = not args.single_buffered
+)
+status_widget = Fl_Output(0, H-H_STATUS, W, H_STATUS)
+window.resizable(image_widget)
 window.end()
 window.show()
 
