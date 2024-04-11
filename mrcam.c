@@ -368,24 +368,22 @@ bool mrcam_init(// out
     if(error != NULL)
         g_clear_error(&error);
 
-    const ArvAcquisitionMode modes_to_try[] =
-        { ARV_ACQUISITION_MODE_SINGLE_FRAME,
-          ARV_ACQUISITION_MODE_MULTI_FRAME };
-    int imode = 0;
-    const int Nmodes = (int)(sizeof(modes_to_try)/sizeof(modes_to_try[0]));
-    for(; imode < Nmodes; imode++)
+    do
     {
-        try_arv_or( arv_camera_set_acquisition_mode(*camera, modes_to_try[imode], &error),
+        try_arv_or( arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_SINGLE_FRAME, &error),
                     error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
         if(error == NULL) break; // success; done
         g_clear_error(&error);
-    }
-    if(imode == Nmodes)
-    {
-        MSG("Failure!!! arv_camera_set_acquisition_mode() couldn't set any common mode. All were rejected");
-        goto done;
-    }
 
+        try_arv_or( arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_MULTI_FRAME, &error),
+                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+        if(error == NULL) break; // success; done
+        g_clear_error(&error);
+
+        MSG("Failure!!! arv_camera_set_acquisition_mode() couldn't set a usable acquisition mode. All were rejected");
+        goto done;
+
+    } while(false);
 
     result = true;
 
