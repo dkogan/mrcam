@@ -56,7 +56,7 @@ static bool parse_args(// out
 {
     void sayusage(bool to_stderr)
     {
-
+#warning usage documentation
         // const char* usage =
         //     #include "mrcam-test.usage.h"
         //     ;
