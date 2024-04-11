@@ -19,6 +19,7 @@ typedef struct { int width,height; } dimensions_t;
     _(const char*,    outdir,  ".",                 required_argument, " DIR",         'o', "o:") \
     _(bool,           jpg,     false,               no_argument,       ,               'j', "j" ) \
     _(double,         period,  1.0,                 required_argument, " PERIOD_SEC",  'T', "T:") \
+    /* The default pixel format is MONO_*. Should match the one in camera_init() in mrcam-pywrap.c */ \
     _(mrcam_pixfmt_t, pixfmt,  MRCAM_PIXFMT_MONO_8, required_argument, " PIXELFORMAT", 'F', ""  ) \
     _(dimensions_t,   dims,    {},                  required_argument, " WIDTH,HEIGHT",'D', ""  ) \
     _(bool,           verbose, false,               no_argument,       ,               'v', "v")
