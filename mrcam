@@ -48,6 +48,12 @@ def parse_args():
     parser.add_argument('--dims',
                         help='''Imager dimensions given as WIDTH,HEIGHT. Required for cameras where this
                         cannot be auto-detected''')
+    parser.add_argument('--pixfmt',
+                        # should match the LIST_OPTIONS macro in mrcam-test.c
+                        # and camera_init() in mrcam-pywrap.c
+                        default = "MONO_8",
+                        help='''The pixel format. If omitted, we use "MONO_8". Pass any invalid format (like
+                        "") to get a list of valid values on stderr.''')
     parser.add_argument('camera',
                         type = str,
                         nargs = '*',
@@ -130,6 +136,8 @@ try:
     if args.dims is not None:
         kwargs['width' ] = args.dims[0]
         kwargs['height'] = args.dims[1]
+    if args.pixfmt is not None:
+        kwargs['pixfmt'] = args.pixfmt
     c = mrcam.camera(args.camera[0],
                      verbose = args.verbose,
                      **kwargs)
