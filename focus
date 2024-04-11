@@ -28,13 +28,13 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument('--verbose',
+    parser.add_argument('--verbose','-v',
                         action='store_true',
                         help='''If given, we turn on mrcam verbose reporting.
                         This is separate from the deeper diagnostics provided by
                         aravis using the ARV_DEBUG environment variable. See the
                         aravis documentation for those details''')
-    parser.add_argument('--period',
+    parser.add_argument('--period','-T',
                         type=float,
                         default = 1.0,
                         help='''Image capture period, in seconds. Defaults to
@@ -47,7 +47,15 @@ def parse_args():
                         don't work right in this mode, so --single-buffered is
                         available to disable double-buffering to work around
                         those bugs''')
-
+    parser.add_argument('--dims',
+                        help='''Imager dimensions given as WIDTH,HEIGHT. Required for cameras where this
+                        cannot be auto-detected''')
+    parser.add_argument('--pixfmt',
+                        # should match the LIST_OPTIONS macro in mrcam-test.c
+                        # and camera_init() in mrcam-pywrap.c
+                        default = "MONO_8",
+                        help='''The pixel format. If omitted, we use "MONO_8". Pass any invalid format (like
+                        "") to get a list of valid values on stderr.''')
 
 
 
@@ -75,6 +83,27 @@ def parse_args():
                         strings. If omitted, we take the first available camera''')
 
     args = parser.parse_args()
+
+    if args.dims is not None:
+        errmsg = f"--dims MUST be followed by integer dimensions given by 'WIDTH,HEIGHT'. Couldn't parse '{args.dims}' that way"
+        m = re.match('([0-9]+),([0-9]+)$', args.dims)
+        if m is None:
+            print(errmsg, file = sys.stderr)
+            sys.exit(1)
+
+        try: w = int(m.group(1))
+        except Exception:
+            print(errmsg, file = sys.stderr)
+            sys.exit(1)
+        try: h = int(m.group(2))
+        except Exception:
+            print(errmsg, file = sys.stderr)
+            sys.exit(1)
+        if w <= 0 or h <= 0:
+            print(errmsg, file = sys.stderr)
+            sys.exit(1)
+
+        args.dims = (w,h)
 
     return args
 
@@ -244,8 +273,15 @@ window.show()
 # try block needed to avoid potential crashes:
 #   https://sourceforge.net/p/pyfltk/mailman/pyfltk-user/thread/875xx5ncgp.fsf%40secretsauce.net/#msg58754407
 try:
+    kwargs = dict()
+    if args.dims is not None:
+        kwargs['width' ] = args.dims[0]
+        kwargs['height'] = args.dims[1]
+    if args.pixfmt is not None:
+        kwargs['pixfmt'] = args.pixfmt
     c = mrcam.camera(args.camera,
-                     verbose = args.verbose)
+                     verbose = args.verbose,
+                     **kwargs)
 except Exception as e:
     window.hide()
     raise e
