@@ -165,7 +165,7 @@ def sharpness(image):
 
     # image may be high-depth and it may be in color
     if image.ndim == 3:
-        image = nps.mag( image.astype(np.float32) )
+        image = nps.mag(image, dtype=np.float32)
     elif image.ndim == 2:
         image = image.astype(np.float32)
     else:
