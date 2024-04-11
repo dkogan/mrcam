@@ -37,11 +37,11 @@ static bool verbose = false;
         }                                               \
     } while(0)
 
-#define try_arv_ok_if(expr, ok_if_cond) do {            \
+#define try_arv_or(expr, condition) do {                \
         if(verbose)                                     \
             MSG("Calling   '" #expr "'");               \
         expr;                                           \
-        if(error != NULL && !(ok_if_cond))              \
+        if(error != NULL && !(condition))               \
         {                                               \
             MSG("Failure!!! '" #expr "' produced '%s'", \
                 error->message);                        \
@@ -50,7 +50,7 @@ static bool verbose = false;
         }                                               \
     } while(0)
 
-#define try_arv_with_extra_condition(expr, condition) do {              \
+#define try_arv_and(expr, condition) do {              \
         if(verbose)                                                     \
             MSG("Calling   '" #expr "'");                               \
         expr;                                                           \
@@ -223,7 +223,7 @@ bool mrcam_init(// out
 
     DEFINE_INTERNALS(ctx);
 
-    try_arv_with_extra_condition( *camera = arv_camera_new (camera_name,
+    try_arv_and( *camera = arv_camera_new (camera_name,
                                                             &error),
                                   ARV_IS_CAMERA(*camera) );
 
@@ -273,8 +273,8 @@ bool mrcam_init(// out
     // doesn't, I ignore that failure
 
 
-    try_arv_ok_if(arv_camera_set_string (*camera, "TestPattern", "Off", &error),
-                  error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND);
+    try_arv_or(arv_camera_set_string (*camera, "TestPattern", "Off", &error),
+               error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND);
     if(error != NULL)
     {
         // No TestPattern setting exists. I ignore the error
@@ -322,8 +322,8 @@ bool mrcam_init(// out
     // forthcoming. So I do that here unconditionally, since it should work for
     // other cameras as well
 
-    try_arv_ok_if( arv_camera_set_string(*camera, "TriggerMode", "On", &error),
-                   error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
+    try_arv_or( arv_camera_set_string(*camera, "TriggerMode", "On", &error),
+                error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
     if(error != NULL)
     {
         // No TriggerMode is available at all. I ignore the error. If there WAS
@@ -333,23 +333,23 @@ bool mrcam_init(// out
 
     // For the Emergent HR-20000 cameras. If either the feature or the requested
     // enum don't exist, I let it go
-    try_arv_ok_if( arv_camera_set_string(*camera, "TriggerSelector", "FrameStart", &error),
-                   error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
-                   error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+    try_arv_or( arv_camera_set_string(*camera, "TriggerSelector", "FrameStart", &error),
+                error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
+                error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
     if(error != NULL)
         g_clear_error(&error);
 
     // For the Emergent HR-20000 cameras. If either the feature or the requested
     // enum don't exist, I let it go
-    try_arv_ok_if( arv_camera_set_string(*camera, "TriggerSource",   "Software", &error),
-                   error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
-                   error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+    try_arv_or( arv_camera_set_string(*camera, "TriggerSource",   "Software", &error),
+                error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
+                error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
     if(error != NULL)
         g_clear_error(&error);
 
 
 
-    try_arv_with_extra_condition( *stream = arv_camera_create_stream(*camera,
+    try_arv_and( *stream = arv_camera_create_stream(*camera,
                                                                      callback_arv, ctx,
                                                                      &error),
                                   ARV_IS_STREAM(*stream) );
@@ -357,8 +357,8 @@ bool mrcam_init(// out
 
     // In case we end up with ARV_ACQUISITION_MODE_MULTI_FRAME, I ask for just
     // one frame. If it fails, I guess that's fine.
-    try_arv_ok_if( arv_camera_set_integer(*camera, "AcquisitionFrameCount", 1, &error),
-                   true );
+    try_arv_or( arv_camera_set_integer(*camera, "AcquisitionFrameCount", 1, &error),
+                true );
     if(error != NULL)
         g_clear_error(&error);
 
@@ -369,8 +369,8 @@ bool mrcam_init(// out
     const int Nmodes = (int)(sizeof(modes_to_try)/sizeof(modes_to_try[0]));
     for(; imode < Nmodes; imode++)
     {
-        try_arv_ok_if( arv_camera_set_acquisition_mode(*camera, modes_to_try[imode], &error),
-                       error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+        try_arv_or( arv_camera_set_acquisition_mode(*camera, modes_to_try[imode], &error),
+                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
         if(error == NULL) break; // success; done
         g_clear_error(&error);
     }
@@ -830,8 +830,8 @@ bool request(mrcam_t* ctx,
 
     // For the Emergent HR-20000 cameras. If the feature doesn't exist, I let it
     // go
-    try_arv_ok_if(arv_camera_execute_command(*camera, "TriggerSoftware", &error),
-                  error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
+    try_arv_or(arv_camera_execute_command(*camera, "TriggerSoftware", &error),
+               error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
     if(error != NULL)
         g_clear_error(&error);
 
