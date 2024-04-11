@@ -387,38 +387,6 @@ bool mrcam_init(// out
     if(error != NULL)
         g_clear_error(&error);
 
-
-
-    try_arv_and( *stream = arv_camera_create_stream(*camera,
-                                                                     callback_arv, ctx,
-                                                                     &error),
-                                  ARV_IS_STREAM(*stream) );
-
-
-    // In case we end up with ARV_ACQUISITION_MODE_MULTI_FRAME, I ask for just
-    // one frame. If it fails, I guess that's fine.
-    try_arv_or( arv_camera_set_integer(*camera, "AcquisitionFrameCount", 1, &error),
-                true );
-    if(error != NULL)
-        g_clear_error(&error);
-
-    do
-    {
-        try_arv_or( arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_SINGLE_FRAME, &error),
-                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
-        if(error == NULL) break; // success; done
-        g_clear_error(&error);
-
-        try_arv_or( arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_MULTI_FRAME, &error),
-                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
-        if(error == NULL) break; // success; done
-        g_clear_error(&error);
-
-        MSG("Failure!!! arv_camera_set_acquisition_mode() couldn't set a usable acquisition mode. All were rejected");
-        goto done;
-
-    } while(false);
-
     result = true;
 
  done:
@@ -869,6 +837,52 @@ bool request(mrcam_t* ctx,
         goto done;
     }
 
+    // To capture a single frame, I create the stream, set stuff up, and do the
+    // capture. This is what arv_camera_acquisition() does. I would like to
+    // create the stream once and to enable the acquisition once, but that
+    // doesn't work in general (FLIR grasshopper works ok; Emergent HR-20000 can
+    // reuse the stream, but needs the acquisition restarted; pleora iport ntx
+    // talking to a tenum needs the whole stream restarted). So I restart
+    // everything.
+    //
+    // To make things even more exciting, the frame de-init happens in
+    // receive_image() after I captured the image. If I'm asynchronous,
+    // receive_image() happens from the callback_arv(), which is called from the
+    // stream thread, which means I cannot stop the stream thread in
+    // receive_image(). So I just let the stream thread run, and restart it when
+    // I need a new frame
+    g_clear_object(stream);
+
+    try_arv_and( *stream = arv_camera_create_stream(*camera,
+                                                    callback_arv, ctx,
+                                                    &error),
+                 ARV_IS_STREAM(*stream) );
+
+    // In case we end up with ARV_ACQUISITION_MODE_MULTI_FRAME, I ask for just
+    // one frame. If it fails, I guess that's fine.
+    try_arv_or( arv_camera_set_integer(*camera, "AcquisitionFrameCount", 1, &error),
+                true );
+    if(error != NULL)
+        g_clear_error(&error);
+
+    do
+    {
+        try_arv_or( arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_SINGLE_FRAME, &error),
+                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+        if(error == NULL) break; // success; done
+        g_clear_error(&error);
+
+        try_arv_or( arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_MULTI_FRAME, &error),
+                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+        if(error == NULL) break; // success; done
+        g_clear_error(&error);
+
+        MSG("Failure!!! arv_camera_set_acquisition_mode() couldn't set a usable acquisition mode. All were rejected");
+        goto done;
+
+    } while(false);
+
+
     ctx->active_callback        = callback;
     ctx->active_callback_cookie = cookie;
 
@@ -906,6 +920,8 @@ bool request(mrcam_t* ctx,
             // we can recover from this.
             ctx->acquiring = false;
         }
+
+        g_clear_object(stream);
     }
 
     return result;
