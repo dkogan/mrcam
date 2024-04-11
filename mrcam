@@ -45,6 +45,9 @@ def parse_args():
                         don't work right in this mode, so --single-buffered is
                         available to disable double-buffering to work around
                         those bugs''')
+    parser.add_argument('--dims',
+                        help='''Imager dimensions given as WIDTH,HEIGHT. Required for cameras where this
+                        cannot be auto-detected''')
     parser.add_argument('camera',
                         type = str,
                         nargs = '*',
@@ -62,6 +65,27 @@ def parse_args():
         print("ERROR: at this time this tool only supports one camera",
               file = sys.stderr)
         sys.exit(1)
+
+    if args.dims is not None:
+        errmsg = f"--dims MUST be followed by integer dimensions given by 'WIDTH,HEIGHT'. Couldn't parse '{args.dims}' that way"
+        m = re.match('([0-9]+),([0-9]+)$', args.dims)
+        if m is None:
+            print(errmsg, file = sys.stderr)
+            sys.exit(1)
+
+        try: w = int(m.group(1))
+        except Exception:
+            print(errmsg, file = sys.stderr)
+            sys.exit(1)
+        try: h = int(m.group(2))
+        except Exception:
+            print(errmsg, file = sys.stderr)
+            sys.exit(1)
+        if w <= 0 or h <= 0:
+            print(errmsg, file = sys.stderr)
+            sys.exit(1)
+
+        args.dims = (w,h)
 
     return args
 
@@ -102,8 +126,13 @@ window.show()
 # try block needed to avoid potential crashes:
 #   https://sourceforge.net/p/pyfltk/mailman/pyfltk-user/thread/875xx5ncgp.fsf%40secretsauce.net/#msg58754407
 try:
+    kwargs = dict()
+    if args.dims is not None:
+        kwargs['width' ] = args.dims[0]
+        kwargs['height'] = args.dims[1]
     c = mrcam.camera(args.camera[0],
-                     verbose = args.verbose)
+                     verbose = args.verbose,
+                     **kwargs)
 except Exception as e:
     window.hide()
     raise e
