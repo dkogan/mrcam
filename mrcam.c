@@ -37,6 +37,27 @@ static bool verbose = false;
         }                                               \
     } while(0)
 
+#define try_arv_extra_reporting(expr, extra_verbose_before, extra_verbose_after, extra_err) do { \
+        if(verbose)                                                     \
+        {                                                               \
+            extra_verbose_before;                                       \
+            MSG("Calling   '" #expr "'");                               \
+        }                                                               \
+        expr;                                                           \
+        if(verbose)                                                     \
+        {                                                               \
+            extra_verbose_after;                                        \
+        }                                                               \
+        if(error != NULL)                                               \
+        {                                                               \
+            MSG("Failure!!! '" #expr "' produced '%s'",                 \
+                error->message);                                        \
+            extra_err;                                                  \
+            g_clear_error(&error);                                      \
+            goto done;                                                  \
+        }                                                               \
+    } while(0)
+
 #define try_arv_or(expr, condition) do {                                \
         if(verbose)                                                     \
             MSG("Calling   '" #expr "'");                               \
@@ -208,6 +229,23 @@ int pixfmt__output_bytes_per_pixel(mrcam_pixfmt_t pixfmt)
 static void
 callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer);
 
+static void report_available_pixel_formats(ArvCamera* camera)
+{
+    GError *error  = NULL;
+    const char** available_pixel_formats = NULL;
+    guint n_pixel_formats;
+
+    MSG("Available pixel formats supported by the camera:");
+    try_arv( available_pixel_formats =
+             arv_camera_dup_available_pixel_formats_as_strings(camera, &n_pixel_formats, &error) );
+    for(guint i=0; i<n_pixel_formats; i++)
+        MSG("  %s",
+            available_pixel_formats[i]);
+
+ done:
+    g_free(available_pixel_formats);
+}
+
 bool mrcam_init(// out
                 mrcam_t* ctx,
                 // in
@@ -252,27 +290,17 @@ bool mrcam_init(// out
     if(arv_pixfmt == 0)
         goto done;
 
-    arv_camera_set_pixel_format(*camera, arv_pixfmt, &error);
-    if(error != NULL)
-    {
-        MSG("Failure!!! Couldn't set the requested pixel format: '%s': '%s'",
-            pixfmt__name(pixfmt),
-            error->message);
-        g_clear_error(&error);
+    try_arv_extra_reporting( arv_camera_set_pixel_format(*camera, arv_pixfmt, &error),
+                             {
+                                 MSG("  Setting pixel format: '%s'", pixfmt__name(pixfmt));
+                             },
+                             {},
+                             {
+                                 MSG("Couldn't set the requested pixel format: '%s'",
+                                     pixfmt__name(pixfmt));
 
-
-        MSG("Available pixel formats supported by the camera:");
-        const char** available_pixel_formats;
-        guint n_pixel_formats;
-        try_arv( available_pixel_formats =
-                 arv_camera_dup_available_pixel_formats_as_strings(*camera, &n_pixel_formats, &error) );
-        for(guint i=0; i<n_pixel_formats; i++)
-            MSG("  %s",
-                available_pixel_formats[i]);
-        g_free(available_pixel_formats);
-
-        goto done;
-    }
+                                 report_available_pixel_formats(*camera);
+                             });
 
     // Some cameras start up with the test-pattern enabled. So I turn it off
     // unconditionally. This setting doesn't exist on all cameras; if it
