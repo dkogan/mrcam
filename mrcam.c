@@ -647,6 +647,11 @@ bool receive_image(mrcam_t* ctx,
         goto done;
     }
 
+    if(verbose)
+    {
+        if (timeout_us > 0) MSG("Evaluating   arv_stream_timeout_pop_buffer(timeout_us = %"PRIu64")", timeout_us);
+        else                MSG("Evaluating   arv_stream_pop_buffer()");
+    }
 
     // May block. If we don't want to block, it's our job to make sure to have
     // called receive_image() when an output image has already been buffered
