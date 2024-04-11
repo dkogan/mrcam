@@ -37,17 +37,23 @@ static bool verbose = false;
         }                                               \
     } while(0)
 
-#define try_arv_or(expr, condition) do {                \
-        if(verbose)                                     \
-            MSG("Calling   '" #expr "'");               \
-        expr;                                           \
-        if(error != NULL && !(condition))               \
-        {                                               \
-            MSG("Failure!!! '" #expr "' produced '%s'", \
-                error->message);                        \
-            g_clear_error(&error);                      \
-            goto done;                                  \
-        }                                               \
+#define try_arv_or(expr, condition) do {                                \
+        if(verbose)                                                     \
+            MSG("Calling   '" #expr "'");                               \
+        expr;                                                           \
+        if(error != NULL)                                               \
+        {                                                               \
+            if(!(condition))                                            \
+            {                                                           \
+                MSG("Failure!!! '" #expr "' produced '%s'",             \
+                    error->message);                                    \
+                g_clear_error(&error);                                  \
+                goto done;                                              \
+            }                                                           \
+            else if(verbose)                                            \
+                MSG("  failed, but extra condition '" #condition "' is true, so this failure is benign"); \
+            g_clear_error(&error);                                      \
+        }                                                               \
     } while(0)
 
 #define try_arv_and(expr, condition) do {              \
