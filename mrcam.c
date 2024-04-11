@@ -866,6 +866,8 @@ bool request(mrcam_t* ctx,
     ctx->active_callback        = callback;
     ctx->active_callback_cookie = cookie;
 
+    if(verbose)
+        MSG("arv_stream_push_buffer()");
     arv_stream_push_buffer(*stream, *buffer);
 
     try_arv( arv_camera_start_acquisition(*camera, &error));
