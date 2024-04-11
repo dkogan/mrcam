@@ -34,13 +34,11 @@ def parse_args():
                         This is separate from the deeper diagnostics provided by
                         aravis using the ARV_DEBUG environment variable. See the
                         aravis documentation for those details''')
-
     parser.add_argument('--period',
                         type=float,
                         default = 1.0,
                         help='''Image capture period, in seconds. Defaults to
                         1.0sec/frame''')
-
     parser.add_argument('--single-buffered',
                         action='store_true',
                         help='''By default the image display is double-buffered
