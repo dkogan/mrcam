@@ -785,13 +785,14 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
     switch (type)
     {
     case ARV_STREAM_CALLBACK_TYPE_INIT:
-        /* Stream thread started.
-         *
-         * Here you may want to change the thread priority arv_make_thread_realtime() or
+        if(verbose)
+            MSG("ARV_STREAM_CALLBACK_TYPE_INIT: Stream thread started");
+        /* Here you may want to change the thread priority arv_make_thread_realtime() or
          * arv_make_thread_high_priority() */
         break;
     case ARV_STREAM_CALLBACK_TYPE_START_BUFFER:
-        /* The first packet of a new frame was received */
+        if(verbose)
+            MSG("ARV_STREAM_CALLBACK_TYPE_START_BUFFER: The first packet of a new frame was received");
         break;
     case ARV_STREAM_CALLBACK_TYPE_BUFFER_DONE:
         /* The buffer is received, successfully or not. It is already pushed in
@@ -803,6 +804,9 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
          * Or use the buffer here. We need to pull it, process it, then push it
          * back for reuse by the stream receiving thread */
         {
+            if(verbose)
+                MSG("ARV_STREAM_CALLBACK_TYPE_BUFFER_DONE");
+
             // type may not be right; it doesn't matter
             mrcal_image_uint8_t image = (mrcal_image_uint8_t){};
             if( receive_image(ctx, 0) )
@@ -838,6 +842,8 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
 
         break;
     case ARV_STREAM_CALLBACK_TYPE_EXIT:
+        if(verbose)
+            MSG("ARV_STREAM_CALLBACK_TYPE_EXIT");
         break;
     }
 }
