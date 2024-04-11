@@ -58,6 +58,7 @@ static bool verbose = false;
         }                                                               \
     } while(0)
 
+// THIS MACRO MAY LEAVE error ALLOCATED. YOU NEED TO g_clear_error() yourself
 #define try_arv_or(expr, condition) do {                                \
         if(verbose)                                                     \
             MSG("Calling   '" #expr "'");                               \
@@ -73,7 +74,6 @@ static bool verbose = false;
             }                                                           \
             else if(verbose)                                            \
                 MSG("  failed, but extra condition '" #condition "' is true, so this failure is benign"); \
-            g_clear_error(&error);                                      \
         }                                                               \
     } while(0)
 
