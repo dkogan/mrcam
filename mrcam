@@ -26,13 +26,13 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument('--verbose',
+    parser.add_argument('--verbose','-v',
                         action='store_true',
                         help='''If given, we turn on mrcam verbose reporting.
                         This is separate from the deeper diagnostics provided by
                         aravis using the ARV_DEBUG environment variable. See the
                         aravis documentation for those details''')
-    parser.add_argument('--period',
+    parser.add_argument('--period','-T',
                         type=float,
                         default = 1.0,
                         help='''Image capture period, in seconds. Defaults to
