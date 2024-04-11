@@ -121,7 +121,8 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 #define SAY(name, ...) "'" #name "', "
         BARF("Unknown pixel format '%s'; I know about: ("
              LIST_MRCAM_PIXFMT(SAY)
-             ")");
+             ")",
+             pixfmt_string);
         goto done;
 #undef SAY
     }
