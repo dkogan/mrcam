@@ -81,6 +81,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
                         "pixfmt",
                         "width",
                         "height",
+                        "recreate_stream_with_each_frame",
                         "verbose",
                         NULL};
 
@@ -91,14 +92,16 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     int width   = 0; // by default, auto-detect the dimensions
     int height  = 0;
     int verbose = 0;
+    int recreate_stream_with_each_frame = 0;
 
     mrcam_pixfmt_t pixfmt;
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "|s$siip:mrcam.__init__", keywords,
+                                     "|s$siipp:mrcam.__init__", keywords,
                                      &camera_name,
                                      &pixfmt_string,
                                      &width, &height,
+                                     &recreate_stream_with_each_frame,
                                      &verbose))
         goto done;
 
@@ -132,7 +135,8 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     if(!mrcam_init(&self->ctx,
                    camera_name,
                    pixfmt,
-                   width, height))
+                   width, height,
+                   recreate_stream_with_each_frame))
     {
         BARF("Couldn't init mrcam camera");
         goto done;

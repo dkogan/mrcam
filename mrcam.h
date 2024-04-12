@@ -79,6 +79,7 @@ typedef struct
     void*                         active_callback_cookie;
 
     bool acquiring : 1;
+    bool recreate_stream_with_each_frame : 1;
 
 } mrcam_t;
 
@@ -94,7 +95,11 @@ bool mrcam_init(// out
                 // values, and the user then MUST provide the correct
                 // dimensions
                 int width,
-                int height);
+                int height,
+
+                // Shouldn't be needed, but I can't get data from some cameras
+                // without it
+                bool recreate_stream_with_each_frame);
 
 // deallocates everything, and sets all the pointers in ctx to NULL
 void mrcam_free(mrcam_t* ctx);

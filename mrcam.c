@@ -331,13 +331,18 @@ bool mrcam_init(// out
                 // values, and the user then MUST provide the correct
                 // dimensions
                 int width,
-                int height)
+                int height,
+
+                // Shouldn't be needed, but I can't get data from some cameras
+                // without it
+                bool recreate_stream_with_each_frame)
 {
     bool result = false;
 
     GError *error  = NULL;
 
-    *ctx = (mrcam_t){};
+    *ctx = (mrcam_t){ .recreate_stream_with_each_frame = recreate_stream_with_each_frame,
+                      .pixfmt                          = pixfmt};
 
     DEFINE_INTERNALS(ctx);
 
@@ -357,8 +362,6 @@ bool mrcam_init(// out
 
     try_arv(arv_camera_set_integer(*camera, "Width",  width,  &error));
     try_arv(arv_camera_set_integer(*camera, "Height", height, &error));
-
-    ctx->pixfmt = pixfmt;
 
     ArvPixelFormat arv_pixfmt = pixfmt__ArvPixelFormat(pixfmt);
     if(arv_pixfmt == 0)
@@ -460,6 +463,10 @@ bool mrcam_init(// out
                 error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
     if(error != NULL)
         g_clear_error(&error);
+
+    if(!ctx->recreate_stream_with_each_frame)
+        if(!init_stream(ctx))
+            goto done;
 
     result = true;
 
@@ -911,8 +918,9 @@ bool request(mrcam_t* ctx,
         goto done;
     }
 
-    if(!init_stream(ctx))
-        goto done;
+    if(ctx->recreate_stream_with_each_frame)
+        if(!init_stream(ctx))
+            goto done;
 
     ctx->active_callback        = callback;
     ctx->active_callback_cookie = cookie;

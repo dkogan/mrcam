@@ -22,6 +22,7 @@ typedef struct { int width,height; } dimensions_t;
     /* The default pixel format is MONO_*. Should match the one in camera_init() in mrcam-pywrap.c */ \
     _(mrcam_pixfmt_t, pixfmt,  MRCAM_PIXFMT_MONO_8, required_argument, " PIXELFORMAT", 'F', ""  ) \
     _(dimensions_t,   dims,    {},                  required_argument, " WIDTH,HEIGHT",'D', ""  ) \
+    _(bool,           recreate_stream_with_each_frame, false, no_argument, ,           'R', "") \
     _(bool,           verbose, false,               no_argument,       ,               'v', "v")
 
 
@@ -118,10 +119,11 @@ static bool parse_args(// out
             }
             break;
 
-        case 'o': options->outdir  = optarg;       break;
-        case 'j': options->jpg     = true;         break;
-        case 'T': options->period  = atof(optarg); break;
-        case 'v': options->verbose = true;         break;
+        case 'o': options->outdir                          = optarg;       break;
+        case 'j': options->jpg                             = true;         break;
+        case 'T': options->period                          = atof(optarg); break;
+        case 'v': options->verbose                         = true;         break;
+        case 'R': options->recreate_stream_with_each_frame = true;         break;
 
         case 'F':
 
@@ -208,7 +210,8 @@ int main(int argc, char **argv)
                        options.camera_names[icam],
                        options.pixfmt,
                        options.dims.width,
-                       options.dims.height))
+                       options.dims.height,
+                       options.recreate_stream_with_each_frame))
             return 1;
     }
 
