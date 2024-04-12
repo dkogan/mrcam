@@ -73,7 +73,8 @@ static bool verbose = false;
                 goto done;                                              \
             }                                                           \
             else if(verbose)                                            \
-                MSG("  failed, but extra condition '" #condition "' is true, so this failure is benign"); \
+                MSG("  failed ('%s'), but extra condition '" #condition "' is true, so this failure is benign", \
+                    error->message);                                    \
         }                                                               \
     } while(0)
 
