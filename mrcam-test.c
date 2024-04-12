@@ -15,21 +15,21 @@
 
 typedef struct { int width,height; } dimensions_t;
 #define LIST_OPTIONS(_)                                                 \
-    _(int,            Nframes, 1,                   required_argument, " N",           'N', "N:") \
-    _(const char*,    outdir,  ".",                 required_argument, " DIR",         'o', "o:") \
-    _(bool,           jpg,     false,               no_argument,       ,               'j', "j" ) \
-    _(double,         period,  1.0,                 required_argument, " PERIOD_SEC",  'T', "T:") \
+    _(int,            Nframes, Nframes, 1,                   required_argument, " N",           'N', "N:") \
+    _(const char*,    outdir,  outdir,  ".",                 required_argument, " DIR",         'o', "o:") \
+    _(bool,           jpg,     jpg,     false,               no_argument,       ,               'j', "j" ) \
+    _(double,         period,  period,  1.0,                 required_argument, " PERIOD_SEC",  'T', "T:") \
     /* The default pixel format is MONO_*. Should match the one in camera_init() in mrcam-pywrap.c */ \
-    _(mrcam_pixfmt_t, pixfmt,  MRCAM_PIXFMT_MONO_8, required_argument, " PIXELFORMAT", 'F', ""  ) \
-    _(dimensions_t,   dims,    {},                  required_argument, " WIDTH,HEIGHT",'D', ""  ) \
-    _(bool,           recreate_stream_with_each_frame, false, no_argument, ,           'R', "") \
-    _(bool,           verbose, false,               no_argument,       ,               'v', "v")
+    _(mrcam_pixfmt_t, pixfmt,  pixfmt,  MRCAM_PIXFMT_MONO_8, required_argument, " PIXELFORMAT", 'F', ""  ) \
+    _(dimensions_t,   dims,    dims,    {},                  required_argument, " WIDTH,HEIGHT",'D', ""  ) \
+    _(bool,           recreate_stream_with_each_frame,recreate-stream-with-each-frame, false, no_argument, ,'R', "") \
+    _(bool,           verbose, verbose, false,               no_argument,       ,               'v', "v")
 
 
 
 
-#define OPTIONS_DECLARE(type, name, default, has_arg, placeholder, id, shortopt) \
-    type name;
+#define OPTIONS_DECLARE(type, name_var, name_opt, default, has_arg, placeholder, id, shortopt) \
+    type name_var;
 typedef struct
 {
     int Ncameras;
@@ -62,8 +62,8 @@ static bool parse_args(// out
         //     #include "mrcam-test.usage.h"
         //     ;
 
-#define OPTIONS_HELP_MSG(type, name, default, has_arg, placeholder, id, shortopt) \
-    "  [--" #name placeholder "]\n"
+#define OPTIONS_HELP_MSG(type, name_var, name_opt, default, has_arg, placeholder, id, shortopt) \
+    "  [--" #name_opt placeholder "]\n"
 
         FILE* fp = to_stderr ? stderr : stdout;
         fprintf(fp,
@@ -73,8 +73,8 @@ static bool parse_args(// out
 
 
 
-#define OPTIONS_LONG_DEF(type, name, default, has_arg, placeholder, id, shortopt) \
-    { #name, has_arg, NULL, id },
+#define OPTIONS_LONG_DEF(type, name_var, name_opt, default, has_arg, placeholder, id, shortopt) \
+    { #name_opt, has_arg, NULL, id },
     struct option option_definition[] = {
         LIST_OPTIONS(OPTIONS_LONG_DEF)
         { "help",                       no_argument,       NULL, 'h' },
@@ -82,15 +82,15 @@ static bool parse_args(// out
     };
 
 
-#define OPTIONS_SHORT_DEF(type, name, default, has_arg, placeholder, id, shortopt) \
+#define OPTIONS_SHORT_DEF(type, name_var, name_opt, default, has_arg, placeholder, id, shortopt) \
     shortopt
     const char* optstring = LIST_OPTIONS(OPTIONS_SHORT_DEF)
         // and --help
         "h";
 
 
-#define OPTIONS_DECLARE_DEFAULT(type, name, default, has_arg, placeholder, id, shortopt) \
-    , .name = default
+#define OPTIONS_DECLARE_DEFAULT(type, name_var, name_opt, default, has_arg, placeholder, id, shortopt) \
+    , .name_var = default
 
 
     *options = (options_t){ .Ncameras = 0
