@@ -365,8 +365,8 @@ bool mrcam_init(// out
     DEFINE_INTERNALS(ctx);
 
     try_arv_and( *camera = arv_camera_new (camera_name,
-                                                            &error),
-                                  ARV_IS_CAMERA(*camera) );
+                                           &error),
+                 ARV_IS_CAMERA(*camera) );
 
     int width  = options->width;
     int height = options->height;
