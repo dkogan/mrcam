@@ -594,7 +594,7 @@ static struct PyModuleDef module_def =
      NULL,
     };
 
-PyMODINIT_FUNC PyInit_mrcam(void)
+PyMODINIT_FUNC PyInit__mrcam(void)
 {
     if (PyType_Ready(&camera_type) < 0)
         return NULL;

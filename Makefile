@@ -30,7 +30,7 @@ LDLIBS += $(shell pkg-config --libs   aravis-0.8) -lavutil -lswscale
 
 ######### python stuff
 mrcam-pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
-mrcam$(PY_EXT_SUFFIX): mrcam-pywrap.o libmrcam.so
+_mrcam$(PY_EXT_SUFFIX): mrcam-pywrap.o libmrcam.so
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $(PY_MRBUILD_LDFLAGS) $< -lmrcam -o $@
 
 PYTHON_OBJECTS := mrcam-pywrap.o
@@ -41,9 +41,9 @@ PYTHON_OBJECTS := mrcam-pywrap.o
 $(PYTHON_OBJECTS): CFLAGS += -Wno-cast-function-type
 $(PYTHON_OBJECTS): CFLAGS += $(PY_MRBUILD_CFLAGS)
 
-DIST_PY3_MODULES := mrcam
+DIST_PY3_MODULES := _mrcam
 
-all: mrcam$(PY_EXT_SUFFIX)
+all: _mrcam$(PY_EXT_SUFFIX)
 
 
 include /usr/include/mrbuild/Makefile.common.footer
