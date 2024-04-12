@@ -137,7 +137,8 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
             .pixfmt                          = pixfmt,
             .width                           = width,
             .height                          = height,
-            .recreate_stream_with_each_frame = recreate_stream_with_each_frame
+            .recreate_stream_with_each_frame = recreate_stream_with_each_frame,
+            .verbose                         = verbose
         };
     if(!mrcam_init(&self->ctx,
                    camera_name,
