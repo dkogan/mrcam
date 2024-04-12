@@ -246,6 +246,7 @@ static void report_available_pixel_formats(ArvCamera* camera)
     g_free(available_pixel_formats);
 }
 
+// camera_name = NULL means "first available camera"
 bool mrcam_init(// out
                 mrcam_t* ctx,
                 // in
