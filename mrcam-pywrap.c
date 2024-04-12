@@ -91,8 +91,8 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     const char* pixfmt_string = "MONO_8";
     int width   = 0; // by default, auto-detect the dimensions
     int height  = 0;
-    int verbose = 0;
     int recreate_stream_with_each_frame = 0;
+    int verbose = 0;
 
     mrcam_pixfmt_t pixfmt;
 
