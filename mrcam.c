@@ -858,6 +858,16 @@ bool request(mrcam_t* ctx,
                                                     &error),
                  ARV_IS_STREAM(*stream) );
 
+    // For the Emergent HR-20000 cameras. I get lost packets otherwise. Running
+    // as root is another workaround: it enables the "Packet socket method".
+    // Either of these are needed in addition to the GevSCPSPacketSize setting
+    // above
+    g_object_set (*stream,
+                  "socket-buffer",      ARV_GV_STREAM_SOCKET_BUFFER_FIXED,
+                  "socket-buffer-size", 20000000,
+                  NULL);
+
+
     // In case we end up with ARV_ACQUISITION_MODE_MULTI_FRAME, I ask for just
     // one frame. If it fails, I guess that's fine.
     try_arv_or( arv_camera_set_integer(*camera, "AcquisitionFrameCount", 1, &error),
