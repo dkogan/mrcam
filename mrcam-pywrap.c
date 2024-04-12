@@ -97,7 +97,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     mrcam_pixfmt_t pixfmt;
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "|s$siipp:mrcam.__init__", keywords,
+                                     "|z$siipp:mrcam.__init__", keywords,
                                      &camera_name,
                                      &pixfmt_string,
                                      &width, &height,
