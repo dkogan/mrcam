@@ -83,23 +83,28 @@ typedef struct
 
 } mrcam_t;
 
+typedef struct
+{
+    const mrcam_pixfmt_t pixfmt;
+    // if either is <=0, we try to autodetect by asking the camera
+    // for WidthMax and HeightMax. Some cameras report the native
+    // resolution of the imager there, but some others report bugus
+    // values, and the user then MUST provide the correct
+    // dimensions
+    int width;
+    int height;
+
+    // Shouldn't be needed, but I can't get data from some cameras
+    // without it
+    bool recreate_stream_with_each_frame;
+} mrcam_options_t;
+
 // camera_name = NULL means "first available camera"
 bool mrcam_init(// out
                 mrcam_t* ctx,
                 // in
                 const char* camera_name,
-                const mrcam_pixfmt_t pixfmt,
-                // if either is <=0, we try to autodetect by asking the camera
-                // for WidthMax and HeightMax. Some cameras report the native
-                // resolution of the imager there, but some others report bugus
-                // values, and the user then MUST provide the correct
-                // dimensions
-                int width,
-                int height,
-
-                // Shouldn't be needed, but I can't get data from some cameras
-                // without it
-                bool recreate_stream_with_each_frame);
+                const mrcam_options_t* options);
 
 // deallocates everything, and sets all the pointers in ctx to NULL
 void mrcam_free(mrcam_t* ctx);

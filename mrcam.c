@@ -324,25 +324,14 @@ bool mrcam_init(// out
                 mrcam_t* ctx,
                 // in
                 const char* camera_name,
-                const mrcam_pixfmt_t pixfmt,
-                // if either is <=0, we try to autodetect by asking the camera
-                // for WidthMax and HeightMax. Some cameras report the native
-                // resolution of the imager there, but some others report bugus
-                // values, and the user then MUST provide the correct
-                // dimensions
-                int width,
-                int height,
-
-                // Shouldn't be needed, but I can't get data from some cameras
-                // without it
-                bool recreate_stream_with_each_frame)
+                const mrcam_options_t* options)
 {
     bool result = false;
 
     GError *error  = NULL;
 
-    *ctx = (mrcam_t){ .recreate_stream_with_each_frame = recreate_stream_with_each_frame,
-                      .pixfmt                          = pixfmt};
+    *ctx = (mrcam_t){ .recreate_stream_with_each_frame = options->recreate_stream_with_each_frame,
+                      .pixfmt                          = options->pixfmt};
 
     DEFINE_INTERNALS(ctx);
 
@@ -350,6 +339,8 @@ bool mrcam_init(// out
                                                             &error),
                                   ARV_IS_CAMERA(*camera) );
 
+    int width  = options->width;
+    int height = options->height;
     if(width <= 0 || height <= 0)
     {
         // Use WidthMax and HeightMax
@@ -363,18 +354,18 @@ bool mrcam_init(// out
     try_arv(arv_camera_set_integer(*camera, "Width",  width,  &error));
     try_arv(arv_camera_set_integer(*camera, "Height", height, &error));
 
-    ArvPixelFormat arv_pixfmt = pixfmt__ArvPixelFormat(pixfmt);
+    ArvPixelFormat arv_pixfmt = pixfmt__ArvPixelFormat(ctx->pixfmt);
     if(arv_pixfmt == 0)
         goto done;
 
     try_arv_extra_reporting( arv_camera_set_pixel_format(*camera, arv_pixfmt, &error),
                              {
-                                 MSG("  Setting pixel format: '%s'", pixfmt__name(pixfmt));
+                                 MSG("  Setting pixel format: '%s'", pixfmt__name(ctx->pixfmt));
                              },
                              {},
                              {
                                  MSG("Couldn't set the requested pixel format: '%s'",
-                                     pixfmt__name(pixfmt));
+                                     pixfmt__name(ctx->pixfmt));
 
                                  report_available_pixel_formats(*camera);
                              });
@@ -398,7 +389,7 @@ bool mrcam_init(// out
 
     enum AVPixelFormat av_pixfmt_input, av_pixfmt_output;
     try(pixfmt__av_pixfmt(&av_pixfmt_input, &av_pixfmt_output,
-                          pixfmt));
+                          ctx->pixfmt));
 
     if(av_pixfmt_input == AV_PIX_FMT_NONE)
     {
@@ -422,7 +413,7 @@ bool mrcam_init(// out
                             // misc stuff
                             SWS_POINT, NULL, NULL, NULL)));
         try(NULL != (ctx->output_image_buffer =
-                     malloc(pixfmt__output_bytes_per_pixel(pixfmt) *
+                     malloc(pixfmt__output_bytes_per_pixel(ctx->pixfmt) *
                             width * height)));
     }
 

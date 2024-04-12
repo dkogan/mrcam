@@ -206,12 +206,16 @@ int main(int argc, char **argv)
     mrcam_t ctx[options.Ncameras];
     for(int icam=0; icam<options.Ncameras; icam++)
     {
+        const mrcam_options_t mrcam_options =
+            {
+                .pixfmt                          = options.pixfmt,
+                .width                           = options.dims.width,
+                .height                          = options.dims.height,
+                .recreate_stream_with_each_frame = options.recreate_stream_with_each_frame
+            };
         if(!mrcam_init(&ctx[icam],
                        options.camera_names[icam],
-                       options.pixfmt,
-                       options.dims.width,
-                       options.dims.height,
-                       options.recreate_stream_with_each_frame))
+                       &mrcam_options))
             return 1;
     }
 

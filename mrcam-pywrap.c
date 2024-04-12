@@ -132,11 +132,16 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 #undef PARSE
 
 
+    const mrcam_options_t mrcam_options =
+        {
+            .pixfmt                          = pixfmt,
+            .width                           = width,
+            .height                          = height,
+            .recreate_stream_with_each_frame = recreate_stream_with_each_frame
+        };
     if(!mrcam_init(&self->ctx,
                    camera_name,
-                   pixfmt,
-                   width, height,
-                   recreate_stream_with_each_frame))
+                   &mrcam_options))
     {
         BARF("Couldn't init mrcam camera");
         goto done;
