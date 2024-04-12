@@ -276,10 +276,38 @@ init_stream(mrcam_t* ctx)
                                                     &error),
                  ARV_IS_STREAM(*stream) );
 
-    // For the Emergent HR-20000 cameras. I get lost packets otherwise. Running
-    // as root is another workaround: it enables the "Packet socket method".
-    // Either of these are needed in addition to the GevSCPSPacketSize setting
-    // above
+    /*
+    For the Emergent HR-20000 cameras. I get lost packets otherwise. Running as
+    root is another workaround: it enables the "Packet socket method". Either of
+    these are needed in addition to the GevSCPSPacketSize setting
+
+    This sets the SO_RCVBUF setting on the socket. Described like this in
+    socket(7):
+
+       SO_RCVBUF
+              Sets or gets the maximum socket receive buffer in bytes. The
+              kernel doubles this value (to allow space for bookkeeping
+              overhead) when it is set using setsockopt(2), and this doubled
+              value is returned by getsockopt(2). The default value is set by
+              the /proc/sys/net/core/rmem_default file, and the maximum allowed
+              value is set by the /proc/sys/net/core/rmem_max file. The minimum
+              (doubled) value for this option is 256.
+
+    The setting ends up in sk_rcvbuf in the kernel:
+
+      https://lxr.linux.no/#linux+v6.7.1/net/core/sock.c#L1250
+      https://lxr.linux.no/#linux+v6.7.1/net/core/sock.c#L960
+
+    Which is used in multiple places in
+
+      https://lxr.linux.no/#linux+v6.7.1/net/ipv4/udp.c
+
+    If the data comes in faster than it can be read, it's stored in this buffer;
+    if the buffer is too small, the packets are thrown away. The logic and
+    available diagnostics are in the udp.c file linked above. /proc/net/snmp
+    records the dropped packets and there's a "udp_fail_queue_rcv_skb"
+    tracepoint to catch some paths
+    */
     g_object_set (*stream,
                   "socket-buffer",      ARV_GV_STREAM_SOCKET_BUFFER_FIXED,
                   "socket-buffer-size", 20000000,
