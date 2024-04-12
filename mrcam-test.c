@@ -198,9 +198,6 @@ int main(int argc, char **argv)
     parse_args(&options,
                argc, argv);
 
-    if(options.verbose)
-        mrcam_set_verbose();
-
     omp_set_num_threads(options.Ncameras);
 
     mrcam_t ctx[options.Ncameras];
@@ -211,7 +208,8 @@ int main(int argc, char **argv)
                 .pixfmt                          = options.pixfmt,
                 .width                           = options.dims.width,
                 .height                          = options.dims.height,
-                .recreate_stream_with_each_frame = options.recreate_stream_with_each_frame
+                .recreate_stream_with_each_frame = options.recreate_stream_with_each_frame,
+                .verbose                         = options.verbose
             };
         if(!mrcam_init(&ctx[icam],
                        options.camera_names[icam],

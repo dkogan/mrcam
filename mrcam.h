@@ -97,6 +97,7 @@ typedef struct
     // Shouldn't be needed, but I can't get data from some cameras
     // without it
     bool recreate_stream_with_each_frame;
+    bool verbose;
 } mrcam_options_t;
 
 // camera_name = NULL means "first available camera"
@@ -111,7 +112,6 @@ void mrcam_free(mrcam_t* ctx);
 
 bool mrcam_is_inited(mrcam_t* ctx);
 
-void mrcam_set_verbose(void);
 
 
 

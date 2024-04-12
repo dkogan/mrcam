@@ -327,8 +327,9 @@ bool mrcam_init(// out
                 const mrcam_options_t* options)
 {
     bool result = false;
-
     GError *error  = NULL;
+
+    verbose = options->verbose;
 
     *ctx = (mrcam_t){ .recreate_stream_with_each_frame = options->recreate_stream_with_each_frame,
                       .pixfmt                          = options->pixfmt};
@@ -495,12 +496,6 @@ bool mrcam_is_inited(mrcam_t* ctx)
 
     return *camera != NULL;
 }
-
-void mrcam_set_verbose(void)
-{
-    verbose = true;
-}
-
 
 // Fill in the image. Assumes that the buffer has valid data
 static

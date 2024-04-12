@@ -147,9 +147,6 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
         goto done;
     }
 
-    if(verbose)
-        mrcam_set_verbose();
-
     result = 0;
 
  done:
