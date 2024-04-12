@@ -246,6 +246,79 @@ static void report_available_pixel_formats(ArvCamera* camera)
     g_free(available_pixel_formats);
 }
 
+static bool
+init_stream(mrcam_t* ctx)
+{
+    bool    result = false;
+    GError *error  = NULL;
+
+    DEFINE_INTERNALS(ctx);
+
+
+    // To capture a single frame, I create the stream, set stuff up, and do the
+    // capture. This is what arv_camera_acquisition() does. I would like to
+    // create the stream once and to enable the acquisition once, but that
+    // doesn't work in general (FLIR grasshopper works ok; Emergent HR-20000 can
+    // reuse the stream, but needs the acquisition restarted; pleora iport ntx
+    // talking to a tenum needs the whole stream restarted). So I restart
+    // everything.
+    //
+    // To make things even more exciting, the frame de-init happens in
+    // receive_image() after I captured the image. If I'm asynchronous,
+    // receive_image() happens from the callback_arv(), which is called from the
+    // stream thread, which means I cannot stop the stream thread in
+    // receive_image(). So I just let the stream thread run, and restart it when
+    // I need a new frame
+    g_clear_object(stream);
+
+    try_arv_and( *stream = arv_camera_create_stream(*camera,
+                                                    callback_arv, ctx,
+                                                    &error),
+                 ARV_IS_STREAM(*stream) );
+
+    // For the Emergent HR-20000 cameras. I get lost packets otherwise. Running
+    // as root is another workaround: it enables the "Packet socket method".
+    // Either of these are needed in addition to the GevSCPSPacketSize setting
+    // above
+    g_object_set (*stream,
+                  "socket-buffer",      ARV_GV_STREAM_SOCKET_BUFFER_FIXED,
+                  "socket-buffer-size", 20000000,
+                  NULL);
+
+
+    // In case we end up with ARV_ACQUISITION_MODE_MULTI_FRAME, I ask for just
+    // one frame. If it fails, I guess that's fine.
+    try_arv_or( arv_camera_set_integer(*camera, "AcquisitionFrameCount", 1, &error),
+                true );
+    if(error != NULL)
+        g_clear_error(&error);
+
+    do
+    {
+        try_arv_or( arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_SINGLE_FRAME, &error),
+                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+        if(error == NULL) break; // success; done
+        g_clear_error(&error);
+
+        try_arv_or( arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_MULTI_FRAME, &error),
+                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+        if(error == NULL) break; // success; done
+        g_clear_error(&error);
+
+        MSG("Failure!!! arv_camera_set_acquisition_mode() couldn't set a usable acquisition mode. All were rejected");
+        goto done;
+
+    } while(false);
+
+    result = true;
+
+ done:
+    if(!result)
+        g_clear_object(stream);
+
+    return result;
+}
+
 // camera_name = NULL means "first available camera"
 bool mrcam_init(// out
                 mrcam_t* ctx,
@@ -838,61 +911,8 @@ bool request(mrcam_t* ctx,
         goto done;
     }
 
-    // To capture a single frame, I create the stream, set stuff up, and do the
-    // capture. This is what arv_camera_acquisition() does. I would like to
-    // create the stream once and to enable the acquisition once, but that
-    // doesn't work in general (FLIR grasshopper works ok; Emergent HR-20000 can
-    // reuse the stream, but needs the acquisition restarted; pleora iport ntx
-    // talking to a tenum needs the whole stream restarted). So I restart
-    // everything.
-    //
-    // To make things even more exciting, the frame de-init happens in
-    // receive_image() after I captured the image. If I'm asynchronous,
-    // receive_image() happens from the callback_arv(), which is called from the
-    // stream thread, which means I cannot stop the stream thread in
-    // receive_image(). So I just let the stream thread run, and restart it when
-    // I need a new frame
-    g_clear_object(stream);
-
-    try_arv_and( *stream = arv_camera_create_stream(*camera,
-                                                    callback_arv, ctx,
-                                                    &error),
-                 ARV_IS_STREAM(*stream) );
-
-    // For the Emergent HR-20000 cameras. I get lost packets otherwise. Running
-    // as root is another workaround: it enables the "Packet socket method".
-    // Either of these are needed in addition to the GevSCPSPacketSize setting
-    // above
-    g_object_set (*stream,
-                  "socket-buffer",      ARV_GV_STREAM_SOCKET_BUFFER_FIXED,
-                  "socket-buffer-size", 20000000,
-                  NULL);
-
-
-    // In case we end up with ARV_ACQUISITION_MODE_MULTI_FRAME, I ask for just
-    // one frame. If it fails, I guess that's fine.
-    try_arv_or( arv_camera_set_integer(*camera, "AcquisitionFrameCount", 1, &error),
-                true );
-    if(error != NULL)
-        g_clear_error(&error);
-
-    do
-    {
-        try_arv_or( arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_SINGLE_FRAME, &error),
-                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
-        if(error == NULL) break; // success; done
-        g_clear_error(&error);
-
-        try_arv_or( arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_MULTI_FRAME, &error),
-                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
-        if(error == NULL) break; // success; done
-        g_clear_error(&error);
-
-        MSG("Failure!!! arv_camera_set_acquisition_mode() couldn't set a usable acquisition mode. All were rejected");
+    if(!init_stream(ctx))
         goto done;
-
-    } while(false);
-
 
     ctx->active_callback        = callback;
     ctx->active_callback_cookie = cookie;
