@@ -98,8 +98,12 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
     def __init__(self,
                  *args,
                  group,
+                 handle_extra = None,
                  **kwargs):
-        self.group = group;
+
+        self.group        = group;
+        self.handle_extra = handle_extra;
+
         return super().__init__(*args, **kwargs)
 
     def handle(self, event):
@@ -111,6 +115,8 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
                 self.group.status_widget.value("")
             # fall through to let parent handlers run
 
+        if self.handle_extra is not None:
+            self.handle_extra(self,event)
         return super().handle(event)
 
 
@@ -124,12 +130,13 @@ class Fl_Image_View_Group(Fl_Group):
                  *,
                  camera,
                  feature_names,
-                 single_buffered = False):
+                 single_buffered = False,
+                 handle_extra    = None):
 
         super().__init__(x,y,w,h)
 
 
-        self.camera = camera
+        self.camera       = camera
 
         if feature_names: w_controls = 300
         else:             w_controls = 0
@@ -137,7 +144,8 @@ class Fl_Image_View_Group(Fl_Group):
         self.image_widget = Fl_Gl_Image_Widget_Derived(x, y,
                                                        w-w_controls, h-h_status,
                                                        group           = self,
-                                                       double_buffered = not single_buffered)
+                                                       double_buffered = not single_buffered,
+                                                       handle_extra    = handle_extra)
         self.status_widget = Fl_Output(0, h-h_status, w, h_status)
 
         if not feature_names:

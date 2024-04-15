@@ -57,7 +57,6 @@ import numpy as np
 import numpysane as nps
 import cv2
 from fltk import *
-from Fl_Gl_Image_Widget import *
 from Fl_gnuplotlib import *
 
 
@@ -141,94 +140,91 @@ def update_sharpness(image):
 
 
 
-class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
-    def handle(self, event):
-        if event != FL_PUSH:
-            return super().handle(event)
+def handle_event_image_widget(widget, event):
+    if event != FL_PUSH:
+        return False
 
-        if Fl.event_button() != FL_RIGHT_MOUSE:
-            return super().handle(event)
+    if Fl.event_button() != FL_RIGHT_MOUSE:
+        return False
 
-        try:
-            q = np.round(np.array(self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ))).astype(int)
-        except:
-            return super().handle(event)
+    try:
+        q = np.round(np.array(widget.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ))).astype(int)
+    except:
+        return False
 
-        if q is None:
-            return super().handle(event)
-
+    if q is None:
+        return False
 
 
-        global focus_regions
-        global imagersize
 
-        q00 = q - args.radius
-        q11 = q + args.radius
+    global focus_regions
+    global imagersize
 
-        if imagersize is None             or \
-           np.any(q00 < 0)                or \
-           np.any(q11 < 0)                or \
-           np.any(imagersize-1 - q00 < 0) or \
-           np.any(imagersize-1 - q11 < 0):
-            return super().handle(event)
+    q00 = q - args.radius
+    q11 = q + args.radius
+
+    if imagersize is None             or \
+       np.any(q00 < 0)                or \
+       np.any(q11 < 0)                or \
+       np.any(imagersize-1 - q00 < 0) or \
+       np.any(imagersize-1 - q11 < 0):
+        return False
 
 
-        # New region
-        focus_regions.append(dict())
-        region = focus_regions[-1]
+    # New region
+    focus_regions.append(dict())
+    region = focus_regions[-1]
 
-        region['roi'] = ( slice(q00[1],q11[1]),
-                          slice(q00[0],q11[0]) )
-        q01 = np.array((q00[0], q11[1]))
-        q10 = np.array((q11[0], q00[1]))
+    region['roi'] = ( slice(q00[1],q11[1]),
+                      slice(q00[0],q11[0]) )
+    q01 = np.array((q00[0], q11[1]))
+    q10 = np.array((q11[0], q00[1]))
 
-        color_string = color_sequence_rgb[ (len(focus_regions)-1) %
-                                          len(color_sequence_rgb)]
-        color_array = color_array_from_string(color_string)
-        region_marking = dict(points = nps.cat(nps.cat(q00,q01),
-                                               nps.cat(q01,q11),
-                                               nps.cat(q11,q10),
-                                               nps.cat(q10,q00)).astype(np.float32),
-                              color_rgb = color_array )
-        region['region_marking'] = region_marking
-        region['color_string']   = color_string
-        self.set_lines( *[r['region_marking'] for r in focus_regions] )
+    color_string = color_sequence_rgb[ (len(focus_regions)-1) %
+                                      len(color_sequence_rgb)]
+    color_array = color_array_from_string(color_string)
+    region_marking = dict(points = nps.cat(nps.cat(q00,q01),
+                                           nps.cat(q01,q11),
+                                           nps.cat(q11,q10),
+                                           nps.cat(q10,q00)).astype(np.float32),
+                          color_rgb = color_array )
+    region['region_marking'] = region_marking
+    region['color_string']   = color_string
+    widget.set_lines( *[r['region_marking'] for r in focus_regions] )
 
-        region['data'] = np.array(())
+    region['data'] = np.array(())
 
-        return super().handle(event)
+    return True
+
+
+kwargs = dict()
+if args.dims is not None:
+    kwargs['width' ] = args.dims[0]
+    kwargs['height'] = args.dims[1]
+if args.pixfmt is not None:
+    kwargs['pixfmt'] = args.pixfmt
+c = mrcam.camera(args.camera,
+                 verbose = args.verbose,
+                 **kwargs)
+
 
 
 window        = Fl_Window(800, 600, "mrcam focus tool")
-image_widget  = Fl_Gl_Image_Widget_Derived(0,  0, 400,600,
-                                           double_buffered = not args.single_buffered)
-plot_widget   = Fl_Gnuplotlib_Window      (400, 0, 400,600,
-                                           ymin = 0,
-                                           _xrange=(-args.plot_history,0)
-                                           )
+image_view_group = mrcam.Fl_Image_View_Group(0,0, 400,600,
+                                             camera          = c,
+                                             single_buffered = args.single_buffered,
+                                             feature_names   = args.features,
+                                             handle_extra    = handle_event_image_widget)
+plot_widget   = Fl_Gnuplotlib_Window        (400, 0, 400,600,
+                                             ymin = 0,
+                                             _xrange=(-args.plot_history,0)
+                                             )
 window.resizable(window)
 window.end()
 window.show()
 
 
-# try block needed to avoid potential crashes:
-#   https://sourceforge.net/p/pyfltk/mailman/pyfltk-user/thread/875xx5ncgp.fsf%40secretsauce.net/#msg58754407
-try:
-    kwargs = dict()
-    if args.dims is not None:
-        kwargs['width' ] = args.dims[0]
-        kwargs['height'] = args.dims[1]
-    if args.pixfmt is not None:
-        kwargs['pixfmt'] = args.pixfmt
-    c = mrcam.camera(args.camera,
-                     verbose = args.verbose,
-                     **kwargs)
-except Exception as e:
-    window.hide()
-    raise e
-
-
-mrcam._set_up_image_capture(c, window, image_widget, args.period,
-                            process_image_callback = update_sharpness)
+image_view_group.set_up_image_capture(args.period,
+                                      process_image_callback = update_sharpness)
 
 Fl.run()
