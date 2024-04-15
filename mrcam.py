@@ -242,9 +242,6 @@ class Fl_Image_View_Group(Fl_Group):
                              *,
                              process_image_callback = None):
 
-        from fltk import Fl
-
-
         def callback_image_ready(fd):
             frame = self.camera.requested_image()
 
