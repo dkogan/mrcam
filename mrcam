@@ -102,12 +102,30 @@ if args.features:
     features                 = [dict() for i in args.features]
     feature_dict_from_widget = dict()
 
-    def feature_callback_slider(widget):
+    def feature_callback_valuator(widget):
         global feature_dict_from_widget
         global c
 
         feature_dict = feature_dict_from_widget[id(widget)]
         c.feature_value(feature_dict['descriptor'], widget.value())
+
+        sync_feature_widgets()
+
+    def feature_callback_button(widget):
+        global feature_dict_from_widget
+        global c
+
+        feature_dict = feature_dict_from_widget[id(widget)]
+        c.feature_value(feature_dict['descriptor'], 1)
+
+        sync_feature_widgets()
+
+    def feature_callback_enum(widget):
+        global feature_dict_from_widget
+        global c
+
+        feature_dict = feature_dict_from_widget[id(widget)]
+        c.feature_value(feature_dict['descriptor'], widget.text())
 
         sync_feature_widgets()
 
@@ -120,7 +138,11 @@ if args.features:
             widget = feature_dict['widget']
             if metadata['locked']: widget.deactivate()
             else:                  widget.activate()
-            widget.value(value)
+
+            if isinstance(value, int) or isinstance(value, float) or isinstance(value, bool):
+                widget.value(value)
+            elif isinstance(value, str):
+                widget.value( widget.find_index(value) )
 
 
     for i,feature in enumerate(args.features):
@@ -130,23 +152,36 @@ if args.features:
 
         t = desc['type']
         if t == 'integer' or t == 'float':
+            if desc['unit']: label = f"feature ({desc['unit']})"
+            else:            label = feature
             widget = Fl_Value_Slider(W-W_CONTROLS, H_CONTROL*i,
                                      W_CONTROLS, H_CONTROL,
-                                     feature)
+                                     label)
             widget.type(FL_HORIZONTAL)
-            widget.bounds(*desc['bounds'])
-            widget.callback(feature_callback_slider)
+            widget.callback(feature_callback_valuator)
         elif t == 'boolean':
-            asdf
+            widget = Fl_Check_Button(W-W_CONTROLS, H_CONTROL*i,
+                                     W_CONTROLS, H_CONTROL,
+                                     feature)
+            widget.callback(feature_callback_valuator)
         elif t == 'command':
-            asdf
+            widget = Fl_Button(W-W_CONTROLS, H_CONTROL*i,
+                               W_CONTROLS, H_CONTROL,
+                               feature)
+            widget.callback(feature_callback_button)
+        elif t == 'enumeration':
+            widget = Fl_Choice(W-W_CONTROLS, H_CONTROL*i,
+                               W_CONTROLS, H_CONTROL,
+                               feature)
+            for s in desc['entries']:
+                widget.add(s)
+            widget.callback(feature_callback_enum)
         else:
-            raise Exception(f"Feature type '{t}' not supported yet")
+            raise Exception(f"Feature type '{t}' not supported")
 
         feature_dict['widget']     = widget
         feature_dict['name']       = feature
         feature_dict['descriptor'] = desc
-
         feature_dict_from_widget[id(widget)] = feature_dict
 
     sync_feature_widgets()

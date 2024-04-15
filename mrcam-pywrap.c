@@ -648,6 +648,7 @@ feature_descriptor(camera* self, PyObject* args, PyObject* kwargs)
     ArvDevice*  device       = NULL;
     GError*     error        = NULL;
     const char* feature      = NULL;
+    const char** available_enum_entries = NULL;
 
     mrcam_t* ctx = &self->ctx; // for the try_arv...() macros
 
@@ -684,7 +685,45 @@ feature_descriptor(camera* self, PyObject* args, PyObject* kwargs)
         goto done;
     }
 
-    if( ARV_IS_GC_INTEGER(feature_node) )
+    // Check enumeration before integer. enumerations provide the integer
+    // interface also, but I want the special enum one
+    if( ARV_IS_GC_ENUMERATION(feature_node) )
+    {
+        guint n_values;
+        try_arv(available_enum_entries =
+                arv_gc_enumeration_dup_available_string_values(ARV_GC_ENUMERATION(feature_node),
+                                                               &n_values,
+                                                               &error));
+        PyObject* entries = PyTuple_New(n_values);
+        if(entries == NULL)
+        {
+            BARF("Couldn't create new tuple of enum entries of %d values", n_values);
+            goto done;
+        }
+        for(guint i=0; i<n_values; i++)
+        {
+            PyObject* s = PyUnicode_FromString(available_enum_entries[i]);
+            if(s == NULL)
+            {
+                BARF("Couldn't create enum entry string");
+                goto done;
+            }
+            PyTuple_SET_ITEM(entries, i, s);
+        }
+
+        result = Py_BuildValue("{ssslsN}",
+                               "type",           "enumeration",
+                               "node",           feature_node,
+                               "entries",        entries);
+        if(result == NULL)
+        {
+            BARF("Couldn't build %s() result", __func__);
+            goto done;
+        }
+
+        goto done;
+    }
+    else if( ARV_IS_GC_INTEGER(feature_node) )
     {
         gint64 min,max,increment;
         try_arv(min       = arv_gc_integer_get_min(ARV_GC_INTEGER(feature_node), &error));
@@ -774,27 +813,14 @@ feature_descriptor(camera* self, PyObject* args, PyObject* kwargs)
         }
 
     }
-    else if( ARV_IS_GC_ENUMERATION(feature_node) )
-    {
-        BARF("enumeration not implemented yet");
-        goto done;
-        // ARV_API const GSList *		arv_gc_enumeration_get_entries			(ArvGcEnumeration *enumeration);
-
-        // ARV_API const char *		arv_gc_enumeration_get_string_value		(ArvGcEnumeration *enumeration, GError **error);
-        // ARV_API gboolean		arv_gc_enumeration_set_string_value		(ArvGcEnumeration *enumeration, const char *value, GError **error);
-        // ARV_API gint64			arv_gc_enumeration_get_int_value		(ArvGcEnumeration *enumeration, GError **error);
-        // ARV_API gboolean		arv_gc_enumeration_set_int_value		(ArvGcEnumeration *enumeration, gint64 value, GError **error);
-        // ARV_API gint64 *		arv_gc_enumeration_dup_available_int_values	(ArvGcEnumeration *enumeration,	guint *n_values, GError **error);
-        // ARV_API const char **		arv_gc_enumeration_dup_available_string_values	(ArvGcEnumeration *enumeration,	guint *n_values, GError **error);
-        // ARV_API const char **		arv_gc_enumeration_dup_available_display_names	(ArvGcEnumeration *enumeration, guint *n_values, GError **error);
-    }
     else
     {
-        BARF("unsupported feature type. I only support (integer,float,boolean,command)");
+        BARF("unsupported feature type. I only support (integer,float,boolean,command,enumeration)");
         goto done;
     }
 
  done:
+    g_free(available_enum_entries);
     return result;
 }
 
@@ -823,8 +849,10 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
                       (const char*[]){"integer",
                                       "float",
                                       "boolean",
+                                      "command",
+                                      "enumeration",
                                       NULL},
-                      "'integer','float','boolean'"))
+                      "'integer','float','boolean','command','enumeration'"))
         goto done;
 
     feature_node = feature_GetNode(feature);
@@ -837,7 +865,18 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
         bool is_locked;
         try_arv(is_locked = arv_gc_feature_node_is_locked(ARV_GC_FEATURE_NODE(feature_node), &error));
 
-        if( ARV_IS_GC_INTEGER(feature_node) )
+        // Check enumeration before integer. enumerations provide the integer
+        // interface also, but I want the special enum one
+        if( ARV_IS_GC_ENUMERATION(feature_node) )
+        {
+            const char* s;
+            try_arv(s = arv_gc_enumeration_get_string_value(ARV_GC_ENUMERATION(feature_node),
+                                                            &error));
+            result = Py_BuildValue("(s{sN})",
+                                   s,
+                                   "locked", is_locked ? Py_True : Py_False);
+        }
+        else if( ARV_IS_GC_INTEGER(feature_node) )
         {
             gint64 value_here;
             try_arv(value_here = arv_gc_integer_get_value(ARV_GC_INTEGER(feature_node),
@@ -851,7 +890,6 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
             double value_here;
             try_arv(value_here = arv_gc_float_get_value(ARV_GC_FLOAT(feature_node),
                                                         &error));
-            MSG("returning %f",value_here);
             result = Py_BuildValue("(d{sN})",
                                    value_here,
                                    "locked", is_locked ? Py_True : Py_False);
@@ -865,16 +903,39 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
                                    value_here ? Py_True : Py_False,
                                    "locked", is_locked ? Py_True : Py_False);
         }
+        else if( ARV_IS_GC_COMMAND(feature_node) )
+        {
+            result = Py_BuildValue("(O{sN})",
+                                   Py_None,
+                                   "locked", is_locked ? Py_True : Py_False);
+        }
         else
         {
-            BARF("BUG: the node must be one of (integer,float,boolean)");
+            BARF("BUG: the node must be one of (integer,float,boolean,command,enumeration)");
             goto done;
         }
     }
     else
     {
         // setter
-        if( ARV_IS_GC_INTEGER(feature_node) )
+
+        // Check enumeration before integer. enumerations provide the integer
+        // interface also, but I want the special enum one
+        if( ARV_IS_GC_ENUMERATION(feature_node) )
+        {
+            if(!PyUnicode_Check(value))
+            {
+                BARF("Expected string for the enumeration entry");
+                goto done;
+            }
+            const char* s = PyUnicode_AsUTF8(value);
+            try_arv(arv_gc_enumeration_set_string_value(ARV_GC_ENUMERATION(feature_node),
+                                                        s,
+                                                        &error));
+            Py_INCREF(Py_None);
+            result = Py_None;
+        }
+        else if( ARV_IS_GC_INTEGER(feature_node) )
         {
             gint64 value_here;
             if(     PyLong_Check(value))  value_here = PyLong_AsLong(value);
@@ -933,9 +994,23 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
             Py_INCREF(Py_None);
             result = Py_None;
         }
+        else if( ARV_IS_GC_COMMAND(feature_node) )
+        {
+            gboolean value_here = PyObject_IsTrue(value);
+            if(PyErr_Occurred())
+            {
+                BARF("Given value not interpretable as a boolean");
+                goto done;
+            }
+            if(value_here)
+                try_arv(arv_gc_command_execute(ARV_GC_COMMAND(feature_node),
+                                               &error));
+            Py_INCREF(Py_None);
+            result = Py_None;
+        }
         else
         {
-            BARF("BUG: the node must be one of (integer,float,boolean)");
+            BARF("BUG: the node must be one of (integer,float,boolean,command,enumeration)");
             goto done;
         }
     }
@@ -943,43 +1018,6 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
  done:
     return result;
 }
-
-static PyObject*
-feature_command(camera* self, PyObject* args, PyObject* kwargs)
-{
-    // error by default
-    PyObject* result       = NULL;
-    PyObject* feature      = NULL;
-    void*     feature_node = NULL;
-    GError*   error        = NULL;
-
-    mrcam_t* ctx = &self->ctx; // for the try_arv...() macros
-
-    char* keywords[] = {"feature",
-                        NULL};
-
-    if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "O:mrcam.feature_command", keywords,
-                                     &feature))
-        goto done;
-
-    if(!feature_Check(feature,
-                      (const char*[]){"control",
-                                      NULL},
-                      NULL))
-        goto done;
-
-    feature_node = feature_GetNode(feature);
-    if(feature_node == NULL) goto done;
-
-    try_arv(arv_gc_command_execute(ARV_GC_COMMAND(feature_node), &error));
-
-    Py_INCREF(Py_None);
-    result = Py_None;
- done:
-    return result;
-}
-
 
 static const char camera_docstring[] =
 #include "camera.docstring.h"
@@ -1002,9 +1040,6 @@ static const char feature_descriptor_docstring[] =
 static const char feature_value_docstring[] =
 #include "feature_value.docstring.h"
     ;
-static const char feature_command_docstring[] =
-#include "feature_command.docstring.h"
-    ;
 
 
 static PyMethodDef camera_methods[] =
@@ -1015,7 +1050,6 @@ static PyMethodDef camera_methods[] =
 
         PYMETHODDEF_ENTRY(, feature_descriptor, METH_VARARGS | METH_KEYWORDS),
         PYMETHODDEF_ENTRY(, feature_value,      METH_VARARGS | METH_KEYWORDS),
-        PYMETHODDEF_ENTRY(, feature_command,    METH_VARARGS | METH_KEYWORDS),
         {}
     };
 
