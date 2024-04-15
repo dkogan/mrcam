@@ -148,10 +148,6 @@ class Fl_Image_View_Group(Fl_Group):
                                                        handle_extra    = handle_extra)
         self.status_widget = Fl_Output(0, h-h_status, w, h_status)
 
-        if not feature_names:
-            return
-
-
         # Need group to control resizing: I want to fix the sizes of the widgets in
         # the group, so I group.resizable(None) later
         group = Fl_Group(w-w_controls, 0,
