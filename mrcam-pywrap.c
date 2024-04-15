@@ -872,7 +872,7 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
             const char* s;
             try_arv(s = arv_gc_enumeration_get_string_value(ARV_GC_ENUMERATION(feature_node),
                                                             &error));
-            result = Py_BuildValue("(s{sN})",
+            result = Py_BuildValue("(s{sO})",
                                    s,
                                    "locked", is_locked ? Py_True : Py_False);
         }
@@ -881,7 +881,7 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
             gint64 value_here;
             try_arv(value_here = arv_gc_integer_get_value(ARV_GC_INTEGER(feature_node),
                                                           &error));
-            result = Py_BuildValue("(l{sN})",
+            result = Py_BuildValue("(l{sO})",
                                    (long)value_here,
                                    "locked", is_locked ? Py_True : Py_False);
         }
@@ -890,7 +890,7 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
             double value_here;
             try_arv(value_here = arv_gc_float_get_value(ARV_GC_FLOAT(feature_node),
                                                         &error));
-            result = Py_BuildValue("(d{sN})",
+            result = Py_BuildValue("(d{sO})",
                                    value_here,
                                    "locked", is_locked ? Py_True : Py_False);
         }
@@ -899,13 +899,13 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
             gboolean value_here;
             try_arv(value_here = arv_gc_boolean_get_value(ARV_GC_BOOLEAN(feature_node),
                                                           &error));
-            result = Py_BuildValue("(N{sN})",
+            result = Py_BuildValue("(N{sO})",
                                    value_here ? Py_True : Py_False,
                                    "locked", is_locked ? Py_True : Py_False);
         }
         else if( ARV_IS_GC_COMMAND(feature_node) )
         {
-            result = Py_BuildValue("(O{sN})",
+            result = Py_BuildValue("(O{sO})",
                                    Py_None,
                                    "locked", is_locked ? Py_True : Py_False);
         }
