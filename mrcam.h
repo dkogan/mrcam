@@ -80,6 +80,7 @@ typedef struct
 
     bool acquiring : 1;
     bool recreate_stream_with_each_frame : 1;
+    bool verbose : 1;
 
 } mrcam_t;
 

@@ -11,7 +11,7 @@
 #endif
 
 #define try(expr, ...) do {                                     \
-        if(verbose)                                             \
+        if(ctx->verbose)                                        \
             MSG("Evaluating   '" #expr "'");                    \
         if(!(expr))                                             \
         {                                                       \
@@ -21,7 +21,7 @@
     } while(0)
 
 #define try_arv(expr) do {                              \
-        if(verbose)                                     \
+        if(ctx->verbose)                                \
             MSG("Calling   '" #expr "'");               \
         expr;                                           \
         if(error != NULL)                               \
@@ -34,13 +34,13 @@
     } while(0)
 
 #define try_arv_extra_reporting(expr, extra_verbose_before, extra_verbose_after, extra_err) do { \
-        if(verbose)                                                     \
+        if(ctx->verbose)                                                \
         {                                                               \
             extra_verbose_before;                                       \
             MSG("Calling   '" #expr "'");                               \
         }                                                               \
         expr;                                                           \
-        if(verbose)                                                     \
+        if(ctx->verbose)                                                \
         {                                                               \
             extra_verbose_after;                                        \
         }                                                               \
@@ -56,7 +56,7 @@
 
 // THIS MACRO MAY LEAVE error ALLOCATED. YOU NEED TO g_clear_error() yourself
 #define try_arv_or(expr, condition) do {                                \
-        if(verbose)                                                     \
+        if(ctx->verbose)                                                \
             MSG("Calling   '" #expr "'");                               \
         expr;                                                           \
         if(error != NULL)                                               \
@@ -68,14 +68,14 @@
                 g_clear_error(&error);                                  \
                 goto done;                                              \
             }                                                           \
-            else if(verbose)                                            \
+            else if(ctx->verbose)                                       \
                 MSG("  failed ('%s'), but extra condition '" #condition "' is true, so this failure is benign", \
                     error->message);                                    \
         }                                                               \
     } while(0)
 
-#define try_arv_and(expr, condition) do {              \
-        if(verbose)                                                     \
+#define try_arv_and(expr, condition) do {                               \
+        if(ctx->verbose)                                                \
             MSG("Calling   '" #expr "'");                               \
         expr;                                                           \
         if(error != NULL)                                               \

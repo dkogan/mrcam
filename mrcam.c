@@ -11,12 +11,6 @@
 #include "util.h"
 
 
-// This is meant for debugging, so making it a global is fine
-static bool verbose = false;
-
-
-
-
 #define DEFINE_INTERNALS(ctx)                                           \
     ArvCamera** camera __attribute__((unused)) = (ArvCamera**)(&(ctx)->camera); \
     ArvBuffer** buffer __attribute__((unused)) = (ArvBuffer**)(&(ctx)->buffer); \
@@ -149,7 +143,8 @@ int pixfmt__output_bytes_per_pixel(mrcam_pixfmt_t pixfmt)
 static void
 callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer);
 
-static void report_available_pixel_formats(ArvCamera* camera)
+static void report_available_pixel_formats(ArvCamera* camera,
+                                           mrcam_t* ctx)
 {
     GError *error  = NULL;
     const char** available_pixel_formats = NULL;
@@ -277,10 +272,9 @@ bool mrcam_init(// out
     bool result = false;
     GError *error  = NULL;
 
-    verbose = options->verbose;
-
     *ctx = (mrcam_t){ .recreate_stream_with_each_frame = options->recreate_stream_with_each_frame,
-                      .pixfmt                          = options->pixfmt};
+                      .pixfmt                          = options->pixfmt,
+                      .verbose                         = options->verbose};
 
     DEFINE_INTERNALS(ctx);
 
@@ -316,7 +310,7 @@ bool mrcam_init(// out
                                  MSG("Couldn't set the requested pixel format: '%s'",
                                      pixfmt__name(ctx->pixfmt));
 
-                                 report_available_pixel_formats(*camera);
+                                 report_available_pixel_formats(*camera, ctx);
                              });
 
     // Some cameras start up with the test-pattern enabled. So I turn it off
@@ -664,7 +658,7 @@ bool receive_image(mrcam_t* ctx,
         goto done;
     }
 
-    if(verbose)
+    if(ctx->verbose)
     {
         if (timeout_us > 0) MSG("Evaluating   arv_stream_timeout_pop_buffer(timeout_us = %"PRIu64")", timeout_us);
         else                MSG("Evaluating   arv_stream_pop_buffer()");
@@ -676,7 +670,7 @@ bool receive_image(mrcam_t* ctx,
     else                buffer_here = arv_stream_pop_buffer        (*stream);
 
     // This MUST have been done by this function, regardless of things failing
-    try_arv(arv_camera_stop_acquisition(*camera, &error));
+    try_arv_or(arv_camera_stop_acquisition(*camera, &error), 1);
     // if it failed, ctx->acquiring will remain at true. Probably there's no way
     // to recover anyway
     ctx->acquiring = false;
@@ -774,13 +768,13 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
     switch (type)
     {
     case ARV_STREAM_CALLBACK_TYPE_INIT:
-        if(verbose)
+        if(ctx->verbose)
             MSG("ARV_STREAM_CALLBACK_TYPE_INIT: Stream thread started");
         /* Here you may want to change the thread priority arv_make_thread_realtime() or
          * arv_make_thread_high_priority() */
         break;
     case ARV_STREAM_CALLBACK_TYPE_START_BUFFER:
-        if(verbose)
+        if(ctx->verbose)
             MSG("ARV_STREAM_CALLBACK_TYPE_START_BUFFER: The first packet of a new frame was received");
         break;
     case ARV_STREAM_CALLBACK_TYPE_BUFFER_DONE:
@@ -793,7 +787,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
          * Or use the buffer here. We need to pull it, process it, then push it
          * back for reuse by the stream receiving thread */
         {
-            if(verbose)
+            if(ctx->verbose)
                 MSG("ARV_STREAM_CALLBACK_TYPE_BUFFER_DONE");
 
             // type may not be right; it doesn't matter
@@ -831,7 +825,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
 
         break;
     case ARV_STREAM_CALLBACK_TYPE_EXIT:
-        if(verbose)
+        if(ctx->verbose)
             MSG("ARV_STREAM_CALLBACK_TYPE_EXIT");
         break;
     }
@@ -859,7 +853,7 @@ bool request(mrcam_t* ctx,
     ctx->active_callback        = callback;
     ctx->active_callback_cookie = cookie;
 
-    if(verbose)
+    if(ctx->verbose)
         MSG("arv_stream_push_buffer()");
     arv_stream_push_buffer(*stream, *buffer);
 
