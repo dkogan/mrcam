@@ -8,8 +8,9 @@
 #include <poll.h>
 #include <assert.h>
 
+#include <arv.h>
+
 #include "mrcam.h"
-#include "util.h"
 
 #define PYMETHODDEF_ENTRY(function_prefix, name, args) {#name,          \
                                                         (PyCFunction)function_prefix ## name, \
@@ -17,6 +18,11 @@
                                                         function_prefix ## name ## _docstring}
 
 #define BARF(fmt, ...) PyErr_Format(PyExc_RuntimeError, "%s:%d %s(): "fmt, __FILE__, __LINE__, __func__, ## __VA_ARGS__)
+
+// the try...() macros in util.h will produce Python errors
+#define ERR(fmt, ...) BARF(fmt, ##__VA_ARGS__)
+#include "util.h"
+
 
 
 // Python is silly. There's some nuance about signal handling where it sets a
@@ -529,6 +535,389 @@ requested_image(camera* self, PyObject* args, PyObject* kwargs)
     return result;
 }
 
+
+// PyDict_GetItemString() with full error checking. The documentation:
+//   https://docs.python.org/3/c-api/dict.html
+// suggests to not use PyDict_GetItemString() but to do more complete error
+// checking ourselves. This function does that
+static PyObject* GetItemString(PyObject* dict, const char* key_string)
+{
+    PyObject* key    = NULL;
+    PyObject* result = NULL;
+
+    key = PyUnicode_FromString(key_string);
+    if(key == NULL)
+    {
+        BARF("Couldn't create PyObject from short string. Giving up");
+        goto done;
+    }
+    result = PyDict_GetItemWithError(dict, key);
+    if(result == NULL)
+    {
+        if(!PyErr_Occurred())
+            BARF("No expected key '%s' found in dict", key_string);
+        goto done;
+    }
+
+ done:
+    Py_XDECREF(key);
+    return result;
+}
+
+// The feature must be of any of the types in what[]. The list is ended with a
+// NULL. what_all_string is for error reporting
+static bool feature_Check(PyObject* feature,
+                          const char** what,
+                          const char* what_all_string)
+{
+    if(!PyDict_Check(feature))
+    {
+        BARF("Expected to be passed a dict. The one returned by mrcam.feature_descriptor()");
+        return false;
+    }
+
+    PyObject* type = GetItemString(feature, "type");
+    if(type == NULL) return false;
+
+    if(!PyUnicode_Check(type))
+    {
+        BARF("The 'type' must be a string");
+        return false;
+    }
+    if(*what == NULL)
+    {
+        BARF("BUG: nothing in the what[] list");
+        return false;
+    }
+    while(*what)
+    {
+        if(0 == PyUnicode_CompareWithASCIIString(type, *what))
+            return true;
+        what = &what[1];
+    }
+
+    if(what_all_string)
+        BARF("The 'type' must be any of (%s), but here it is '%S'",
+             what_all_string,
+             type);
+    else
+        BARF("The 'type' must be '%s', but here it is '%S'",
+             what,
+             type);
+    return false;
+}
+
+static void* feature_GetNode(PyObject* feature)
+{
+    PyObject* node = GetItemString(feature, "node");
+    if(node == NULL) return NULL;
+
+    if(!PyLong_Check(node))
+    {
+        BARF("The 'node' must be a long");
+        return NULL;
+    }
+    static_assert(sizeof(void*) >= sizeof(long), "I'm using a PyLong to store a pointer; it must be large-enough");
+
+    typedef union
+    {
+        void* node;
+        long  long_value;
+    } node_and_long_t;
+
+    node_and_long_t u = {.long_value = PyLong_AsLong(node)};
+    if(PyErr_Occurred())
+    {
+        BARF("The 'node' couldn't be interpreted numerically");
+        return NULL;
+    }
+    if(u.node == NULL)
+    {
+        BARF("The 'node' was NULL");
+        return NULL;
+    }
+    return u.node;
+}
+
+static PyObject*
+feature_descriptor(camera* self, PyObject* args, PyObject* kwargs)
+{
+    // error by default
+    PyObject*   result       = NULL;
+    ArvGcNode*  feature_node = NULL;
+    ArvDevice*  device       = NULL;
+    GError*     error        = NULL;
+    const char* feature      = NULL;
+
+    mrcam_t* ctx = &self->ctx; // for the try_arv...() macros
+
+    char* keywords[] = {"feature",
+                        NULL};
+
+    if( !PyArg_ParseTupleAndKeywords(args, kwargs,
+                                     "s:mrcam.feature_descriptor", keywords,
+                                     &feature))
+        goto done;
+
+    device = arv_camera_get_device(ARV_CAMERA(self->ctx.camera));
+    if(device == NULL)
+    {
+        BARF("Couldn't arv_camera_get_device()");
+        goto done;
+    }
+
+    feature_node = arv_device_get_feature(device, feature);
+    if(feature_node == NULL)
+    {
+        BARF("Couldn't arv_device_get_feature(\"%s\")", feature);
+        goto done;
+    }
+
+    bool is_available, is_implemented, is_locked;
+
+    try_arv(is_available   = arv_gc_feature_node_is_available(  ARV_GC_FEATURE_NODE(feature_node), &error));
+    try_arv(is_implemented = arv_gc_feature_node_is_implemented(ARV_GC_FEATURE_NODE(feature_node), &error));
+    try_arv(is_locked      = arv_gc_feature_node_is_locked(     ARV_GC_FEATURE_NODE(feature_node), &error));
+    if(!(is_available && is_implemented && !is_locked))
+    {
+#warning "changing stuff might change the 'locked' state; need to check with each iteration"
+        BARF("feature '%s' must be available,implemented,!locked; I have (%d,%d,%d)",
+             feature,
+             is_available, is_implemented, !is_locked);
+        goto done;
+    }
+
+    if( ARV_IS_GC_INTEGER(feature_node) )
+    {
+        result = Py_BuildValue("{sssl}",
+                               "type", "integer",
+                               "node", feature_node);
+        if(result == NULL)
+        {
+            BARF("Couldn't build %s() result", __func__);
+            goto done;
+        }
+
+        // ARV_API gint64			arv_gc_integer_get_min			(ArvGcInteger *gc_integer, GError **error);
+        // ARV_API gint64			arv_gc_integer_get_max			(ArvGcInteger *gc_integer, GError **error);
+        // ARV_API gint64			arv_gc_integer_get_inc			(ArvGcInteger *gc_integer, GError **error);
+        // ARV_API ArvGcRepresentation	arv_gc_integer_get_representation	(ArvGcInteger *gc_integer);
+	// ARV_GC_REPRESENTATION_LINEAR;
+	// ARV_GC_REPRESENTATION_LOGARITHMIC;
+	// ARV_GC_REPRESENTATION_BOOLEAN;
+        // ARV_API const char *		arv_gc_integer_get_unit			(ArvGcInteger *gc_integer);
+    }
+    else if( ARV_IS_GC_FLOAT(feature_node) )
+    {
+        result = Py_BuildValue("{sssl}",
+                               "type", "float",
+                               "node", feature_node);
+        if(result == NULL)
+        {
+            BARF("Couldn't build %s() result", __func__);
+            goto done;
+        }
+
+        // ARV_API double			arv_gc_float_get_min			(ArvGcFloat *gc_float, GError **error);
+        // ARV_API double			arv_gc_float_get_max			(ArvGcFloat *gc_float, GError **error);
+        // ARV_API double			arv_gc_float_get_inc			(ArvGcFloat *gc_float, GError **error);
+        // ARV_API ArvGcRepresentation	arv_gc_float_get_representation		(ArvGcFloat *gc_float);
+        // ARV_API const char *		arv_gc_float_get_unit			(ArvGcFloat *gc_float);
+        // ARV_API ArvGcDisplayNotation	arv_gc_float_get_display_notation	(ArvGcFloat *gc_float);
+        // ARV_API gint64			arv_gc_float_get_display_precision	(ArvGcFloat *gc_float);
+
+
+    }
+    else if( ARV_IS_GC_BOOLEAN(feature_node) )
+    {
+        result = Py_BuildValue("{sssl}",
+                               "type", "boolean",
+                               "node", feature_node);
+        if(result == NULL)
+        {
+            BARF("Couldn't build %s() result", __func__);
+            goto done;
+        }
+    }
+    else if( ARV_IS_GC_COMMAND(feature_node) )
+    {
+        result = Py_BuildValue("{sssl}",
+                               "type", "command",
+                               "node", feature_node);
+        if(result == NULL)
+        {
+            BARF("Couldn't build %s() result", __func__);
+            goto done;
+        }
+
+    }
+    else if( ARV_IS_GC_ENUMERATION(feature_node) )
+    {
+        BARF("enumeration not implemented yet");
+        goto done;
+        // ARV_API const GSList *		arv_gc_enumeration_get_entries			(ArvGcEnumeration *enumeration);
+
+        // ARV_API const char *		arv_gc_enumeration_get_string_value		(ArvGcEnumeration *enumeration, GError **error);
+        // ARV_API gboolean		arv_gc_enumeration_set_string_value		(ArvGcEnumeration *enumeration, const char *value, GError **error);
+        // ARV_API gint64			arv_gc_enumeration_get_int_value		(ArvGcEnumeration *enumeration, GError **error);
+        // ARV_API gboolean		arv_gc_enumeration_set_int_value		(ArvGcEnumeration *enumeration, gint64 value, GError **error);
+        // ARV_API gint64 *		arv_gc_enumeration_dup_available_int_values	(ArvGcEnumeration *enumeration,	guint *n_values, GError **error);
+        // ARV_API const char **		arv_gc_enumeration_dup_available_string_values	(ArvGcEnumeration *enumeration,	guint *n_values, GError **error);
+        // ARV_API const char **		arv_gc_enumeration_dup_available_display_names	(ArvGcEnumeration *enumeration, guint *n_values, GError **error);
+    }
+    else
+    {
+        BARF("unsupported feature type. I only support (integer,float,boolean,command)");
+        goto done;
+    }
+
+ done:
+    return result;
+}
+
+static PyObject*
+feature_value(camera* self, PyObject* args, PyObject* kwargs)
+{
+    // error by default
+    PyObject* result       = NULL;
+    PyObject* feature      = NULL;
+    PyObject* value        = NULL;
+    void*     feature_node = NULL;
+    GError*   error        = NULL;
+
+    mrcam_t* ctx = &self->ctx; // for the try_arv...() macros
+
+    char* keywords[] = {"feature",
+                        "value",
+                        NULL};
+
+    if( !PyArg_ParseTupleAndKeywords(args, kwargs,
+                                     "O|O:mrcam.feature_value", keywords,
+                                     &feature, &value))
+        goto done;
+
+    if(!feature_Check(feature,
+                      (const char*[]){"integer",
+                                      "float",
+                                      "boolean",
+                                      NULL},
+                      "'integer','float','boolean'"))
+        goto done;
+
+    feature_node = feature_GetNode(feature);
+    if(feature_node == NULL) goto done;
+
+    if(value == NULL)
+    {
+        // getter
+        if( ARV_IS_GC_INTEGER(feature_node) )
+        {
+            gint64 value_here;
+            try_arv(value_here = arv_gc_integer_get_value(ARV_GC_INTEGER(feature_node),
+                                                          &error));
+            result = PyLong_FromLong(value_here);
+        }
+        else if( ARV_IS_GC_FLOAT(feature_node) )
+        {
+            double value_here;
+            try_arv(value_here = arv_gc_float_get_value(ARV_GC_FLOAT(feature_node),
+                                                        &error));
+            result = PyFloat_FromDouble(value_here);
+        }
+        else if( ARV_IS_GC_BOOLEAN(feature_node) )
+        {
+            gboolean value_here;
+            try_arv(value_here = arv_gc_boolean_get_value(ARV_GC_BOOLEAN(feature_node),
+                                                          &error));
+            result = PyBool_FromLong(value_here);
+        }
+        else
+        {
+            BARF("BUG: the node must be one of (integer,float,boolean)");
+            goto done;
+        }
+    }
+    else
+    {
+        // setter
+        if( ARV_IS_GC_INTEGER(feature_node) )
+        {
+            gint64 value_here = PyLong_AsLong(value);
+#warning check errors; what if float?
+            try_arv(arv_gc_integer_set_value(ARV_GC_INTEGER(feature_node),
+                                             value_here,
+                                             &error));
+            Py_INCREF(Py_None);
+            result = Py_None;
+        }
+        else if( ARV_IS_GC_FLOAT(feature_node) )
+        {
+            double value_here = PyFloat_AsDouble(value);
+#warning check errors; what if float?
+            try_arv(arv_gc_float_set_value(ARV_GC_FLOAT(feature_node),
+                                           value_here,
+                                           &error));
+            Py_INCREF(Py_None);
+            result = Py_None;
+        }
+        else if( ARV_IS_GC_BOOLEAN(feature_node) )
+        {
+            gboolean value_here = PyObject_IsTrue(value);
+#warning check errors; what if float?
+            try_arv(arv_gc_boolean_set_value(ARV_GC_BOOLEAN(feature_node),
+                                             value_here,
+                                             &error));
+            Py_INCREF(Py_None);
+            result = Py_None;
+        }
+        else
+        {
+            BARF("BUG: the node must be one of (integer,float,boolean)");
+            goto done;
+        }
+    }
+
+ done:
+    return result;
+}
+
+static PyObject*
+feature_command(camera* self, PyObject* args, PyObject* kwargs)
+{
+    // error by default
+    PyObject* result       = NULL;
+    PyObject* feature      = NULL;
+    void*     feature_node = NULL;
+    GError*   error        = NULL;
+
+    mrcam_t* ctx = &self->ctx; // for the try_arv...() macros
+
+    char* keywords[] = {"feature",
+                        NULL};
+
+    if( !PyArg_ParseTupleAndKeywords(args, kwargs,
+                                     "O:mrcam.feature_command", keywords,
+                                     &feature))
+        goto done;
+
+    if(!feature_Check(feature,
+                      (const char*[]){"control",
+                                      NULL},
+                      NULL))
+        goto done;
+
+    feature_node = feature_GetNode(feature);
+    if(feature_node == NULL) goto done;
+
+    try_arv(arv_gc_command_execute(ARV_GC_COMMAND(feature_node), &error));
+
+    Py_INCREF(Py_None);
+    result = Py_None;
+ done:
+    return result;
+}
+
+
 static const char camera_docstring[] =
 #include "camera.docstring.h"
     ;
@@ -544,6 +933,15 @@ static const char requested_image_docstring[] =
 static const char fd_image_ready_docstring[] =
 #include "fd_image_ready.docstring.h"
     ;
+static const char feature_descriptor_docstring[] =
+#include "feature_descriptor.docstring.h"
+    ;
+static const char feature_value_docstring[] =
+#include "feature_value.docstring.h"
+    ;
+static const char feature_command_docstring[] =
+#include "feature_command.docstring.h"
+    ;
 
 
 static PyMethodDef camera_methods[] =
@@ -551,6 +949,10 @@ static PyMethodDef camera_methods[] =
         PYMETHODDEF_ENTRY(, pull,           METH_VARARGS | METH_KEYWORDS),
         PYMETHODDEF_ENTRY(, request,        METH_VARARGS | METH_KEYWORDS),
         PYMETHODDEF_ENTRY(, requested_image,METH_VARARGS | METH_KEYWORDS),
+
+        PYMETHODDEF_ENTRY(, feature_descriptor, METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(, feature_value,      METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(, feature_command,    METH_VARARGS | METH_KEYWORDS),
         {}
     };
 
