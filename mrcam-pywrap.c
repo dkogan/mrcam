@@ -673,60 +673,83 @@ feature_descriptor(camera* self, PyObject* args, PyObject* kwargs)
         goto done;
     }
 
-    bool is_available, is_implemented, is_locked;
-
+    bool is_available, is_implemented;
     try_arv(is_available   = arv_gc_feature_node_is_available(  ARV_GC_FEATURE_NODE(feature_node), &error));
     try_arv(is_implemented = arv_gc_feature_node_is_implemented(ARV_GC_FEATURE_NODE(feature_node), &error));
-    try_arv(is_locked      = arv_gc_feature_node_is_locked(     ARV_GC_FEATURE_NODE(feature_node), &error));
-    if(!(is_available && is_implemented && !is_locked))
+    if(!(is_available && is_implemented))
     {
-#warning "changing stuff might change the 'locked' state; need to check with each iteration"
-        BARF("feature '%s' must be available,implemented,!locked; I have (%d,%d,%d)",
+        BARF("feature '%s' must be available,implemented; I have (%d,%d)",
              feature,
-             is_available, is_implemented, !is_locked);
+             is_available, is_implemented);
         goto done;
     }
 
     if( ARV_IS_GC_INTEGER(feature_node) )
     {
-        result = Py_BuildValue("{sssl}",
-                               "type", "integer",
-                               "node", feature_node);
+        gint64 min,max,increment;
+        try_arv(min       = arv_gc_integer_get_min(ARV_GC_INTEGER(feature_node), &error));
+        try_arv(max       = arv_gc_integer_get_max(ARV_GC_INTEGER(feature_node), &error));
+        try_arv(increment = arv_gc_integer_get_inc(ARV_GC_INTEGER(feature_node), &error));
+
+        const char* representation;
+        switch(arv_gc_integer_get_representation(ARV_GC_INTEGER(feature_node)))
+        {
+        case ARV_GC_REPRESENTATION_LINEAR:      representation = "LINEAR";      break;
+        case ARV_GC_REPRESENTATION_LOGARITHMIC: representation = "LOGARITHMIC"; break;
+        case ARV_GC_REPRESENTATION_BOOLEAN:     representation = "BOOLEAN";     break;
+        default:                                representation = "OTHER";       break;
+        }
+
+        const char* unit = arv_gc_integer_get_unit(ARV_GC_INTEGER(feature_node));
+
+
+        result = Py_BuildValue("{sssls(dd)sdssss}",
+                               "type",           "integer",
+                               "node",           feature_node,
+                               "bounds",         (double)min, (double)max,
+                               "increment",      (double)increment,
+                               "representation", representation,
+                               "unit",           unit);
         if(result == NULL)
         {
             BARF("Couldn't build %s() result", __func__);
             goto done;
         }
-
-        // ARV_API gint64			arv_gc_integer_get_min			(ArvGcInteger *gc_integer, GError **error);
-        // ARV_API gint64			arv_gc_integer_get_max			(ArvGcInteger *gc_integer, GError **error);
-        // ARV_API gint64			arv_gc_integer_get_inc			(ArvGcInteger *gc_integer, GError **error);
-        // ARV_API ArvGcRepresentation	arv_gc_integer_get_representation	(ArvGcInteger *gc_integer);
-	// ARV_GC_REPRESENTATION_LINEAR;
-	// ARV_GC_REPRESENTATION_LOGARITHMIC;
-	// ARV_GC_REPRESENTATION_BOOLEAN;
-        // ARV_API const char *		arv_gc_integer_get_unit			(ArvGcInteger *gc_integer);
     }
     else if( ARV_IS_GC_FLOAT(feature_node) )
     {
-        result = Py_BuildValue("{sssl}",
-                               "type", "float",
-                               "node", feature_node);
+        double min,max,increment;
+        try_arv(min       = arv_gc_float_get_min(ARV_GC_FLOAT(feature_node), &error));
+        try_arv(max       = arv_gc_float_get_max(ARV_GC_FLOAT(feature_node), &error));
+        try_arv(increment = arv_gc_float_get_inc(ARV_GC_FLOAT(feature_node), &error));
+
+        const char* representation;
+        switch(arv_gc_float_get_representation(ARV_GC_FLOAT(feature_node)))
+        {
+        case ARV_GC_REPRESENTATION_LINEAR:      representation = "LINEAR";      break;
+        case ARV_GC_REPRESENTATION_LOGARITHMIC: representation = "LOGARITHMIC"; break;
+        case ARV_GC_REPRESENTATION_BOOLEAN:     representation = "BOOLEAN";     break;
+        default:                                representation = "OTHER";       break;
+        }
+
+        const char* unit = arv_gc_float_get_unit(ARV_GC_FLOAT(feature_node));
+
+        gint64 precision;
+        try_arv(precision = arv_gc_float_get_display_notation(ARV_GC_FLOAT(feature_node)));
+
+        result = Py_BuildValue("{sssls(dd)sdsssssl}",
+                               "type",           "float",
+                               "node",           feature_node,
+                               "bounds",         (double)min, (double)max,
+                               "increment",      (double)increment,
+                               "representation", representation,
+                               "unit",           unit,
+                               "precision",      (long)precision);
         if(result == NULL)
         {
             BARF("Couldn't build %s() result", __func__);
             goto done;
         }
-
-        // ARV_API double			arv_gc_float_get_min			(ArvGcFloat *gc_float, GError **error);
-        // ARV_API double			arv_gc_float_get_max			(ArvGcFloat *gc_float, GError **error);
-        // ARV_API double			arv_gc_float_get_inc			(ArvGcFloat *gc_float, GError **error);
-        // ARV_API ArvGcRepresentation	arv_gc_float_get_representation		(ArvGcFloat *gc_float);
-        // ARV_API const char *		arv_gc_float_get_unit			(ArvGcFloat *gc_float);
-        // ARV_API ArvGcDisplayNotation	arv_gc_float_get_display_notation	(ArvGcFloat *gc_float);
-        // ARV_API gint64			arv_gc_float_get_display_precision	(ArvGcFloat *gc_float);
-
-
     }
     else if( ARV_IS_GC_BOOLEAN(feature_node) )
     {
@@ -810,26 +833,37 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
     if(value == NULL)
     {
         // getter
+
+        bool is_locked;
+        try_arv(is_locked = arv_gc_feature_node_is_locked(ARV_GC_FEATURE_NODE(feature_node), &error));
+
         if( ARV_IS_GC_INTEGER(feature_node) )
         {
             gint64 value_here;
             try_arv(value_here = arv_gc_integer_get_value(ARV_GC_INTEGER(feature_node),
                                                           &error));
-            result = PyLong_FromLong(value_here);
+            result = Py_BuildValue("(l{sN})",
+                                   (long)value_here,
+                                   "locked", is_locked ? Py_True : Py_False);
         }
         else if( ARV_IS_GC_FLOAT(feature_node) )
         {
             double value_here;
             try_arv(value_here = arv_gc_float_get_value(ARV_GC_FLOAT(feature_node),
                                                         &error));
-            result = PyFloat_FromDouble(value_here);
+            MSG("returning %f",value_here);
+            result = Py_BuildValue("(d{sN})",
+                                   value_here,
+                                   "locked", is_locked ? Py_True : Py_False);
         }
         else if( ARV_IS_GC_BOOLEAN(feature_node) )
         {
             gboolean value_here;
             try_arv(value_here = arv_gc_boolean_get_value(ARV_GC_BOOLEAN(feature_node),
                                                           &error));
-            result = PyBool_FromLong(value_here);
+            result = Py_BuildValue("(N{sN})",
+                                   value_here ? Py_True : Py_False,
+                                   "locked", is_locked ? Py_True : Py_False);
         }
         else
         {
@@ -842,8 +876,20 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
         // setter
         if( ARV_IS_GC_INTEGER(feature_node) )
         {
-            gint64 value_here = PyLong_AsLong(value);
-#warning check errors; what if float?
+            gint64 value_here;
+            if(     PyLong_Check(value))  value_here = PyLong_AsLong(value);
+            else if(PyFloat_Check(value)) value_here = (gint64)round(PyFloat_AsDouble(value));
+            else
+            {
+                BARF("Given value not interpretable as an integer or a float");
+                goto done;
+            }
+            if(PyErr_Occurred())
+            {
+                BARF("Given value not interpretable");
+                goto done;
+            }
+
             try_arv(arv_gc_integer_set_value(ARV_GC_INTEGER(feature_node),
                                              value_here,
                                              &error));
@@ -852,8 +898,21 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
         }
         else if( ARV_IS_GC_FLOAT(feature_node) )
         {
-            double value_here = PyFloat_AsDouble(value);
-#warning check errors; what if float?
+            double value_here;
+
+            if(     PyFloat_Check(value)) value_here = PyFloat_AsDouble(value);
+            else if(PyLong_Check(value))  value_here = (double)round(PyLong_AsLong(value));
+            else
+            {
+                BARF("Given value not interpretable as an integer or a float");
+                goto done;
+            }
+            if(PyErr_Occurred())
+            {
+                BARF("Given value not interpretable as a float");
+                goto done;
+            }
+
             try_arv(arv_gc_float_set_value(ARV_GC_FLOAT(feature_node),
                                            value_here,
                                            &error));
@@ -863,7 +922,11 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
         else if( ARV_IS_GC_BOOLEAN(feature_node) )
         {
             gboolean value_here = PyObject_IsTrue(value);
-#warning check errors; what if float?
+            if(PyErr_Occurred())
+            {
+                BARF("Given value not interpretable as a boolean");
+                goto done;
+            }
             try_arv(arv_gc_boolean_set_value(ARV_GC_BOOLEAN(feature_node),
                                              value_here,
                                              &error));
