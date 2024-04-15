@@ -18,6 +18,10 @@ def _add_common_cmd_options(parser,
                         default = 1.0,
                         help='''Image capture period, in seconds. Defaults to
                         1.0sec/frame''')
+    parser.add_argument('--features',
+                        help='''A comma-separated list of features for which GUI
+                        controls should be displayed. The available features can
+                        be queried with the "arv-tool-0.8" tool''')
     parser.add_argument('--single-buffered',
                         action='store_true',
                         help='''By default the image display is double-buffered
@@ -81,6 +85,11 @@ def _parse_args_postprocess(args):
             sys.exit(1)
 
         args.dims = (w,h)
+
+    if args.features is not None:
+        args.features = args.features.split(',')
+    else:
+        args.features = ()
 
 
 def _set_up_image_capture(camera, window, image_widget, period,

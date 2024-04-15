@@ -51,6 +51,19 @@ import mrcal
 
 
 
+kwargs = dict()
+if args.dims is not None:
+    kwargs['width' ] = args.dims[0]
+    kwargs['height'] = args.dims[1]
+if args.pixfmt is not None:
+    kwargs['pixfmt'] = args.pixfmt
+c = mrcam.camera(args.camera[0],
+                 verbose = args.verbose,
+                 **kwargs)
+
+
+
+
 class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
     def handle(self, event):
         if event == FL_MOVE:
@@ -64,35 +77,64 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
         return super().handle(event)
 
 
-W = 800
-H = 600
-H_STATUS = 20
+W          = 800
+H          = 600
+H_STATUS   = 20
+H_CONTROL  = 30
+
+if args.features: W_CONTROLS = 200
+else:             W_CONTROLS = 0
+
 window        = Fl_Window(W, H, "mrcam stream")
-image_widget  = Fl_Gl_Image_Widget_Derived(0,  0, W,H-H_STATUS,
+image_widget  = Fl_Gl_Image_Widget_Derived(0,  0,
+                                           W-W_CONTROLS, H-H_STATUS,
                                            double_buffered = not args.single_buffered
 )
 status_widget = Fl_Output(0, H-H_STATUS, W, H_STATUS)
+
+if args.features:
+
+    # Need group to control resizing: I want to fix the sizes of the widgets in
+    # the group, so I group.resizable(None) later
+    group = Fl_Group(W-W_CONTROLS, 0,
+                     W_CONTROLS, H-H_STATUS)
+
+    features                 = [dict() for i in args.features]
+    feature_dict_from_widget = dict()
+
+    def feature_callback(widget):
+        global feature_dict_from_widget
+        global c
+
+        feature_dict = feature_dict_from_widget[id(widget)]
+        c.feature_value(feature_dict['descriptor'], widget.value())
+
+    for i,feature in enumerate(args.features):
+
+        feature_dict = features[i]
+        widget = Fl_Value_Slider(W-W_CONTROLS, H_CONTROL*i,
+                                 W_CONTROLS, H_CONTROL,
+                                 feature)
+        widget.type(FL_HORIZONTAL)
+        widget.bounds(500,10000)
+        widget.callback(feature_callback)
+
+        feature_dict['widget']     = widget
+        feature_dict['name']       = feature
+        feature_dict['descriptor'] = c.feature_descriptor(feature)
+
+        feature_dict_from_widget[id(widget)] = feature_dict
+
+    group.resizable(None)
+    group.end()
+
+
+
+# will need to get() after each set(); might not end up with the same value
+
 window.resizable(image_widget)
 window.end()
 window.show()
-
-
-# try block needed to avoid potential crashes:
-#   https://sourceforge.net/p/pyfltk/mailman/pyfltk-user/thread/875xx5ncgp.fsf%40secretsauce.net/#msg58754407
-try:
-    kwargs = dict()
-    if args.dims is not None:
-        kwargs['width' ] = args.dims[0]
-        kwargs['height'] = args.dims[1]
-    if args.pixfmt is not None:
-        kwargs['pixfmt'] = args.pixfmt
-    c = mrcam.camera(args.camera[0],
-                     verbose = args.verbose,
-                     **kwargs)
-except Exception as e:
-    window.hide()
-    raise e
-
 
 
 mrcam._set_up_image_capture(c, window, image_widget, args.period)
