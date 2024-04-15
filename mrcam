@@ -82,7 +82,7 @@ H          = 600
 H_STATUS   = 20
 H_CONTROL  = 30
 
-if args.features: W_CONTROLS = 200
+if args.features: W_CONTROLS = 300
 else:             W_CONTROLS = 0
 
 window        = Fl_Window(W, H, "mrcam stream")
