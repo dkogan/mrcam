@@ -102,28 +102,54 @@ if args.features:
     features                 = [dict() for i in args.features]
     feature_dict_from_widget = dict()
 
-    def feature_callback(widget):
+    def feature_callback_slider(widget):
         global feature_dict_from_widget
         global c
 
         feature_dict = feature_dict_from_widget[id(widget)]
         c.feature_value(feature_dict['descriptor'], widget.value())
 
+        sync_feature_widgets()
+
+
+    def sync_feature_widgets():
+        global features
+
+        for feature_dict in features:
+            value,metadata = c.feature_value(feature_dict['descriptor'])
+            widget = feature_dict['widget']
+            if metadata['locked']: widget.deactivate()
+            else:                  widget.activate()
+            widget.value(value)
+
+
     for i,feature in enumerate(args.features):
 
         feature_dict = features[i]
-        widget = Fl_Value_Slider(W-W_CONTROLS, H_CONTROL*i,
-                                 W_CONTROLS, H_CONTROL,
-                                 feature)
-        widget.type(FL_HORIZONTAL)
-        widget.bounds(500,10000)
-        widget.callback(feature_callback)
+        desc = c.feature_descriptor(feature)
+
+        t = desc['type']
+        if t == 'integer' or t == 'float':
+            widget = Fl_Value_Slider(W-W_CONTROLS, H_CONTROL*i,
+                                     W_CONTROLS, H_CONTROL,
+                                     feature)
+            widget.type(FL_HORIZONTAL)
+            widget.bounds(*desc['bounds'])
+            widget.callback(feature_callback_slider)
+        elif t == 'boolean':
+            asdf
+        elif t == 'command':
+            asdf
+        else:
+            raise Exception(f"Feature type '{t}' not supported yet")
 
         feature_dict['widget']     = widget
         feature_dict['name']       = feature
-        feature_dict['descriptor'] = c.feature_descriptor(feature)
+        feature_dict['descriptor'] = desc
 
         feature_dict_from_widget[id(widget)] = feature_dict
+
+    sync_feature_widgets()
 
     group.resizable(None)
     group.end()
