@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 
 import sys
+from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
+from fltk import *
 from _mrcam import *
 
 def _add_common_cmd_options(parser,
@@ -92,51 +94,191 @@ def _parse_args_postprocess(args):
         args.features = ()
 
 
-def _set_up_image_capture(camera, window, image_widget, period,
-                          *,
-                          process_image_callback = None):
+class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
+    def __init__(self,
+                 *args,
+                 group,
+                 **kwargs):
+        self.group = group;
+        return super().__init__(*args, **kwargs)
 
-    from fltk import Fl
+    def handle(self, event):
+        if event == FL_MOVE:
+            try:
+                q = self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), )
+                self.group.status_widget.value(f"{q[0]:.1f},{q[1]:.1f}")
+            except:
+                self.group.status_widget.value("")
+            # fall through to let parent handlers run
+
+        return super().handle(event)
 
 
-    def callback_image_ready(fd):
-        frame = camera.requested_image()
 
-        image        = frame['image']
-        timestamp_us = frame['timestamp_us']
+h_status   = 20
+h_control  = 30
 
-        if image is not None:
-            # Update the image preview; deep images are shown as a heat map
-            if image.itemsize > 1:
-                if image.ndim > 2:
-                    raise Exception("high-depth color images not supported yet")
-                image_widget.update_image(image_data = mrcal.apply_color_map(image))
+class Fl_Image_View_Group(Fl_Group):
+    def __init__(self,
+                 x,y,w,h,
+                 *,
+                 camera,
+                 feature_names,
+                 single_buffered = False):
+
+        super().__init__(x,y,w,h)
+
+
+        self.camera = camera
+
+        if feature_names: w_controls = 300
+        else:             w_controls = 0
+
+        self.image_widget = Fl_Gl_Image_Widget_Derived(x, y,
+                                                       w-w_controls, h-h_status,
+                                                       group           = self,
+                                                       double_buffered = not single_buffered)
+        self.status_widget = Fl_Output(0, h-h_status, w, h_status)
+
+        if not feature_names:
+            return
+
+
+        # Need group to control resizing: I want to fix the sizes of the widgets in
+        # the group, so I group.resizable(None) later
+        group = Fl_Group(w-w_controls, 0,
+                         w_controls, h-h_status)
+
+        self.features                 = [dict() for i in feature_names]
+        self.feature_dict_from_widget = dict()
+
+        for i,name in enumerate(feature_names):
+
+            feature_dict = self.features[i]
+            desc = camera.feature_descriptor(name)
+
+            t = desc['type']
+            if t == 'integer' or t == 'float':
+                if desc['unit']: label = f"feature ({desc['unit']})"
+                else:            label = name
+                widget = Fl_Value_Slider(w-w_controls, h_control*i,
+                                         w_controls, h_control,
+                                         label)
+                widget.type(FL_HORIZONTAL)
+                widget.callback(self.feature_callback_valuator)
+            elif t == 'boolean':
+                widget = Fl_Check_Button(w-w_controls, h_control*i,
+                                         w_controls, h_control,
+                                         name)
+                widget.callback(self.feature_callback_valuator)
+            elif t == 'command':
+                widget = Fl_Button(W-w_controls, h_control*i,
+                                   w_controls, h_control,
+                                   name)
+                widget.callback(self.feature_callback_button)
+            elif t == 'enumeration':
+                widget = Fl_Choice(w-w_controls, h_control*i,
+                                   w_controls, h_control,
+                                   name)
+                for s in desc['entries']:
+                    widget.add(s)
+                widget.callback(self.feature_callback_enum)
             else:
-                image_widget.update_image(image_data = image)
+                raise Exception(f"Feature type '{t}' not supported")
+
+            feature_dict['widget']     = widget
+            feature_dict['name']       = name
+            feature_dict['descriptor'] = desc
+            self.feature_dict_from_widget[id(widget)] = feature_dict
+
+        self.sync_feature_widgets()
+
+        group.resizable(None)
+        group.end()
+
+        self.resizable(self.image_widget)
+        self.end()
 
 
-            if process_image_callback is not None:
-                process_image_callback(image)
-        else:
-            print("Error capturing the image. I will try again",
-                  file=sys.stderr)
+    def feature_callback_valuator(self, widget):
+        feature_dict = self.feature_dict_from_widget[id(widget)]
+        self.camera.feature_value(feature_dict['descriptor'], widget.value())
 
-        Fl.add_timeout(period, update)
+        self.sync_feature_widgets()
 
-    def update(*args):
+    def feature_callback_button(self, widget):
+        feature_dict = self.feature_dict_from_widget[id(widget)]
+        self.camera.feature_value(feature_dict['descriptor'], 1)
 
-        # try block needed to avoid potential crashes:
-        #   https://sourceforge.net/p/pyfltk/mailman/pyfltk-user/thread/875xx5ncgp.fsf%40secretsauce.net/#msg58754407
-        try:
-            camera.request()
-        except Exception as e:
-            window.hide()
-            raise e
+        self.sync_feature_widgets()
+
+    def feature_callback_enum(self, widget):
+        feature_dict = self.feature_dict_from_widget[id(widget)]
+        self.camera.feature_value(feature_dict['descriptor'], widget.text())
+
+        self.sync_feature_widgets()
+
+    def sync_feature_widgets(self):
+        for feature_dict in self.features:
+            value,metadata = self.camera.feature_value(feature_dict['descriptor'])
+            widget = feature_dict['widget']
+            if metadata['locked']: widget.deactivate()
+            else:                  widget.activate()
+
+            if isinstance(value, int) or isinstance(value, float) or isinstance(value, bool):
+                widget.value(value)
+            elif isinstance(value, str):
+                widget.value( widget.find_index(value) )
 
 
 
 
-    Fl.add_fd( camera.fd_image_ready,
-               callback_image_ready )
+    def set_up_image_capture(self,
+                             period,
+                             *,
+                             process_image_callback = None):
 
-    update()
+        from fltk import Fl
+
+
+        def callback_image_ready(fd):
+            frame = self.camera.requested_image()
+
+            image        = frame['image']
+            timestamp_us = frame['timestamp_us']
+
+            if image is not None:
+                # Update the image preview; deep images are shown as a heat map
+                if image.itemsize > 1:
+                    if image.ndim > 2:
+                        raise Exception("high-depth color images not supported yet")
+                    self.image_widget.update_image(image_data = mrcal.apply_color_map(image))
+                else:
+                    self.image_widget.update_image(image_data = image)
+
+
+                if process_image_callback is not None:
+                    process_image_callback(image)
+            else:
+                print("Error capturing the image. I will try again",
+                      file=sys.stderr)
+
+            Fl.add_timeout(period, update)
+
+        def update(*args):
+
+            # try block needed to avoid potential crashes:
+            #   https://sourceforge.net/p/pyfltk/mailman/pyfltk-user/thread/875xx5ncgp.fsf%40secretsauce.net/#msg58754407
+            try:
+                self.camera.request()
+            except Exception as e:
+                self.top_window().hide()
+                raise e
+
+
+
+
+        Fl.add_fd( self.camera.fd_image_ready,
+                   callback_image_ready )
+
+        update()

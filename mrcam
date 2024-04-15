@@ -46,7 +46,6 @@ def parse_args():
 args = parse_args()
 
 from fltk import *
-from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
 import mrcal
 
 
@@ -63,141 +62,21 @@ c = mrcam.camera(args.camera[0],
 
 
 
+W = 800
+H = 600
 
-class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
-    def handle(self, event):
-        if event == FL_MOVE:
-            try:
-                q = self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), )
-                status_widget.value(f"{q[0]:.1f},{q[1]:.1f}")
-            except:
-                status_widget.value("")
-            # fall through to let parent handlers run
-
-        return super().handle(event)
+window           = Fl_Window(W,H, "mrcam stream")
+image_view_group = mrcam.Fl_Image_View_Group(0,0, W,H,
+                                             camera          = c,
+                                             single_buffered = args.single_buffered,
+                                             feature_names   = args.features)
 
 
-W          = 800
-H          = 600
-H_STATUS   = 20
-H_CONTROL  = 30
-
-if args.features: W_CONTROLS = 300
-else:             W_CONTROLS = 0
-
-window        = Fl_Window(W, H, "mrcam stream")
-image_widget  = Fl_Gl_Image_Widget_Derived(0,  0,
-                                           W-W_CONTROLS, H-H_STATUS,
-                                           double_buffered = not args.single_buffered
-)
-status_widget = Fl_Output(0, H-H_STATUS, W, H_STATUS)
-
-if args.features:
-
-    # Need group to control resizing: I want to fix the sizes of the widgets in
-    # the group, so I group.resizable(None) later
-    group = Fl_Group(W-W_CONTROLS, 0,
-                     W_CONTROLS, H-H_STATUS)
-
-    features                 = [dict() for i in args.features]
-    feature_dict_from_widget = dict()
-
-    def feature_callback_valuator(widget):
-        global feature_dict_from_widget
-        global c
-
-        feature_dict = feature_dict_from_widget[id(widget)]
-        c.feature_value(feature_dict['descriptor'], widget.value())
-
-        sync_feature_widgets()
-
-    def feature_callback_button(widget):
-        global feature_dict_from_widget
-        global c
-
-        feature_dict = feature_dict_from_widget[id(widget)]
-        c.feature_value(feature_dict['descriptor'], 1)
-
-        sync_feature_widgets()
-
-    def feature_callback_enum(widget):
-        global feature_dict_from_widget
-        global c
-
-        feature_dict = feature_dict_from_widget[id(widget)]
-        c.feature_value(feature_dict['descriptor'], widget.text())
-
-        sync_feature_widgets()
-
-
-    def sync_feature_widgets():
-        global features
-
-        for feature_dict in features:
-            value,metadata = c.feature_value(feature_dict['descriptor'])
-            widget = feature_dict['widget']
-            if metadata['locked']: widget.deactivate()
-            else:                  widget.activate()
-
-            if isinstance(value, int) or isinstance(value, float) or isinstance(value, bool):
-                widget.value(value)
-            elif isinstance(value, str):
-                widget.value( widget.find_index(value) )
-
-
-    for i,feature in enumerate(args.features):
-
-        feature_dict = features[i]
-        desc = c.feature_descriptor(feature)
-
-        t = desc['type']
-        if t == 'integer' or t == 'float':
-            if desc['unit']: label = f"feature ({desc['unit']})"
-            else:            label = feature
-            widget = Fl_Value_Slider(W-W_CONTROLS, H_CONTROL*i,
-                                     W_CONTROLS, H_CONTROL,
-                                     label)
-            widget.type(FL_HORIZONTAL)
-            widget.callback(feature_callback_valuator)
-        elif t == 'boolean':
-            widget = Fl_Check_Button(W-W_CONTROLS, H_CONTROL*i,
-                                     W_CONTROLS, H_CONTROL,
-                                     feature)
-            widget.callback(feature_callback_valuator)
-        elif t == 'command':
-            widget = Fl_Button(W-W_CONTROLS, H_CONTROL*i,
-                               W_CONTROLS, H_CONTROL,
-                               feature)
-            widget.callback(feature_callback_button)
-        elif t == 'enumeration':
-            widget = Fl_Choice(W-W_CONTROLS, H_CONTROL*i,
-                               W_CONTROLS, H_CONTROL,
-                               feature)
-            for s in desc['entries']:
-                widget.add(s)
-            widget.callback(feature_callback_enum)
-        else:
-            raise Exception(f"Feature type '{t}' not supported")
-
-        feature_dict['widget']     = widget
-        feature_dict['name']       = feature
-        feature_dict['descriptor'] = desc
-        feature_dict_from_widget[id(widget)] = feature_dict
-
-    sync_feature_widgets()
-
-    group.resizable(None)
-    group.end()
-
-
-
-# will need to get() after each set(); might not end up with the same value
-
-window.resizable(image_widget)
+window.resizable(image_view_group)
 window.end()
 window.show()
 
 
-mrcam._set_up_image_capture(c, window, image_widget, args.period)
+image_view_group.set_up_image_capture(args.period)
 
 Fl.run()
