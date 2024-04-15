@@ -257,6 +257,8 @@ class Fl_Image_View_Group(Fl_Group):
                     self.image_widget.update_image(image_data = image)
 
 
+                self.sync_feature_widgets()
+
                 if process_image_callback is not None:
                     process_image_callback(image)
             else:
