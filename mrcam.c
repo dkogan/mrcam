@@ -670,7 +670,7 @@ bool receive_image(mrcam_t* ctx,
     else                buffer_here = arv_stream_pop_buffer        (*stream);
 
     // This MUST have been done by this function, regardless of things failing
-    try_arv_or(arv_camera_stop_acquisition(*camera, &error), 1);
+    try_arv(arv_camera_stop_acquisition(*camera, &error));
     // if it failed, ctx->acquiring will remain at true. Probably there's no way
     // to recover anyway
     ctx->acquiring = false;
