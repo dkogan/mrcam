@@ -46,7 +46,6 @@ def parse_args():
 args = parse_args()
 
 from fltk import *
-import mrcal
 
 
 

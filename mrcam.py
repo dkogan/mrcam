@@ -1,8 +1,10 @@
 #!/usr/bin/python3
 
 import sys
+import re
 from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
 from fltk import *
+import mrcal
 from _mrcam import *
 
 def _add_common_cmd_options(parser,
