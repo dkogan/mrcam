@@ -58,6 +58,7 @@ if args.pixfmt is not None:
     kwargs['pixfmt'] = args.pixfmt
 c = mrcam.camera(args.camera[0],
                  verbose = args.verbose,
+                 recreate_stream_with_each_frame = args.recreate_stream_with_each_frame,
                  **kwargs)
 
 
