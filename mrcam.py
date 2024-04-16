@@ -133,7 +133,7 @@ class Fl_Image_View_Group(Fl_Group):
                  x,y,w,h,
                  *,
                  camera,
-                 feature_names,
+                 feature_names = (),
                  single_buffered = False,
                  handle_extra    = None):
 
