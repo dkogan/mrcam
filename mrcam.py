@@ -169,6 +169,7 @@ class Fl_Image_View_Group(Fl_Group):
                                          w_controls, h_control,
                                          label)
                 widget.type(FL_HORIZONTAL)
+                widget.bounds(*desc['bounds'])
                 widget.callback(self.feature_callback_valuator)
             elif t == 'boolean':
                 widget = Fl_Check_Button(w-w_controls, h_control*i,
