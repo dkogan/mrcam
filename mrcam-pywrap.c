@@ -899,7 +899,7 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
             gboolean value_here;
             try_arv(value_here = arv_gc_boolean_get_value(ARV_GC_BOOLEAN(feature_node),
                                                           &error));
-            result = Py_BuildValue("(N{sO})",
+            result = Py_BuildValue("(O{sO})",
                                    value_here ? Py_True : Py_False,
                                    "locked", is_locked ? Py_True : Py_False);
         }
