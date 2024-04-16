@@ -163,7 +163,7 @@ class Fl_Image_View_Group(Fl_Group):
 
             t = desc['type']
             if t == 'integer' or t == 'float':
-                if desc['unit']: label = f"feature ({desc['unit']})"
+                if desc['unit']: label = f"{name} ({desc['unit']})"
                 else:            label = name
                 widget = Fl_Value_Slider(w-w_controls, h_control*i,
                                          w_controls, h_control,
