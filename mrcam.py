@@ -129,7 +129,7 @@ class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
 
 h_status         = 20
 h_control        = 30
-h_control_footer = 30 # for the label below the widget
+h_control_footer = 30 # for the label below the widget; needed for some widgets only
 
 class Fl_Image_View_Group(Fl_Group):
     def __init__(self,
@@ -163,6 +163,7 @@ class Fl_Image_View_Group(Fl_Group):
         self.features                 = [dict() for i in feature_names]
         self.feature_dict_from_widget = dict()
 
+        y = 0
         for i,name in enumerate(feature_names):
 
             feature_dict = self.features[i]
@@ -172,33 +173,39 @@ class Fl_Image_View_Group(Fl_Group):
             if t == 'integer' or t == 'float':
                 if desc['unit']: label = f"{name} ({desc['unit']})"
                 else:            label = name
-                widget = Fl_Value_Slider(w-w_controls, (h_control + h_control_footer)*i,
+                h_here = h_control + h_control_footer
+                widget = Fl_Value_Slider(w-w_controls, y,
                                          w_controls, h_control,
                                          label)
+                widget.align(FL_ALIGN_BOTTOM)
                 widget.type(FL_HORIZONTAL)
                 widget.bounds(*desc['bounds'])
                 widget.callback(self.feature_callback_valuator)
             elif t == 'boolean':
-                widget = Fl_Check_Button(w-w_controls, (h_control + h_control_footer)*i,
+                h_here = h_control
+                widget = Fl_Check_Button(w-w_controls, y,
                                          w_controls, h_control,
                                          name)
                 widget.callback(self.feature_callback_valuator)
             elif t == 'command':
-                widget = Fl_Button(W-w_controls, (h_control + h_control_footer)*i,
+                h_here = h_control
+                widget = Fl_Button(W-w_controls, y,
                                    w_controls, h_control,
                                    name)
                 widget.callback(self.feature_callback_button)
             elif t == 'enumeration':
-                widget = Fl_Choice(w-w_controls, (h_control + h_control_footer)*i,
+                h_here = h_control + h_control_footer
+                widget = Fl_Choice(w-w_controls, y,
                                    w_controls, h_control,
                                    name)
                 for s in desc['entries']:
                     widget.add(s)
                 widget.callback(self.feature_callback_enum)
+                widget.align(FL_ALIGN_BOTTOM)
             else:
                 raise Exception(f"Feature type '{t}' not supported")
 
-            widget.align(FL_ALIGN_BOTTOM)
+            y += h_here
 
             feature_dict['widget']     = widget
             feature_dict['name']       = name
