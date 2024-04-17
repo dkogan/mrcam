@@ -196,8 +196,8 @@ init_stream(mrcam_t* ctx)
     root is another workaround: it enables the "Packet socket method". Either of
     these are needed in addition to the GevSCPSPacketSize setting
 
-    This sets the SO_RCVBUF setting on the socket. Described like this in
-    socket(7):
+    Ultimately we need to set the SO_RCVBUF setting on the socket. Described
+    like this in socket(7):
 
        SO_RCVBUF
               Sets or gets the maximum socket receive buffer in bytes. The
@@ -222,11 +222,13 @@ init_stream(mrcam_t* ctx)
     available diagnostics are in the udp.c file linked above. /proc/net/snmp
     records the dropped packets and there's a "udp_fail_queue_rcv_skb"
     tracepoint to catch some paths
+
+    In aravis it is sufficient to ask for an "auto" buffer size, and it will be
+    large-enough to hold a single buffer
     */
     if(ARV_IS_GV_STREAM(*stream))
         g_object_set (*stream,
-                      "socket-buffer",      ARV_GV_STREAM_SOCKET_BUFFER_FIXED,
-                      "socket-buffer-size", 20000000,
+                      "socket-buffer", ARV_GV_STREAM_SOCKET_BUFFER_AUTO,
                       NULL);
 
 
