@@ -223,10 +223,11 @@ init_stream(mrcam_t* ctx)
     records the dropped packets and there's a "udp_fail_queue_rcv_skb"
     tracepoint to catch some paths
     */
-    g_object_set (*stream,
-                  "socket-buffer",      ARV_GV_STREAM_SOCKET_BUFFER_FIXED,
-                  "socket-buffer-size", 20000000,
-                  NULL);
+    if(ARV_IS_GV_STREAM(*stream))
+        g_object_set (*stream,
+                      "socket-buffer",      ARV_GV_STREAM_SOCKET_BUFFER_FIXED,
+                      "socket-buffer-size", 20000000,
+                      NULL);
 
 
     // In case we end up with ARV_ACQUISITION_MODE_MULTI_FRAME, I ask for just
