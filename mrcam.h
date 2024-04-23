@@ -99,6 +99,8 @@ typedef struct
 
     bool acquiring : 1;
     bool recreate_stream_with_each_frame : 1;
+    bool power_cycle_at_startup          : 1;
+    bool power_down_when_finished        : 1;
     bool verbose : 1;
 
 } mrcam_t;
@@ -118,6 +120,8 @@ typedef struct
     // Shouldn't be needed, but I can't get data from some cameras
     // without it
     bool recreate_stream_with_each_frame;
+    bool power_cycle_at_startup;
+    bool power_down_when_finished;
     bool verbose;
 } mrcam_options_t;
 

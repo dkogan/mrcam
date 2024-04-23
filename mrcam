@@ -60,6 +60,8 @@ if args.trigger is not None:
 c = mrcam.camera(args.camera[0],
                  verbose = args.verbose,
                  recreate_stream_with_each_frame = args.recreate_stream_with_each_frame,
+                 power_cycle_at_startup          = args.power_cycle_at_startup,
+                 power_down_when_finished        = args.power_down_when_finished,
                  **kwargs)
 
 

@@ -89,6 +89,8 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
                         "width",
                         "height",
                         "recreate_stream_with_each_frame",
+                        "power_cycle_at_startup",
+                        "power_down_when_finished",
                         "verbose",
                         NULL};
 
@@ -100,21 +102,24 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     int width   = 0; // by default, auto-detect the dimensions
     int height  = 0;
     int recreate_stream_with_each_frame = 0;
+    int power_cycle_at_startup          = 0;
+    int power_down_when_finished        = 0;
     int verbose = 0;
 
     mrcam_pixfmt_t  pixfmt;
     mrcam_trigger_t trigger;
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "|z$ssiipp:mrcam.__init__", keywords,
+                                     "|z$ssiipppp:mrcam.__init__", keywords,
                                      &camera_name,
                                      &pixfmt_string,
                                      &trigger_string,
                                      &width, &height,
                                      &recreate_stream_with_each_frame,
+                                     &power_cycle_at_startup,
+                                     &power_down_when_finished,
                                      &verbose))
         goto done;
-
 
     if(0 != pipe(self->pipefd))
     {
@@ -166,6 +171,8 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
             .width                           = width,
             .height                          = height,
             .recreate_stream_with_each_frame = recreate_stream_with_each_frame,
+            .power_cycle_at_startup          = power_cycle_at_startup,
+            .power_down_when_finished        = power_down_when_finished,
             .verbose                         = verbose
         };
     if(!mrcam_init(&self->ctx,

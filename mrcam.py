@@ -35,9 +35,18 @@ def _add_common_cmd_options(parser,
                         available to disable double-buffering to work around
                         those bugs''')
     parser.add_argument('--recreate-stream-with-each-frame',
-                        action='store_true', help='''If given, we create a new
-                        stream with each frame. This shouldn't be needed, but
-                        the Emergent HR-20000 cameras don't work without it''')
+                        action='store_true',
+                        help='''If given, we create a new stream with each frame. This shouldn't be needed,
+                        but the Emergent HR-20000 cameras don't work without
+                        it''')
+    parser.add_argument('--power-cycle-at-startup',
+                        action='store_true',
+                        help='''If given, we cycle the camera power before we do anything else. Implemented
+                        ONLY if --trigger TTYS0''')
+    parser.add_argument('--power-down-when-finished',
+                        action='store_true',
+                        help='''If given, we power-down the camera when we're done. Implemented ONLY if
+                        --trigger TTYS0''')
     parser.add_argument('--dims',
                         help='''Imager dimensions given as WIDTH,HEIGHT. Required for cameras where this
                         cannot be auto-detected''')
