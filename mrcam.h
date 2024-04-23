@@ -39,6 +39,19 @@ typedef enum
 #undef ENUM
 } mrcam_pixfmt_t;
 
+
+#define LIST_MRCAM_TRIGGER(_) \
+    _(SOFTWARE) \
+    _(TTYS0)
+
+typedef enum {
+#define ENUM(name, ...) MRCAM_TRIGGER_ ## name,
+    LIST_MRCAM_TRIGGER(ENUM) MRCAM_TRIGGER_COUNT
+#undef ENUM
+} mrcam_trigger_t;
+
+
+
 typedef enum {MRCAM_UNKNOWN = -1,
               MRCAM_uint8, MRCAM_uint16, MRCAM_bgr } mrcam_output_type_t;
 mrcam_output_type_t mrcam_output_type(mrcam_pixfmt_t pixfmt);
@@ -66,6 +79,9 @@ typedef struct
     // camera. I don't NEED to store all these here, but it makes life easier
     mrcam_pixfmt_t pixfmt;
 
+    // The trigger mode
+    mrcam_trigger_t trigger;
+
     // Used to convert from non-trivial pixel formats coming out of the camera
     // to unpacked bits mrcam reports. Needed for bayered or packed formats.
     // Unused for all others
@@ -77,6 +93,9 @@ typedef struct
     // uint16, or bgr, ...), but the data layout is the same
     mrcam_callback_image_uint8_t* active_callback;
     void*                         active_callback_cookie;
+                                                \
+    // used if MRCAM_TRIGGER_TTYS0
+    int fd_tty_trigger;
 
     bool acquiring : 1;
     bool recreate_stream_with_each_frame : 1;
@@ -87,6 +106,7 @@ typedef struct
 typedef struct
 {
     const mrcam_pixfmt_t pixfmt;
+    mrcam_trigger_t trigger;
     // if either is <=0, we try to autodetect by asking the camera
     // for WidthMax and HeightMax. Some cameras report the native
     // resolution of the imager there, but some others report bugus

@@ -85,6 +85,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 
     char* keywords[] = {"name",
                         "pixfmt",
+                        "trigger",
                         "width",
                         "height",
                         "recreate_stream_with_each_frame",
@@ -93,19 +94,22 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 
     // The default pixel format is "MONO_8". Should match the one in the
     // LIST_OPTIONS macro in mrcam-test.c
-    const char* camera_name   = NULL;
-    const char* pixfmt_string = "MONO_8";
+    const char* camera_name    = NULL;
+    const char* pixfmt_string  = "MONO_8";
+    const char* trigger_string = "SOFTWARE";
     int width   = 0; // by default, auto-detect the dimensions
     int height  = 0;
     int recreate_stream_with_each_frame = 0;
     int verbose = 0;
 
-    mrcam_pixfmt_t pixfmt;
+    mrcam_pixfmt_t  pixfmt;
+    mrcam_trigger_t trigger;
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "|z$siipp:mrcam.__init__", keywords,
+                                     "|z$ssiipp:mrcam.__init__", keywords,
                                      &camera_name,
                                      &pixfmt_string,
+                                     &trigger_string,
                                      &width, &height,
                                      &recreate_stream_with_each_frame,
                                      &verbose))
@@ -137,10 +141,28 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     }
 #undef PARSE
 
+    if(0) ;
+#define PARSE(name, ...)                        \
+    else if(0 == strcmp(trigger_string, #name))  \
+        trigger = MRCAM_TRIGGER_ ## name;
+    LIST_MRCAM_TRIGGER(PARSE)
+    else
+    {
+#define SAY(name, ...) "'" #name "', "
+        BARF("Unknown trigger mode '%s'; I know about: ("
+             LIST_MRCAM_TRIGGER(SAY)
+             ")",
+             trigger_string);
+        goto done;
+#undef SAY
+    }
+#undef PARSE
+
 
     const mrcam_options_t mrcam_options =
         {
             .pixfmt                          = pixfmt,
+            .trigger                         = trigger,
             .width                           = width,
             .height                          = height,
             .recreate_stream_with_each_frame = recreate_stream_with_each_frame,

@@ -22,6 +22,7 @@ typedef struct { int width,height; } dimensions_t;
     /* The default pixel format is MONO_*. Should match the one in camera_init() in mrcam-pywrap.c */ \
     _(mrcam_pixfmt_t, pixfmt,  pixfmt,  MRCAM_PIXFMT_MONO_8, required_argument, " PIXELFORMAT", 'F', ""  ) \
     _(dimensions_t,   dims,    dims,    {},                  required_argument, " WIDTH,HEIGHT",'D', ""  ) \
+    _(mrcam_trigger_t,trigger, trigger, MRCAM_TRIGGER_SOFTWARE,required_argument, " TRIGGER",     't', ""  ) \
     _(bool,           recreate_stream_with_each_frame,recreate-stream-with-each-frame, false, no_argument, ,'R', "") \
     _(bool,           verbose, verbose, false,               no_argument,       ,               'v', "v")
 
@@ -164,6 +165,28 @@ static bool parse_args(// out
                 break;
             }
 
+        case 't':
+
+            if(0) ;
+
+#define PARSE(name, ...)                                        \
+            else if(0 == strcmp(optarg, #name))                 \
+                options->trigger = MRCAM_TRIGGER_ ## name;
+
+            LIST_MRCAM_TRIGGER(PARSE)
+            else
+            {
+                MSG("Unknown trigger mode '%s'; I know about:", optarg);
+
+#define SAY(name, ...) MSG("  " #name);
+                LIST_MRCAM_TRIGGER(SAY);
+#undef SAY
+
+                exit(1);
+            }
+#undef PARSE
+            break;
+
         case '?':
             MSG("Unknown option");
             sayusage(true);
@@ -208,6 +231,7 @@ int main(int argc, char **argv)
                 .pixfmt                          = options.pixfmt,
                 .width                           = options.dims.width,
                 .height                          = options.dims.height,
+                .trigger                         = options.trigger,
                 .recreate_stream_with_each_frame = options.recreate_stream_with_each_frame,
                 .verbose                         = options.verbose
             };

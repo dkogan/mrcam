@@ -2,10 +2,15 @@
 #include <stdio.h>
 #include <arv.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <sys/ioctl.h>
+
 #include <libswscale/swscale.h>
 #include <libavutil/pixfmt.h>
 #include <libavutil/imgutils.h>
-
 
 #include "mrcam.h"
 #include "util.h"
@@ -135,6 +140,42 @@ int pixfmt__output_bytes_per_pixel(mrcam_pixfmt_t pixfmt)
     default: ;
     }
     return 0;
+}
+
+static bool open_serial_device(mrcam_t* ctx)
+{
+    bool result = false;
+
+    // open the serial device, and make it as raw as possible
+    const char* device = "/dev/ttyS0";
+    const speed_t baud = B2400;
+    try( (ctx->fd_tty_trigger = open(device, O_WRONLY|O_NOCTTY)) >= 0 );
+    try( tcflush(ctx->fd_tty_trigger, TCIOFLUSH) == 0 );
+
+    struct termios options = {.c_iflag = IGNBRK,
+                              .c_cflag = CS8 | CREAD | CLOCAL};
+    try(cfsetspeed(&options, baud) == 0);
+    try(tcsetattr(ctx->fd_tty_trigger, TCSANOW, &options) == 0);
+
+    result = true;
+ done:
+    return result;
+}
+
+static bool powercycle(mrcam_t* ctx)
+{
+    bool result = false;
+
+    try(0 == ioctl(ctx->fd_tty_trigger, TIOCMBIC, &(int){TIOCM_RTS}));
+    try(0 == usleep(500000)); // off for 0.5 seconds
+    try(0 == ioctl(ctx->fd_tty_trigger, TIOCMBIS, &(int){TIOCM_RTS}));
+
+    // wait for the cameras to power-up
+    sleep(20);
+
+    result = true;
+ done:
+    return result;
 }
 
 
@@ -277,7 +318,9 @@ bool mrcam_init(// out
 
     *ctx = (mrcam_t){ .recreate_stream_with_each_frame = options->recreate_stream_with_each_frame,
                       .pixfmt                          = options->pixfmt,
-                      .verbose                         = options->verbose};
+                      .trigger                         = options->trigger,
+                      .verbose                         = options->verbose,
+                      .fd_tty_trigger                  = -1};
 
     DEFINE_INTERNALS(ctx);
 
@@ -363,37 +406,50 @@ bool mrcam_init(// out
                             width * height)));
     }
 
-    // Set the triggering strategy. I'd like to just be able to grab a frame and
-    // be done with it: TriggerMode=Off. Doesn't work on some cameras, though.
-    // On the Emergent HR-20000 cameras I need to TriggerMode=Off and then I
-    // need to explicitly send a trigger command. Otherwise no images are
-    // forthcoming. So I do that here unconditionally, since it should work for
-    // other cameras as well
-
-    try_arv_or( arv_camera_set_string(*camera, "TriggerMode", "On", &error),
-                error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
-    if(error != NULL)
+    if(ctx->trigger == MRCAM_TRIGGER_SOFTWARE)
     {
-        // No TriggerMode is available at all. I ignore the error. If there WAS
-        // a TriggerMode, and I couldn't set it to "On", then I DO flag an error
-        g_clear_error(&error);
+
+        // Set the triggering strategy. I'd like to just be able to grab a frame and
+        // be done with it: TriggerMode=Off. Doesn't work on some cameras, though.
+        // On the Emergent HR-20000 cameras I need to TriggerMode=Off and then I
+        // need to explicitly send a trigger command. Otherwise no images are
+        // forthcoming. So I do that here unconditionally, since it should work for
+        // other cameras as well
+
+        try_arv_or( arv_camera_set_string(*camera, "TriggerMode", "On", &error),
+                    error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
+        if(error != NULL)
+        {
+            // No TriggerMode is available at all. I ignore the error. If there WAS
+            // a TriggerMode, and I couldn't set it to "On", then I DO flag an error
+            g_clear_error(&error);
+        }
+
+        // For the Emergent HR-20000 cameras. If either the feature or the requested
+        // enum don't exist, I let it go
+        try_arv_or( arv_camera_set_string(*camera, "TriggerSelector", "FrameStart", &error),
+                    error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
+                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+        if(error != NULL)
+            g_clear_error(&error);
+
+        // For the Emergent HR-20000 cameras. If either the feature or the requested
+        // enum don't exist, I let it go
+        try_arv_or( arv_camera_set_string(*camera, "TriggerSource",   "Software", &error),
+                    error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
+                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+        if(error != NULL)
+            g_clear_error(&error);
     }
-
-    // For the Emergent HR-20000 cameras. If either the feature or the requested
-    // enum don't exist, I let it go
-    try_arv_or( arv_camera_set_string(*camera, "TriggerSelector", "FrameStart", &error),
-                error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
-                error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
-    if(error != NULL)
-        g_clear_error(&error);
-
-    // For the Emergent HR-20000 cameras. If either the feature or the requested
-    // enum don't exist, I let it go
-    try_arv_or( arv_camera_set_string(*camera, "TriggerSource",   "Software", &error),
-                error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
-                error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
-    if(error != NULL)
-        g_clear_error(&error);
+    else if(ctx->trigger == MRCAM_TRIGGER_TTYS0)
+    {
+        try(open_serial_device(ctx));
+    }
+    else
+    {
+        MSG("Unknown trigger enum value '%d'", ctx->trigger);
+        goto done;
+    }
 
     // For the Emergent HR-20000 cameras. I get lost packets otherwise
     try_arv_or( arv_camera_set_integer(*camera, "GevSCPSPacketSize", 9000, &error),
@@ -433,6 +489,12 @@ void mrcam_free(mrcam_t* ctx)
 
     free(ctx->output_image_buffer);
     ctx->output_image_buffer = NULL;
+
+    if(ctx->fd_tty_trigger >= 0)
+    {
+        close(ctx->fd_tty_trigger);
+        ctx->fd_tty_trigger = -1;
+    }
 }
 
 bool mrcam_is_inited(mrcam_t* ctx)
@@ -863,12 +925,28 @@ bool request(mrcam_t* ctx,
     try_arv( arv_camera_start_acquisition(*camera, &error));
     ctx->acquiring = true;
 
-    // For the Emergent HR-20000 cameras. If the feature doesn't exist, I let it
-    // go
-    try_arv_or(arv_camera_execute_command(*camera, "TriggerSoftware", &error),
-               error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
-    if(error != NULL)
-        g_clear_error(&error);
+
+    if(ctx->trigger == MRCAM_TRIGGER_SOFTWARE)
+    {
+        // For the Emergent HR-20000 cameras; the others should be able to
+        // free-run. If the feature doesn't exist, I let it go
+        try_arv_or(arv_camera_execute_command(*camera, "TriggerSoftware", &error),
+                   error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
+        if(error != NULL)
+            g_clear_error(&error);
+    }
+    else if(ctx->trigger == MRCAM_TRIGGER_TTYS0)
+    {
+        // If the previous trigger pulse is still high for some reason, wait for
+        // it to drop
+        try(0 == tcdrain(ctx->fd_tty_trigger));
+        try(1 == write(ctx->fd_tty_trigger, &((char){'\xff'}), 1));
+    }
+    else
+    {
+        MSG("Unknown trigger enum value '%d'", ctx->trigger);
+        goto done;
+    }
 
     result = true;
 
