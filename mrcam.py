@@ -158,7 +158,8 @@ class Fl_Image_View_Group(Fl_Group):
         super().__init__(x,y,w,h)
 
 
-        self.camera       = camera
+        self.camera = camera
+        self.iframe = 0
 
         if feature_names: w_controls = 300
         else:             w_controls = 0
@@ -272,7 +273,8 @@ class Fl_Image_View_Group(Fl_Group):
     def set_up_image_capture(self,
                              period,
                              *,
-                             process_image_callback = None):
+                             process_image_callback = None,
+                             **process_image_callback_cookie):
 
         def callback_image_ready(fd):
             frame = self.camera.requested_image()
@@ -293,7 +295,11 @@ class Fl_Image_View_Group(Fl_Group):
                 self.sync_feature_widgets()
 
                 if process_image_callback is not None:
-                    process_image_callback(image)
+                    process_image_callback(image,
+                                           iframe = self.iframe,
+                                           **process_image_callback_cookie)
+
+                self.iframe += 1
             else:
                 print("Error capturing the image. I will try again",
                       file=sys.stderr)

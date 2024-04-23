@@ -116,7 +116,8 @@ def sharpness(image):
                       borderType = cv2.BORDER_REFLECT)
     return nps.norm2(L.ravel())
 
-def update_sharpness(image):
+def update_sharpness(image,
+                     **kwargs_extra):
     global t
     global imagersize
     if imagersize is None:

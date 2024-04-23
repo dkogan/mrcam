@@ -31,6 +31,18 @@ def parse_args():
     mrcam._add_common_cmd_options(parser,
                                   single_camera = False)
 
+    parser.add_argument('--outdir',
+                        help='''The output directory to write images to. If
+                        omitted, we do NOT write any output images to disk; we
+                        just display them as they come in''')
+    parser.add_argument('--jpg',
+                        action='store_true',
+                        help='''If given, we write the output images as .jpg
+                        files, using lossy compression. If omitted, we write out
+                        lossless .png files (bigger, much slower to compress,
+                        decompress). Some pixel formats (deep ones, in
+                        particular) do not work with.jpg''')
+
     args = parser.parse_args()
 
     mrcam._parse_args_postprocess(args)
@@ -50,6 +62,24 @@ if args.power_cycle_at_startup or \
 
 from fltk import *
 import math
+import mrcal
+
+def process_image_callback(image,
+                           *,
+                           iframe,
+                           icam,
+                           outdir,
+                           extension):
+
+    if outdir is None:
+        return
+
+    path = f"{outdir}/frame{iframe:05d}-cam{icam}.{extension}"
+    mrcal.save_image(path, image)
+
+    print(f"Wrote '{path}'", file=sys.stderr)
+
+
 
 
 kwargs = dict()
@@ -108,7 +138,12 @@ for i in range(Hgrid):
                                       camera          = cameras[icam],
                                       single_buffered = args.single_buffered,
                                       feature_names   = args.features)
-        image_view_groups[icam].set_up_image_capture(args.period)
+        image_view_groups[icam].set_up_image_capture(args.period,
+                                                     process_image_callback = process_image_callback,
+                                                     extension              = "jpg" if args.jpg else "png",
+                                                     outdir                 = args.outdir,
+                                                     icam                   = icam)
+
 
         x0   += w
         icam += 1
