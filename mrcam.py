@@ -169,11 +169,11 @@ class Fl_Image_View_Group(Fl_Group):
                                                        group           = self,
                                                        double_buffered = not single_buffered,
                                                        handle_extra    = handle_extra)
-        self.status_widget = Fl_Output(0, h-h_status, w, h_status)
+        self.status_widget = Fl_Output(x, y + h-h_status, w, h_status)
 
         # Need group to control resizing: I want to fix the sizes of the widgets in
         # the group, so I group.resizable(None) later
-        group = Fl_Group(w-w_controls, 0,
+        group = Fl_Group(x + w-w_controls, y,
                          w_controls, h-h_status)
 
         self.features                 = [dict() for i in feature_names]
@@ -190,7 +190,7 @@ class Fl_Image_View_Group(Fl_Group):
                 if desc['unit']: label = f"{name} ({desc['unit']})"
                 else:            label = name
                 h_here = h_control + h_control_footer
-                widget = Fl_Value_Slider(w-w_controls, y,
+                widget = Fl_Value_Slider(x + w-w_controls, y,
                                          w_controls, h_control,
                                          label)
                 widget.align(FL_ALIGN_BOTTOM)
@@ -199,19 +199,19 @@ class Fl_Image_View_Group(Fl_Group):
                 widget.callback(self.feature_callback_valuator)
             elif t == 'boolean':
                 h_here = h_control
-                widget = Fl_Check_Button(w-w_controls, y,
+                widget = Fl_Check_Button(x + w-w_controls, y,
                                          w_controls, h_control,
                                          name)
                 widget.callback(self.feature_callback_valuator)
             elif t == 'command':
                 h_here = h_control
-                widget = Fl_Button(W-w_controls, y,
+                widget = Fl_Button(x + w-w_controls, y,
                                    w_controls, h_control,
                                    name)
                 widget.callback(self.feature_callback_button)
             elif t == 'enumeration':
                 h_here = h_control + h_control_footer
-                widget = Fl_Choice(w-w_controls, y,
+                widget = Fl_Choice(x + w-w_controls, y,
                                    w_controls, h_control,
                                    name)
                 for s in desc['entries']:
