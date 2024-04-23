@@ -474,6 +474,11 @@ bool mrcam_init(// out
     {
         // I did open_serial_device(ctx) above
     }
+    else if(ctx->trigger == MRCAM_TRIGGER_HARDWARE_EXTERNAL)
+    {
+        // A magic trigger signal will come from somewhere. I don't worry about
+        // it here; nothing to do
+    }
     else
     {
         MSG("Unknown trigger enum value '%d'", ctx->trigger);
@@ -972,6 +977,11 @@ bool request(mrcam_t* ctx,
         // it to drop
         try(0 == tcdrain(ctx->fd_tty_trigger));
         try(1 == write(ctx->fd_tty_trigger, &((char){'\xff'}), 1));
+    }
+    else if(ctx->trigger == MRCAM_TRIGGER_HARDWARE_EXTERNAL)
+    {
+        // A magic trigger signal will come from somewhere. I don't worry about
+        // it here; nothing to do
     }
     else
     {

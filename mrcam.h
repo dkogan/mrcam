@@ -42,7 +42,8 @@ typedef enum
 
 #define LIST_MRCAM_TRIGGER(_) \
     _(SOFTWARE) \
-    _(TTYS0)
+    _(TTYS0)    \
+    _(HARDWARE_EXTERNAL)
 
 typedef enum {
 #define ENUM(name, ...) MRCAM_TRIGGER_ ## name,
