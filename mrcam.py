@@ -298,11 +298,11 @@ class Fl_Image_View_Group(Fl_Group):
                     process_image_callback(image,
                                            iframe = self.iframe,
                                            **process_image_callback_cookie)
-
-                self.iframe += 1
             else:
                 print("Error capturing the image. I will try again",
                       file=sys.stderr)
+
+            self.iframe += 1
 
             Fl.add_timeout(period, update)
 
