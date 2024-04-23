@@ -33,11 +33,6 @@ def parse_args():
 
     args = parser.parse_args()
 
-    if len(args.camera) > 1:
-        print("ERROR: at this time this tool only supports one camera",
-              file = sys.stderr)
-        sys.exit(1)
-
     mrcam._parse_args_postprocess(args)
 
     return args
@@ -45,8 +40,16 @@ def parse_args():
 
 args = parse_args()
 
-from fltk import *
+if args.power_cycle_at_startup or \
+   args.power_down_when_finished:
+    if args.trigger != 'TTYS0':
+        print("Power control is only available with '--trigger TTYS0'",
+              file = sys.stderr)
+        sys.exit(1)
 
+
+from fltk import *
+import math
 
 
 kwargs = dict()
@@ -57,30 +60,64 @@ if args.pixfmt is not None:
     kwargs['pixfmt'] = args.pixfmt
 if args.trigger is not None:
     kwargs['trigger'] = args.trigger
-c = mrcam.camera(args.camera[0],
-                 verbose = args.verbose,
-                 recreate_stream_with_each_frame = args.recreate_stream_with_each_frame,
-                 power_cycle_at_startup          = args.power_cycle_at_startup,
-                 power_down_when_finished        = args.power_down_when_finished,
-                 **kwargs)
+
+Ncameras = len(args.camera)
+cameras           = [None] * Ncameras
+image_view_groups = [None] * Ncameras
+for i,camera in enumerate(args.camera):
+    cameras[i] = \
+        mrcam.camera(camera,
+                     verbose = args.verbose,
+                     recreate_stream_with_each_frame = args.recreate_stream_with_each_frame,
+                     power_cycle_at_startup          = args.power_cycle_at_startup,
+                     power_down_when_finished        = args.power_down_when_finished,
+                     **kwargs)
+
+    # Only the first camera can control the power. Its trigger and power signals
+    # apply to ALL the cameras
+    if args.trigger == 'TTYS0':
+        args.power_cycle_at_startup   = False
+        args.power_down_when_finished = False
+        args.trigger                  = 'HARDWARE_EXTERNAL'
 
 
 
 W = 800
 H = 600
 
-window           = Fl_Window(W,H, "mrcam stream")
-image_view_group = mrcam.Fl_Image_View_Group(0,0, W,H,
-                                             camera          = c,
-                                             single_buffered = args.single_buffered,
-                                             feature_names   = args.features)
+window = Fl_Window(W,H, "mrcam stream")
 
 
-window.resizable(image_view_group)
+Ngrid = math.ceil(math.sqrt(Ncameras))
+Wgrid = Ngrid
+Hgrid = math.ceil(Ncameras/Wgrid)
+
+w    = W//Wgrid
+h    = H//Hgrid
+icam = 0
+y0   = 0
+
+for i in range(Hgrid):
+    x0 = 0
+
+    for j in range(Wgrid):
+        image_view_groups[icam] = \
+            mrcam.Fl_Image_View_Group(x0,y0,
+                                      w if j < Wgrid-1 else (W-x0),
+                                      h if i < Hgrid-1 else (H-y0),
+                                      camera          = cameras[icam],
+                                      single_buffered = args.single_buffered,
+                                      feature_names   = args.features)
+        image_view_groups[icam].set_up_image_capture(args.period)
+
+        x0   += w
+        icam += 1
+
+    y0 += h
+
+window.resizable(window)
 window.end()
 window.show()
 
-
-image_view_group.set_up_image_capture(args.period)
 
 Fl.run()
