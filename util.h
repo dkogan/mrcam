@@ -12,7 +12,7 @@
 
 #define try(expr, ...) do {                                     \
         if(ctx->verbose)                                        \
-            MSG("Evaluating   '" #expr "'");                    \
+            MSG("ctx=%p: Evaluating   '" #expr "'", ctx);       \
         if(!(expr))                                             \
         {                                                       \
             ERR("'" #expr "' is false" __VA_ARGS__);            \
@@ -22,7 +22,7 @@
 
 #define try_arv(expr) do {                              \
         if(ctx->verbose)                                \
-            MSG("Calling   '" #expr "'");               \
+            MSG("ctx=%p: Calling   '" #expr "'", ctx);  \
         expr;                                           \
         if(error != NULL)                               \
         {                                               \
@@ -37,7 +37,7 @@
         if(ctx->verbose)                                                \
         {                                                               \
             extra_verbose_before;                                       \
-            MSG("Calling   '" #expr "'");                               \
+            MSG("ctx=%p: Calling   '" #expr "'", ctx);                  \
         }                                                               \
         expr;                                                           \
         if(ctx->verbose)                                                \
@@ -57,7 +57,7 @@
 // THIS MACRO MAY LEAVE error ALLOCATED. YOU NEED TO g_clear_error() yourself
 #define try_arv_or(expr, condition) do {                                \
         if(ctx->verbose)                                                \
-            MSG("Calling   '" #expr "'");                               \
+            MSG("ctx=%p: Calling   '" #expr "'", ctx);                  \
         expr;                                                           \
         if(error != NULL)                                               \
         {                                                               \
@@ -76,7 +76,7 @@
 
 #define try_arv_and(expr, condition) do {                               \
         if(ctx->verbose)                                                \
-            MSG("Calling   '" #expr "'");                               \
+            MSG("ctx=%p: Calling   '" #expr "'", ctx);                  \
         expr;                                                           \
         if(error != NULL)                                               \
         {                                                               \
