@@ -304,22 +304,9 @@ class Fl_Image_View_Group(Fl_Group):
 
             self.iframe += 1
 
-            Fl.add_timeout(period, update)
-
-        def update(*args):
-
-            # try block needed to avoid potential crashes:
-            #   https://sourceforge.net/p/pyfltk/mailman/pyfltk-user/thread/875xx5ncgp.fsf%40secretsauce.net/#msg58754407
-            try:
-                self.camera.request()
-            except Exception as e:
-                self.top_window().hide()
-                raise e
-
-
-
+            Fl.add_timeout(period, lambda *args: self.camera.request())
 
         Fl.add_fd( self.camera.fd_image_ready,
                    callback_image_ready )
 
-        update()
+        self.camera.request()
