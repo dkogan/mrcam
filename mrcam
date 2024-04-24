@@ -70,10 +70,6 @@ def image_callback(image,
                    icam,
                    outdir,
                    extension):
-
-    if outdir is None:
-        return
-
     path = f"{outdir}/frame{iframe:05d}-cam{icam}.{extension}"
     mrcal.save_image(path, image)
 
@@ -139,7 +135,7 @@ for i in range(Hgrid):
                                       single_buffered = args.single_buffered,
                                       feature_names   = args.features)
         image_view_groups[icam].set_up_image_capture(args.period,
-                                                     image_callback = image_callback,
+                                                     image_callback = image_callback if args.outdir is not None else None,
                                                      extension      = "jpg" if args.jpg else "png",
                                                      outdir         = args.outdir,
                                                      icam           = icam)
