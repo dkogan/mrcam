@@ -64,12 +64,12 @@ from fltk import *
 import math
 import mrcal
 
-def process_image_callback(image,
-                           *,
-                           iframe,
-                           icam,
-                           outdir,
-                           extension):
+def image_callback(image,
+                   *,
+                   iframe,
+                   icam,
+                   outdir,
+                   extension):
 
     if outdir is None:
         return
@@ -139,10 +139,10 @@ for i in range(Hgrid):
                                       single_buffered = args.single_buffered,
                                       feature_names   = args.features)
         image_view_groups[icam].set_up_image_capture(args.period,
-                                                     process_image_callback = process_image_callback,
-                                                     extension              = "jpg" if args.jpg else "png",
-                                                     outdir                 = args.outdir,
-                                                     icam                   = icam)
+                                                     image_callback = image_callback,
+                                                     extension      = "jpg" if args.jpg else "png",
+                                                     outdir         = args.outdir,
+                                                     icam           = icam)
 
 
         x0   += w

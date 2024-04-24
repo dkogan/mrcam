@@ -229,6 +229,6 @@ window.show()
 
 
 image_view_group.set_up_image_capture(args.period,
-                                      process_image_callback = update_sharpness)
+                                      image_callback = update_sharpness)
 
 Fl.run()
