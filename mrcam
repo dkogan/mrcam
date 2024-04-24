@@ -105,10 +105,10 @@ for i,camera in enumerate(args.camera):
 
     # Only the first camera can control the power. Its trigger and power signals
     # apply to ALL the cameras
-    if args.trigger == 'TTYS0':
+    if kwargs['trigger'] == 'TTYS0':
         args.power_cycle_at_startup   = False
         args.power_down_when_finished = False
-        args.trigger                  = 'HARDWARE_EXTERNAL'
+        kwargs['trigger']             = 'HARDWARE_EXTERNAL'
 
 
 
