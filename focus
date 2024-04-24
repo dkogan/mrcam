@@ -120,6 +120,12 @@ def update_sharpness(image,
                      **kwargs_extra):
     global t
     global imagersize
+
+    if image is None:
+        # Error occurred capturing the image. Let it go; hopefully the next one
+        # will work
+        return
+
     if imagersize is None:
         imagersize = np.array((image.shape[1], image.shape[0]),)
 
@@ -228,7 +234,7 @@ window.end()
 window.show()
 
 
-image_view_group.set_up_image_capture(args.period,
+image_view_group.set_up_image_capture(period         = args.period,
                                       image_callback = update_sharpness)
 
 Fl.run()

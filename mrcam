@@ -64,18 +64,44 @@ from fltk import *
 import math
 import mrcal
 
+def request_image_set():
+    global image_view_groups
+    for image_view_group in image_view_groups:
+        image_view_group.camera.request()
+
+Ncameras_seen_this_frame = 0
+iframe_this              = -1
 def image_callback(image,
                    *,
                    iframe,
                    icam,
                    outdir,
                    extension):
-    path = f"{outdir}/frame{iframe:05d}-cam{icam}.{extension}"
-    mrcal.save_image(path, image)
 
-    print(f"Wrote '{path}'", file=sys.stderr)
+    global Ncameras_seen_this_frame
+    global iframe_this
 
+    if args.outdir is not None:
+        # write image to disk
+        path = f"{outdir}/frame{iframe:05d}-cam{icam}.{extension}"
 
+        if image is None:
+            print(f"Error occurred capturing '{path}'; writing empty file")
+            with open(path, 'w') as fp:
+                pass
+
+        else:
+            mrcal.save_image(path, image)
+            print(f"Wrote '{path}'", file=sys.stderr)
+
+    # schedule the next set of images
+    if iframe_this != iframe:
+        iframe_this = iframe
+        Ncameras_seen_this_frame = 0
+    Ncameras_seen_this_frame += 1
+    if Ncameras_seen_this_frame == Ncameras:
+        # Every camera reported back. Ask for another frame
+        Fl.add_timeout(args.period, lambda *args: request_image_set())
 
 
 kwargs = dict()
@@ -90,7 +116,14 @@ if args.trigger is not None:
 Ncameras = len(args.camera)
 cameras           = [None] * Ncameras
 image_view_groups = [None] * Ncameras
-for i,camera in enumerate(args.camera):
+
+# I init each camera. If we're doing serial triggering and power control, only
+# the LAST camera should touch these: it's assumed that the trigger and power
+# signals are shared between ALL the cameras. I give this to the last camera and
+# not the first, so that at capture time all the cameras get ready to capture,
+# and only then do we actually send the trigger; otherwise when the first camera
+# sends the trigger, the last camera might still be initializing
+for i,camera in reversed(list(enumerate(args.camera))):
     cameras[i] = \
         mrcam.camera(camera,
                      verbose = args.verbose,
@@ -99,8 +132,6 @@ for i,camera in enumerate(args.camera):
                      power_down_when_finished        = args.power_down_when_finished,
                      **kwargs)
 
-    # Only the first camera can control the power. Its trigger and power signals
-    # apply to ALL the cameras
     if kwargs['trigger'] == 'TTYS0':
         args.power_cycle_at_startup   = False
         args.power_down_when_finished = False
@@ -134,8 +165,8 @@ for i in range(Hgrid):
                                       camera          = cameras[icam],
                                       single_buffered = args.single_buffered,
                                       feature_names   = args.features)
-        image_view_groups[icam].set_up_image_capture(args.period,
-                                                     image_callback = image_callback if args.outdir is not None else None,
+        image_view_groups[icam].set_up_image_capture(period         = None, # don't auto-recur. I do that myself, making sure ALL the cameras are processed
+                                                     image_callback = image_callback,
                                                      extension      = "jpg" if args.jpg else "png",
                                                      outdir         = args.outdir,
                                                      icam           = icam)
@@ -150,5 +181,7 @@ window.resizable(window)
 window.end()
 window.show()
 
+# request the initial frame; will recur in image_callback
+request_image_set()
 
 Fl.run()

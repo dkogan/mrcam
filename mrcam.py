@@ -271,8 +271,9 @@ class Fl_Image_View_Group(Fl_Group):
 
 
     def set_up_image_capture(self,
-                             period,
                              *,
+                             period         = None, # if given, we automatically recur
+                             # guaranteed to be called with each frame; even on error
                              image_callback = None,
                              **image_callback_cookie):
 
@@ -302,11 +303,19 @@ class Fl_Image_View_Group(Fl_Group):
                 print("Error capturing the image. I will try again",
                       file=sys.stderr)
 
+                if image_callback is not None:
+                    image_callback(None, # no image; error
+                                   iframe = self.iframe,
+                                   **image_callback_cookie)
+
             self.iframe += 1
 
-            Fl.add_timeout(period, lambda *args: self.camera.request())
+            if period is not None:
+                Fl.add_timeout(period, lambda *args: self.camera.request())
 
         Fl.add_fd( self.camera.fd_image_ready,
                    callback_image_ready )
 
-        self.camera.request()
+        if period is not None:
+            self.camera.request()
+
