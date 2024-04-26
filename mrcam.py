@@ -5,6 +5,7 @@ import re
 from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
 from fltk import *
 import mrcal
+import time
 from _mrcam import *
 
 def _add_common_cmd_options(parser,
@@ -127,6 +128,30 @@ def _parse_args_postprocess(args):
             sys.exit(1)
     else:
         args.display_flip = set()
+
+
+_time_last_request_image_set = None
+def _schedule_next_frame(f, period):
+    # I want the image requests to fire at a constant rate, ignoring the
+    # other processing
+    global _time_last_request_image_set
+
+    time_now = time.time()
+
+    if _time_last_request_image_set is None:
+        time_sleep = period
+    else:
+        time_sleep = _time_last_request_image_set + period - time_now
+
+    if time_sleep <= 0:
+        f()
+        _time_last_request_image_set = time_now
+
+    else:
+        Fl.add_timeout(time_sleep, lambda *args: f())
+        _time_last_request_image_set = time_now + time_sleep
+
+
 
 class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
     def __init__(self,
@@ -330,7 +355,8 @@ class Fl_Image_View_Group(Fl_Group):
             self.iframe += 1
 
             if period is not None:
-                Fl.add_timeout(period, lambda *args: self.camera.request())
+                _schedule_next_frame(self.camera.request, period)
+
 
         Fl.add_fd( self.camera.fd_image_ready,
                    callback_image_ready )
