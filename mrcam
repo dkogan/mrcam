@@ -169,7 +169,9 @@ for i in range(Hgrid):
                                                      image_callback = image_callback,
                                                      extension      = "jpg" if args.jpg else "png",
                                                      outdir         = args.outdir,
-                                                     icam           = icam)
+                                                     icam           = icam,
+                                                     flip_x         = 'x' in args.display_flip,
+                                                     flip_y         = 'y' in args.display_flip)
 
 
         x0   += w

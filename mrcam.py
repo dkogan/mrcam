@@ -47,6 +47,11 @@ def _add_common_cmd_options(parser,
                         action='store_true',
                         help='''If given, we power-down the camera when we're done. Implemented ONLY if
                         --trigger TTYS0''')
+    parser.add_argument('--display-flip',
+                        help='''Flip the image horizontally and/or vertically
+                        for display. This changes the way the image is displayed
+                        ONLY: the captured image data is unchanged. The argument
+                        is a comma-separated string of "x" and/or "y"''')
     parser.add_argument('--dims',
                         help='''Imager dimensions given as WIDTH,HEIGHT. Required for cameras where this
                         cannot be auto-detected''')
@@ -114,6 +119,14 @@ def _parse_args_postprocess(args):
     else:
         args.features = ()
 
+    if args.display_flip is not None:
+        args.display_flip = set(args.display_flip.split(','))
+        set_remaining = args.display_flip - set( ('x','y'))
+        if len(set_remaining):
+            print(f"--display-flip takes a comma-separated list of ONLY 'x' and/or 'y': got unknown elements {set_remaining}", file = sys.stderr)
+            sys.exit(1)
+    else:
+        args.display_flip = set()
 
 class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
     def __init__(self,
@@ -275,6 +288,8 @@ class Fl_Image_View_Group(Fl_Group):
                              period         = None, # if given, we automatically recur
                              # guaranteed to be called with each frame; even on error
                              image_callback = None,
+                             flip_x         = False,
+                             flip_y         = False,
                              **image_callback_cookie):
 
         def callback_image_ready(fd):
@@ -288,9 +303,13 @@ class Fl_Image_View_Group(Fl_Group):
                 if image.itemsize > 1:
                     if image.ndim > 2:
                         raise Exception("high-depth color images not supported yet")
-                    self.image_widget.update_image(image_data = mrcal.apply_color_map(image))
+                    self.image_widget.update_image(image_data = mrcal.apply_color_map(image),
+                                                   flip_x     = flip_x,
+                                                   flip_y     = flip_y)
                 else:
-                    self.image_widget.update_image(image_data = image)
+                    self.image_widget.update_image(image_data = image,
+                                                   flip_x     = flip_x,
+                                                   flip_y     = flip_y)
 
 
                 self.sync_feature_widgets()

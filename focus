@@ -235,6 +235,8 @@ window.show()
 
 
 image_view_group.set_up_image_capture(period         = args.period,
-                                      image_callback = update_sharpness)
+                                      image_callback = update_sharpness,
+                                      flip_x         = 'x' in args.display_flip,
+                                      flip_y         = 'y' in args.display_flip)
 
 Fl.run()
