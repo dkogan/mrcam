@@ -175,6 +175,11 @@ for i in range(Hgrid):
         x0   += w
         icam += 1
 
+        if icam == Ncameras:
+            break
+    if icam == Ncameras:
+        break
+
     y0 += h
 
 window.resizable(window)
