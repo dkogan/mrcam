@@ -191,6 +191,7 @@ class Fl_Image_View_Group(Fl_Group):
                  camera,
                  feature_names = (),
                  single_buffered = False,
+                 status_widget   = None,
                  handle_extra    = None):
 
         super().__init__(x,y,w,h)
@@ -202,17 +203,27 @@ class Fl_Image_View_Group(Fl_Group):
         if feature_names: w_controls = 300
         else:             w_controls = 0
 
+        if status_widget is None:
+            # no global status bar; create one here
+            h_status_here = h_status
+        else:
+            # use a global status bar
+            h_status_here = 0
+
         self.image_widget = Fl_Gl_Image_Widget_Derived(x, y,
-                                                       w-w_controls, h-h_status,
+                                                       w-w_controls, h-h_status_here,
                                                        group           = self,
                                                        double_buffered = not single_buffered,
                                                        handle_extra    = handle_extra)
-        self.status_widget = Fl_Output(x, y + h-h_status, w, h_status)
+        if status_widget is None:
+            self.status_widget = Fl_Output(x, y + h-h_status_here, w, h_status_here)
+        else:
+            self.status_widget = status_widget
 
         # Need group to control resizing: I want to fix the sizes of the widgets in
         # the group, so I group.resizable(None) later
         group = Fl_Group(x + w-w_controls, y,
-                         w_controls, h-h_status)
+                         w_controls, h-h_status_here)
 
         self.features                 = [dict() for i in feature_names]
         self.feature_dict_from_widget = dict()

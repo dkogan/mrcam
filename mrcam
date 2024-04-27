@@ -138,8 +138,9 @@ for i,camera in reversed(list(enumerate(args.camera))):
 
 
 
-W = 800
-H = 600
+W        = 800
+H        = 600
+H_status = 20
 
 window = Fl_Window(W,H, "mrcam stream")
 
@@ -148,21 +149,26 @@ Ngrid = math.ceil(math.sqrt(Ncameras))
 Wgrid = Ngrid
 Hgrid = math.ceil(Ncameras/Wgrid)
 
-w    = W//Wgrid
-h    = H//Hgrid
+w    = W           //Wgrid
+h    = (H-H_status)//Hgrid
 icam = 0
 y0   = 0
 
+status_widget = Fl_Output(0, H-H_status, W, H_status)
+status_widget.value('')
+
+image_views = Fl_Group(0, 0, W, H-H_status)
 for i in range(Hgrid):
     x0 = 0
 
     for j in range(Wgrid):
         image_view_groups[icam] = \
             mrcam.Fl_Image_View_Group(x0,y0,
-                                      w if j < Wgrid-1 else (W-x0),
-                                      h if i < Hgrid-1 else (H-y0),
+                                      w if j < Wgrid-1 else (W         -x0),
+                                      h if i < Hgrid-1 else (H-H_status-y0),
                                       camera          = cameras[icam],
                                       single_buffered = args.single_buffered,
+                                      status_widget   = status_widget,
                                       feature_names   = args.features)
         image_view_groups[icam].set_up_image_capture(period         = None, # don't auto-recur. I do that myself, making sure ALL the cameras are processed
                                                      image_callback = image_callback,
@@ -182,8 +188,9 @@ for i in range(Hgrid):
         break
 
     y0 += h
+image_views.end()
 
-window.resizable(window)
+window.resizable(image_views)
 window.end()
 window.show()
 
