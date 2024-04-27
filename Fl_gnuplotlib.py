@@ -1,5 +1,10 @@
 #!/usr/bin/python3
 
+# A proof-of-concept gnuplot-based plotting widget for FLTK. Not "done", but
+# quite functional. See Fl_gnuplotlib_demo.py and this blog post:
+#
+# http://notes.secretsauce.net/notes/2022/10/17_gnuplot-output-in-an-fltk-widget.html
+
 import sys
 import fltk
 import gnuplotlib as gp
