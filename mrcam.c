@@ -198,7 +198,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer);
 static void report_available_pixel_formats(ArvCamera* camera,
                                            mrcam_t* ctx)
 {
-    GError *error  = NULL;
+    GError* error  = NULL;
     const char** available_pixel_formats = NULL;
     guint n_pixel_formats;
 
@@ -217,7 +217,7 @@ static bool
 init_stream(mrcam_t* ctx)
 {
     bool    result = false;
-    GError *error  = NULL;
+    GError* error  = NULL;
 
     DEFINE_INTERNALS(ctx);
 
@@ -325,7 +325,7 @@ bool mrcam_init(// out
                 const mrcam_options_t* options)
 {
     bool result = false;
-    GError *error  = NULL;
+    GError* error  = NULL;
     *ctx = (mrcam_t){ .recreate_stream_with_each_frame = options->recreate_stream_with_each_frame,
                       .power_cycle_at_startup          = options->power_cycle_at_startup,
                       .power_down_when_finished        = options->power_down_when_finished,
@@ -750,7 +750,7 @@ bool receive_image(mrcam_t* ctx,
 {
     DEFINE_INTERNALS(ctx);
     bool        result      = false;
-    GError     *error       = NULL;
+    GError*     error       = NULL;
     ArvBuffer*  buffer_here = NULL;
 
     if(!ctx->acquiring)
@@ -939,7 +939,7 @@ bool request(mrcam_t* ctx,
 {
     DEFINE_INTERNALS(ctx);
     bool    result = false;
-    GError *error  = NULL;
+    GError* error  = NULL;
 
     if(ctx->acquiring || ctx->active_callback != NULL)
     {
