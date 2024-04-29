@@ -523,7 +523,7 @@ requested_image(camera* self, PyObject* args, PyObject* kwargs)
 
     if(!block && !fd_has_data(self->fd_read))
     {
-        BARF("Non-blocking mode requestd, but no data is available to be read");
+        BARF("Non-blocking mode requested, but no data is available to be read");
         goto done;
     }
 
