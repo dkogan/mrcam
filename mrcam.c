@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 
 #include <libswscale/swscale.h>
 #include <libavutil/pixfmt.h>
@@ -540,6 +541,13 @@ bool mrcam_is_inited(mrcam_t* ctx)
     return *camera != NULL;
 }
 
+static uint64_t gettimeofday_uint64()
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (uint64_t) tv.tv_sec * 1000000ULL + (uint64_t) tv.tv_usec;
+}
+
 // Fill in the image. Assumes that the buffer has valid data
 static
 bool fill_image_unpacked(// out
@@ -745,8 +753,11 @@ bool fill_image_bgr(// out
 
 // meant to be called after request()
 static
-bool receive_image(mrcam_t* ctx,
-                   const uint64_t timeout_us)
+bool receive_image(// out
+                   uint64_t* timestamp_us,
+                   // in
+                   const uint64_t timeout_us,
+                   mrcam_t* ctx)
 {
     DEFINE_INTERNALS(ctx);
     bool        result      = false;
@@ -764,6 +775,8 @@ bool receive_image(mrcam_t* ctx,
         if (timeout_us > 0) MSG("Evaluating   arv_stream_timeout_pop_buffer(timeout_us = %"PRIu64")", timeout_us);
         else                MSG("Evaluating   arv_stream_pop_buffer()");
     }
+
+    *timestamp_us = gettimeofday_uint64();
 
     // May block. If we don't want to block, it's our job to make sure to have
     // called receive_image() when an output image has already been buffered
@@ -893,7 +906,9 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
 
             // type may not be right; it doesn't matter
             mrcal_image_uint8_t image = (mrcal_image_uint8_t){};
-            if( receive_image(ctx, 0) )
+            uint64_t timestamp_us = 0;
+            if( receive_image(&timestamp_us,
+                              0, ctx) )
             {
                 switch(mrcam_output_type(ctx->pixfmt))
                 {
@@ -916,11 +931,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
             // On error image is {0}, which indicates an error. We invoke the
             // callback regardless. I want to make sure that the caller can be
             // sure to expect ONE callback with each request
-
-#warning finish timestamping
-            uint64_t timestamp = 0;
-            ctx->active_callback(image, timestamp, ctx->active_callback_cookie);
-
+            ctx->active_callback(image, timestamp_us, ctx->active_callback_cookie);
             ctx->active_callback = NULL;
         }
 
@@ -1020,6 +1031,7 @@ bool request(mrcam_t* ctx,
 // timeout_us=0 means "wait forever"
 bool mrcam_pull_uint8(// out
                       mrcal_image_uint8_t* image,
+                      uint64_t* timestamp_us,
                       // in
                       const uint64_t timeout_us,
                       mrcam_t* ctx)
@@ -1027,11 +1039,13 @@ bool mrcam_pull_uint8(// out
     return
         request(ctx, NULL, NULL) &&
         // may block
-        receive_image(ctx, timeout_us) &&
+        receive_image(timestamp_us,
+                      timeout_us, ctx) &&
         fill_image_uint8(image, ctx);
 }
 bool mrcam_pull_uint16(// out
                        mrcal_image_uint16_t* image,
+                       uint64_t* timestamp_us,
                        // in
                        const uint64_t timeout_us,
                        mrcam_t* ctx)
@@ -1039,11 +1053,13 @@ bool mrcam_pull_uint16(// out
     return
         request(ctx, NULL, NULL) &&
         // may block
-        receive_image(ctx, timeout_us) &&
+        receive_image(timestamp_us,
+                      timeout_us, ctx) &&
         fill_image_uint16(image, ctx);
 }
 bool mrcam_pull_bgr(// out
                     mrcal_image_bgr_t* image,
+                    uint64_t* timestamp_us,
                     // in
                     const uint64_t timeout_us,
                     mrcam_t* ctx)
@@ -1051,7 +1067,8 @@ bool mrcam_pull_bgr(// out
     return
         request(ctx, NULL, NULL) &&
         // may block
-        receive_image(ctx, timeout_us) &&
+        receive_image(timestamp_us,
+                      timeout_us, ctx) &&
         fill_image_bgr(image, ctx);
 }
 

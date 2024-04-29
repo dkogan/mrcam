@@ -73,6 +73,7 @@ Ncameras_seen_this_frame = 0
 iframe_this              = -1
 def image_callback(image,
                    *,
+                   timestamp_us,
                    iframe,
                    icam,
                    outdir,

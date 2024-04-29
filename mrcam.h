@@ -162,16 +162,19 @@ bool mrcam_is_inited(mrcam_t* ctx);
 //   }
 bool mrcam_pull_uint8( // out
                        mrcal_image_uint8_t* image,
+                       uint64_t* timestamp_us,
                        // in
                        const uint64_t timeout_us,
                        mrcam_t* ctx);
 bool mrcam_pull_uint16(// out
                        mrcal_image_uint16_t* image,
+                       uint64_t* timestamp_us,
                        // in
                        const uint64_t timeout_us,
                        mrcam_t* ctx);
 bool mrcam_pull_bgr(   // out
                        mrcal_image_bgr_t* image,
+                       uint64_t* timestamp_us,
                        // in
                        const uint64_t timeout_us,
                        mrcam_t* ctx);

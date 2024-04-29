@@ -255,6 +255,8 @@ int main(int argc, char **argv)
         mrcal_image_bgr_t    image_bgr   [options.Ncameras];
     } images;
 
+    uint64_t timestamps_us[options.Ncameras];
+
     printf("# iframe icam cameraname t_system imagepath\n");
 
     for(int iframe=0; iframe<options.Nframes; iframe++)
@@ -266,17 +268,23 @@ int main(int argc, char **argv)
             switch(mrcam_output_type(ctx[icam].pixfmt))
             {
             case MRCAM_uint8:
-                if(!mrcam_pull_uint8( &images.image_uint8 [icam], 0, &ctx[icam]))
+                if(!mrcam_pull_uint8( &images.image_uint8 [icam],
+                                      &timestamps_us[icam],
+                                      0, &ctx[icam]))
                     goto done;
                 break;
 
             case MRCAM_uint16:
-                if(!mrcam_pull_uint16(&images.image_uint16[icam], 0, &ctx[icam]))
+                if(!mrcam_pull_uint16(&images.image_uint16[icam],
+                                      &timestamps_us[icam],
+                                      0, &ctx[icam]))
                     goto done;
                 break;
 
             case MRCAM_bgr:
-                if(!mrcam_pull_bgr(   &images.image_bgr   [icam], 0, &ctx[icam]))
+                if(!mrcam_pull_bgr(   &images.image_bgr   [icam],
+                                      &timestamps_us[icam],
+                                      0, &ctx[icam]))
                     goto done;
                 break;
 
@@ -349,8 +357,8 @@ int main(int argc, char **argv)
 
             printf("%d %d %s %ld.%06ld %s\n",
                    iframe, icam, options.camera_names[icam],
-                   t1 / 1000000,
-                   t1 % 1000000,
+                   timestamps_us[icam] / 1000000,
+                   timestamps_us[icam] % 1000000,
                    filename);
             fflush(stdout);
         }

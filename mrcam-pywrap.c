@@ -293,10 +293,6 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
     PyObject* result = NULL;
     PyObject* image  = NULL;
 
-#warning add timestamping
-    const uint64_t timestamp_us = 0;
-
-
     char* keywords[] = {"timeout",
                         NULL};
 
@@ -318,12 +314,14 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
 
     // generic type
     mrcal_image_uint8_t mrcal_image;
+    uint64_t timestamp_us;
 
     switch(mrcam_output_type(self->ctx.pixfmt))
     {
     case MRCAM_uint8:
         {
             if(!mrcam_pull_uint8( (mrcal_image_uint8_t*)&mrcal_image,
+                                  &timestamp_us,
                                   (uint64_t)(timeout_sec * 1e6),
                                   &self->ctx))
             {
@@ -336,6 +334,7 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
     case MRCAM_uint16:
         {
             if(!mrcam_pull_uint16( (mrcal_image_uint16_t*)&mrcal_image,
+                                   &timestamp_us,
                                    (uint64_t)(timeout_sec * 1e6),
                                    &self->ctx))
             {
@@ -348,8 +347,9 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
     case MRCAM_bgr:
         {
             if(!mrcam_pull_bgr( (mrcal_image_bgr_t*)&mrcal_image,
-                                     (uint64_t)(timeout_sec * 1e6),
-                                     &self->ctx))
+                                &timestamp_us,
+                                (uint64_t)(timeout_sec * 1e6),
+                                &self->ctx))
             {
                 BARF("mrcam_pull...() failed");
                 goto done;

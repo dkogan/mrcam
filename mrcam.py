@@ -352,7 +352,8 @@ class Fl_Image_View_Group(Fl_Group):
 
                 if image_callback is not None:
                     image_callback(image,
-                                   iframe = self.iframe,
+                                   timestamp_us = timestamp_us,
+                                   iframe       = self.iframe,
                                    **image_callback_cookie)
             else:
                 print("Error capturing the image. I will try again",
@@ -360,7 +361,8 @@ class Fl_Image_View_Group(Fl_Group):
 
                 if image_callback is not None:
                     image_callback(None, # no image; error
-                                   iframe = self.iframe,
+                                   timestamp_us = timestamp_us,
+                                   iframe       = self.iframe,
                                    **image_callback_cookie)
 
             self.iframe += 1
