@@ -87,13 +87,12 @@ def image_callback(image,
         path = f"{outdir}/frame{iframe:05d}-cam{icam}.{extension}"
 
         if image is None:
-            print(f"Error occurred capturing '{path}'; writing empty file")
-            with open(path, 'w') as fp:
-                pass
-
+            print(f"{timestamp_us/1e6:.3f} {iframe} {icam} -");
         else:
             mrcal.save_image(path, image)
-            print(f"Wrote '{path}'", file=sys.stderr)
+            print(f"{timestamp_us/1e6:.3f} {iframe} {icam} {path}");
+        sys.stdout.flush()
+
 
     # schedule the next set of images
     if iframe_this != iframe:
@@ -137,6 +136,9 @@ for i,camera in reversed(list(enumerate(args.camera))):
         args.power_down_when_finished = False
         kwargs['trigger']             = 'HARDWARE_EXTERNAL'
 
+
+if args.outdir is not None:
+    print("# time iframe icam imagepath");
 
 
 W        = 800
