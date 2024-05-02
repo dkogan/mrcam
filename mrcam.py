@@ -6,6 +6,7 @@ from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
 from fltk import *
 import mrcal
 import time
+import numpy as np
 from _mrcam import *
 
 def _add_common_cmd_options(parser,
@@ -339,7 +340,13 @@ class Fl_Image_View_Group(Fl_Group):
                 if image.itemsize > 1:
                     if image.ndim > 2:
                         raise Exception("high-depth color images not supported yet")
-                    self.image_widget.update_image(image_data = mrcal.apply_color_map(image),
+                    q = 5
+                    a_min = np.percentile(image, q = q)
+                    a_max = np.percentile(image, q = 100-q)
+                    heatmap = mrcal.apply_color_map(image,
+                                                    a_min = a_min,
+                                                    a_max = a_max)
+                    self.image_widget.update_image(image_data = heatmap,
                                                    flip_x     = flip_x,
                                                    flip_y     = flip_y)
                 else:
