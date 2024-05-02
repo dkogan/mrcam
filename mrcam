@@ -84,13 +84,14 @@ def image_callback(image,
 
     if args.outdir is not None:
         # write image to disk
-        path = f"{outdir}/frame{iframe:05d}-cam{icam}.{extension}"
+        filename = f"frame{iframe:05d}-cam{icam}.{extension}"
+        path = f"{outdir}/{filename}"
 
         if image is None:
             print(f"{timestamp_us/1e6:.3f} {iframe} {icam} -");
         else:
             mrcal.save_image(path, image)
-            print(f"{timestamp_us/1e6:.3f} {iframe} {icam} {path}");
+            print(f"{timestamp_us/1e6:.3f} {iframe} {icam} {filename}");
         sys.stdout.flush()
 
 
