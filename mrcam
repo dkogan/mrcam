@@ -158,6 +158,8 @@ if args.outdir is not None:
               file=sys.stderr)
         sys.exit(1)
 
+    for i,c in enumerate(args.camera):
+        print(f"## Camera {i}: {c}", file=file_log)
     write_logline("# time iframe icam imagepath");
 
 
