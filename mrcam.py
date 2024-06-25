@@ -154,7 +154,7 @@ def _schedule_next_frame(f, period):
 
 
 
-class Fl_Gl_Image_Widget_Derived(Fl_Gl_Image_Widget):
+class Fl_Gl_Image_With_Status_Widget(Fl_Gl_Image_Widget):
     def __init__(self,
                  *args,
                  group,
@@ -211,11 +211,12 @@ class Fl_Image_View_Group(Fl_Group):
             # use a global status bar
             h_status_here = 0
 
-        self.image_widget = Fl_Gl_Image_Widget_Derived(x, y,
-                                                       w-w_controls, h-h_status_here,
-                                                       group           = self,
-                                                       double_buffered = not single_buffered,
-                                                       handle_extra    = handle_extra)
+        self.image_widget = \
+            Fl_Gl_Image_With_Status_Widget(x, y,
+                                           w-w_controls, h-h_status_here,
+                                           group           = self,
+                                           double_buffered = not single_buffered,
+                                           handle_extra    = handle_extra)
         if status_widget is None:
             self.status_widget = Fl_Output(x, y + h-h_status_here, w, h_status_here)
         else:
