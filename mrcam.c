@@ -163,33 +163,6 @@ static bool open_serial_device(mrcam_t* ctx)
     return result;
 }
 
-static bool powerdown(mrcam_t* ctx)
-{
-    bool result = false;
-
-    try(0 == ioctl(ctx->fd_tty_trigger, TIOCMBIC, &(int){TIOCM_RTS}));
-
-    result = true;
- done:
-    return result;
-}
-
-static bool powercycle(mrcam_t* ctx)
-{
-    bool result = false;
-
-    try(0 == ioctl(ctx->fd_tty_trigger, TIOCMBIC, &(int){TIOCM_RTS}));
-    try(0 == usleep(500000)); // off for 0.5 seconds
-    try(0 == ioctl(ctx->fd_tty_trigger, TIOCMBIS, &(int){TIOCM_RTS}));
-
-    // wait for the cameras to power-up
-    sleep(20);
-
-    result = true;
- done:
-    return result;
-}
-
 
 
 
@@ -328,8 +301,6 @@ bool mrcam_init(// out
     bool result = false;
     GError* error  = NULL;
     *ctx = (mrcam_t){ .recreate_stream_with_each_frame = options->recreate_stream_with_each_frame,
-                      .power_cycle_at_startup          = options->power_cycle_at_startup,
-                      .power_down_when_finished        = options->power_down_when_finished,
                       .pixfmt                          = options->pixfmt,
                       .trigger                         = options->trigger,
                       .verbose                         = options->verbose,
@@ -339,20 +310,7 @@ bool mrcam_init(// out
 
 
     if(ctx->trigger == MRCAM_TRIGGER_TTYS0)
-    {
         try(open_serial_device(ctx));
-        if(ctx->power_cycle_at_startup)
-            try(powercycle(ctx));
-    }
-    else
-    {
-        if(ctx->power_cycle_at_startup ||
-           ctx->power_down_when_finished)
-        {
-            MSG("I can only power the cameras on/off if trigger == MRCAM_TRIGGER_TTYS0");
-            goto done;
-        }
-    }
 
     try_arv_and( *camera = arv_camera_new (camera_name,
                                            &error),
@@ -527,8 +485,6 @@ void mrcam_free(mrcam_t* ctx)
 
     if(ctx->fd_tty_trigger >= 0)
     {
-        if(ctx->power_down_when_finished)
-            powerdown(ctx);
         close(ctx->fd_tty_trigger);
         ctx->fd_tty_trigger = -1;
     }

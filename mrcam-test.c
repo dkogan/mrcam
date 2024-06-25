@@ -24,8 +24,6 @@ typedef struct { int width,height; } dimensions_t;
     _(dimensions_t,   dims,    dims,    {},                  required_argument, " WIDTH,HEIGHT",'D', ""  ) \
     _(mrcam_trigger_t,trigger, trigger, MRCAM_TRIGGER_SOFTWARE,required_argument, " TRIGGER",     't', ""  ) \
     _(bool,           recreate_stream_with_each_frame,recreate-stream-with-each-frame, false, no_argument, ,'R', "") \
-    _(bool,           power_cycle_at_startup, power-cycle-at-startup,     false, no_argument,,  'P', "P") \
-    _(bool,           power_down_when_finished, power-down-when-finished, false, no_argument,,  'p', "p") \
     _(bool,           verbose, verbose, false,               no_argument,       ,               'v', "v")
 
 
@@ -127,9 +125,6 @@ static bool parse_args(// out
         case 'T': options->period                          = atof(optarg); break;
         case 'v': options->verbose                         = true;         break;
         case 'R': options->recreate_stream_with_each_frame = true;         break;
-        case 'P': options->power_cycle_at_startup          = true;         break;
-        case 'p': options->power_down_when_finished        = true;         break;
-
         case 'F':
 
             if(0) ;
@@ -237,8 +232,6 @@ int main(int argc, char **argv)
                 .height                          = options.dims.height,
                 .trigger                         = options.trigger,
                 .recreate_stream_with_each_frame = options.recreate_stream_with_each_frame,
-                .power_cycle_at_startup          = options.power_cycle_at_startup,
-                .power_down_when_finished        = options.power_down_when_finished,
                 .verbose                         = options.verbose
             };
         if(!mrcam_init(&ctx[icam],

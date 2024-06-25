@@ -41,14 +41,8 @@ def _add_common_cmd_options(parser,
                         help='''If given, we create a new stream with each frame. This shouldn't be needed,
                         but the Emergent HR-20000 cameras don't work without
                         it''')
-    parser.add_argument('--power-cycle-at-startup',
-                        action='store_true',
-                        help='''If given, we cycle the camera power before we do anything else. Implemented
-                        ONLY if --trigger TTYS0''')
-    parser.add_argument('--power-down-when-finished',
-                        action='store_true',
-                        help='''If given, we power-down the camera when we're done. Implemented ONLY if
-                        --trigger TTYS0''')
+
+
     parser.add_argument('--display-flip',
                         help='''Flip the image horizontally and/or vertically
                         for display. This changes the way the image is displayed

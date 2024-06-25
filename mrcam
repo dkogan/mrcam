@@ -51,13 +51,6 @@ def parse_args():
 
 args = parse_args()
 
-if args.power_cycle_at_startup or \
-   args.power_down_when_finished:
-    if args.trigger != 'TTYS0':
-        print("Power control is only available with '--trigger TTYS0'",
-              file = sys.stderr)
-        sys.exit(1)
-
 
 from fltk import *
 import math
@@ -128,25 +121,21 @@ Ncameras = len(args.camera)
 cameras           = [None] * Ncameras
 image_view_groups = [None] * Ncameras
 
-# I init each camera. If we're doing serial triggering and power control, only
-# the LAST camera should touch these: it's assumed that the trigger and power
-# signals are shared between ALL the cameras. I give this to the last camera and
-# not the first, so that at capture time all the cameras get ready to capture,
-# and only then do we actually send the trigger; otherwise when the first camera
-# sends the trigger, the last camera might still be initializing
+# I init each camera. If we're doing serial triggering, only the LAST camera
+# should touch these: it's assumed that the trigger and power signals are shared
+# between ALL the cameras. I give this to the last camera and not the first, so
+# that at capture time all the cameras get ready to capture, and only then do we
+# actually send the trigger; otherwise when the first camera sends the trigger,
+# the last camera might still be initializing
 for i,camera in reversed(list(enumerate(args.camera))):
     cameras[i] = \
         mrcam.camera(camera,
                      verbose = args.verbose,
                      recreate_stream_with_each_frame = args.recreate_stream_with_each_frame,
-                     power_cycle_at_startup          = args.power_cycle_at_startup,
-                     power_down_when_finished        = args.power_down_when_finished,
                      **kwargs)
 
     if kwargs['trigger'] == 'TTYS0':
-        args.power_cycle_at_startup   = False
-        args.power_down_when_finished = False
-        kwargs['trigger']             = 'HARDWARE_EXTERNAL'
+        kwargs['trigger'] = 'HARDWARE_EXTERNAL'
 
 
 if args.outdir is not None:
