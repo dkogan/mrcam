@@ -32,9 +32,8 @@ def parse_args():
                                   single_camera = False)
 
     parser.add_argument('--outdir',
-                        help='''The output directory to write images to. If
-                        omitted, we do NOT write any output images to disk; we
-                        just display them as they come in''')
+                        help='''The output directory to write the images and
+                        metadata. If omitted, we do NOT log anything to disk''')
     parser.add_argument('--jpg',
                         action='store_true',
                         help='''If given, we write the output images as .jpg
@@ -64,6 +63,19 @@ from fltk import *
 import math
 import mrcal
 
+file_log = None
+def write_logline(l):
+    global file_log
+
+    def write(f,l):
+        print(l,file=f)
+        f.flush()
+
+    if file_log is not None:
+        write(file_log,l)
+    write(sys.stdout, l)
+
+
 def request_image_set():
     global image_view_groups
     for image_view_group in image_view_groups:
@@ -82,17 +94,16 @@ def image_callback(image,
     global Ncameras_seen_this_frame
     global iframe_this
 
-    if args.outdir is not None:
+    if outdir is not None:
         # write image to disk
         filename = f"frame{iframe:05d}-cam{icam}.{extension}"
         path = f"{outdir}/{filename}"
 
         if image is None:
-            print(f"{timestamp_us/1e6:.3f} {iframe} {icam} -");
+            write_logline(f"{timestamp_us/1e6:.3f} {iframe} {icam} -");
         else:
             mrcal.save_image(path, image)
-            print(f"{timestamp_us/1e6:.3f} {iframe} {icam} {filename}");
-        sys.stdout.flush()
+            write_logline(f"{timestamp_us/1e6:.3f} {iframe} {icam} {filename}");
 
 
     # schedule the next set of images
@@ -139,7 +150,15 @@ for i,camera in reversed(list(enumerate(args.camera))):
 
 
 if args.outdir is not None:
-    print("# time iframe icam imagepath");
+    path = f"{outdir}/images.vnl"
+    try:
+        file_log = open(path, "w")
+    except Exception as e:
+        print(f"Error opening log file '{path}' for writing: {e}",
+              file=sys.stderr)
+        sys.exit(1)
+
+    write_logline("# time iframe icam imagepath");
 
 
 W        = 800
