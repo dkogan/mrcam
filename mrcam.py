@@ -63,28 +63,59 @@ def _add_common_cmd_options(parser,
                         default = "SOFTWARE",
                         help='''The trigger mode. If omitted, we use "SOFTWARE". Pass any invalid mode (like
                         "") to get a list of valid values on stderr.''')
+    parser.add_argument('--logdir',
+                        help='''The directory to write the images and metadata
+                        (if no --replay) or to read them (if --replay). If
+                        omitted, we do NOT log anything to disk. If --replay,
+                        --logdir is required''')
+    parser.add_argument('--jpg',
+                        action='store_true',
+                        help='''If given, we write the output images as .jpg
+                        files, using lossy compression. If omitted, we write out
+                        lossless .png files (bigger, much slower to compress,
+                        decompress). Some pixel formats (deep ones, in
+                        particular) do not work with.jpg''')
+
+    parser.add_argument('--replay',
+                        action='store_true',
+                        help='''If given, we replay the stored images in
+                        --logdir instead of talking to camera hardware''')
+    parser.add_argument('--image-path-prefix',
+                        help='''Used with --replay. If given, we prepend the
+                        given prefix to the image paths in the log. Exclusive
+                        with --image-directory''')
+    parser.add_argument('--image-directory',
+                        help='''Used with --replay. If given, we extract the
+                        filenames from the image paths in the log, and use the
+                        given directory to find those filenames. Exclusive with
+                        --image-path-prefix''')
 
     if single_camera:
         parser.add_argument('camera',
                             type = str,
                             nargs = '?',
                             default = None,
-                            help='''The camera to talk to. This is a string passed
-                            to the arv_camera_new() function; see that function's
-                            documentation for details. The string can be IP
-                            addresses or MAC addresses or vendor-model-serialnumber
-                            strings. If omitted, we take the first available camera''')
+                            help='''Without --replay: the camera to talk to.
+                            This is a string passed to the arv_camera_new()
+                            function; see that function's documentation for
+                            details. The string can be IP addresses or MAC
+                            addresses or vendor-model-serialnumber strings. With
+                            --replay: an integer specifying the camera index in
+                            the log. If omitted, we take the first camera''')
     else:
         parser.add_argument('camera',
                             type = str,
                             nargs = '*',
                             default = (None,),
-                            help='''The camera(s) to talk to. One argument per
-                            camera. These are strings passed to the arv_camera_new()
-                            function; see that function's documentation for details.
-                            The strings can be IP addresses or MAC addresses or
-                            vendor-model-serialnumber strings. If omitted, we
-                            initialize a single device: the first available camera''')
+                            help='''Without --replay: the camera(s) to talk to.
+                            One argument per camera. These are strings passed to
+                            the arv_camera_new() function; see that function's
+                            documentation for details. The strings can be IP
+                            addresses or MAC addresses or
+                            vendor-model-serialnumber strings. With --replay:
+                            integers and/or A-B ranges of integers specifying
+                            the camera indices in the log. If omitted, we use a
+                            single device: the first camera''')
 
 
 
@@ -111,6 +142,10 @@ def _parse_args_postprocess(args):
         args.dims = (w,h)
 
     if args.features is not None:
+        if args.replay:
+            print("--replay and --feature are mutually exclusive",
+                  file=sys.stderr)
+            sys.exit(1)
         args.features = args.features.split(',')
     else:
         args.features = ()
@@ -123,6 +158,73 @@ def _parse_args_postprocess(args):
             sys.exit(1)
     else:
         args.display_flip = set()
+    args.flip_x = 'x' in args.display_flip
+    args.flip_y = 'y' in args.display_flip
+
+
+    if args.image_path_prefix is not None and \
+       args.image_directory   is not None:
+        print("--image-path-prefix and --image-directory are mutually exclusive",
+              file=sys.stderr)
+        sys.exit(1)
+
+    if args.replay and \
+       args.logdir is None:
+        print("--replay REQUIRES --logdir to specify the log being read",
+              file=sys.stderr)
+        sys.exit(1)
+
+
+
+    if args.replay:
+        def camera_for_replay(s):
+            if s is None:
+                return [0]
+
+            try:
+                i = int(s)
+                if i < 0:
+                    print(f"--replay given, so the cameras must be a list of non-negative integers and/or A-B ranges. Invalid camera given: '{s}'",
+                          file=sys.stderr)
+                    sys.exit(1)
+                return [i]
+            except Exception as e:
+                pass
+
+            m = re.match("^([0-9]+)-([0-9]+)$", s)
+            if m is None:
+                print(f"--replay given, so the cameras must be a list of non-negative integers and/or A-B ranges. Invalid camera given: '{s}'",
+                      file=sys.stderr)
+                sys.exit(1)
+            try:
+                i0 = int(m.group(1))
+                i1 = int(m.group(2))
+            except Exception as e:
+                print(f"--replay given, so the cameras must be a list of non-negative integers and/or A-B ranges. Invalid camera given: '{s}'",
+                      file=sys.stderr)
+                sys.exit(1)
+            return list(range(i0,i1+1))
+
+
+        if args.camera is None:
+            # one camera; unspecified
+            args.camera = 0
+        elif isinstance(args.camera, str):
+            # one camera; parse as int > 0
+            try:
+                args.camera = int(args.camera)
+            except:
+                print(f"--replay given, so the camera must be an integer >= 0",
+                      file=sys.stderr)
+                sys.exit(1)
+            if args.camera < 0:
+                print(f"--replay given, so the camera must be an integer >= 0",
+                      file=sys.stderr)
+                sys.exit(1)
+        else:
+            # multiple cameras
+            args.camera = [c for cam in args.camera for c in camera_for_replay(cam)]
+
 
 
 _time_last_request_image_set = None
@@ -312,60 +414,59 @@ class Fl_Image_View_Group(Fl_Group):
             elif isinstance(value, str):
                 widget.value( widget.find_index(value) )
 
+    def update_image_widget(self,
+                            image,
+                            *,
+                            flip_x,
+                            flip_y):
 
+        if image is not None:
+            # Update the image preview; deep images are shown as a heat map
+            if image.itemsize > 1:
+                if image.ndim > 2:
+                    raise Exception("high-depth color images not supported yet")
+                q = 5
+                a_min = np.percentile(image, q = q)
+                a_max = np.percentile(image, q = 100-q)
+                heatmap = mrcal.apply_color_map(image,
+                                                a_min = a_min,
+                                                a_max = a_max)
+                self.image_widget.update_image(image_data = heatmap,
+                                               flip_x     = flip_x,
+                                               flip_y     = flip_y)
+            else:
+                self.image_widget.update_image(image_data = image,
+                                               flip_x     = flip_x,
+                                               flip_y     = flip_y)
 
+            self.sync_feature_widgets()
+        else:
+            print("Error capturing the image. I will try again",
+                  file=sys.stderr)
 
     def set_up_image_capture(self,
                              *,
                              period         = None, # if given, we automatically recur
                              # guaranteed to be called with each frame; even on error
-                             image_callback = None,
                              flip_x         = False,
                              flip_y         = False,
+                             image_callback = None,
                              **image_callback_cookie):
+
+        if self.camera is None:
+            return
 
         def callback_image_ready(fd):
             frame = self.camera.requested_image()
 
-            image        = frame['image']
-            timestamp_us = frame['timestamp_us']
-
-            if image is not None:
-                # Update the image preview; deep images are shown as a heat map
-                if image.itemsize > 1:
-                    if image.ndim > 2:
-                        raise Exception("high-depth color images not supported yet")
-                    q = 5
-                    a_min = np.percentile(image, q = q)
-                    a_max = np.percentile(image, q = 100-q)
-                    heatmap = mrcal.apply_color_map(image,
-                                                    a_min = a_min,
-                                                    a_max = a_max)
-                    self.image_widget.update_image(image_data = heatmap,
-                                                   flip_x     = flip_x,
-                                                   flip_y     = flip_y)
-                else:
-                    self.image_widget.update_image(image_data = image,
-                                                   flip_x     = flip_x,
-                                                   flip_y     = flip_y)
-
-
-                self.sync_feature_widgets()
-
-                if image_callback is not None:
-                    image_callback(image,
-                                   timestamp_us = timestamp_us,
-                                   iframe       = self.iframe,
-                                   **image_callback_cookie)
-            else:
-                print("Error capturing the image. I will try again",
-                      file=sys.stderr)
-
-                if image_callback is not None:
-                    image_callback(None, # no image; error
-                                   timestamp_us = timestamp_us,
-                                   iframe       = self.iframe,
-                                   **image_callback_cookie)
+            self.update_image_widget( image        = frame['image'],
+                                      flip_x       = flip_x,
+                                      flip_y       = flip_y,)
+            if image_callback is not None:
+                image_callback(image,
+                               timestamp_us = timestamp_us,
+                               iframe       = self.iframe,
+                               **image_callback_cookie)
 
             self.iframe += 1
 

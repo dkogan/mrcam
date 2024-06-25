@@ -31,17 +31,6 @@ def parse_args():
     mrcam._add_common_cmd_options(parser,
                                   single_camera = False)
 
-    parser.add_argument('--outdir',
-                        help='''The output directory to write the images and
-                        metadata. If omitted, we do NOT log anything to disk''')
-    parser.add_argument('--jpg',
-                        action='store_true',
-                        help='''If given, we write the output images as .jpg
-                        files, using lossy compression. If omitted, we write out
-                        lossless .png files (bigger, much slower to compress,
-                        decompress). Some pixel formats (deep ones, in
-                        particular) do not work with.jpg''')
-
     args = parser.parse_args()
 
     mrcam._parse_args_postprocess(args)
@@ -81,16 +70,16 @@ def image_callback(image,
                    timestamp_us,
                    iframe,
                    icam,
-                   outdir,
+                   logdir,
                    extension):
 
     global Ncameras_seen_this_frame
     global iframe_this
 
-    if outdir is not None:
+    if logdir is not None:
         # write image to disk
         filename = f"frame{iframe:05d}-cam{icam}.{extension}"
-        path = f"{outdir}/{filename}"
+        path = f"{logdir}/{filename}"
 
         if image is None:
             write_logline(f"{timestamp_us/1e6:.3f} {iframe} {icam} -");
@@ -127,59 +116,163 @@ image_view_groups = [None] * Ncameras
 # that at capture time all the cameras get ready to capture, and only then do we
 # actually send the trigger; otherwise when the first camera sends the trigger,
 # the last camera might still be initializing
-for i,camera in reversed(list(enumerate(args.camera))):
-    cameras[i] = \
-        mrcam.camera(camera,
-                     verbose = args.verbose,
-                     recreate_stream_with_each_frame = args.recreate_stream_with_each_frame,
-                     **kwargs)
+if not args.replay:
+    for i,camera in reversed(list(enumerate(args.camera))):
+        cameras[i] = \
+            mrcam.camera(camera,
+                         verbose = args.verbose,
+                         recreate_stream_with_each_frame = args.recreate_stream_with_each_frame,
+                         **kwargs)
 
-    if kwargs['trigger'] == 'TTYS0':
-        kwargs['trigger'] = 'HARDWARE_EXTERNAL'
+        if kwargs['trigger'] == 'TTYS0':
+            kwargs['trigger'] = 'HARDWARE_EXTERNAL'
 
 
-if args.outdir is not None:
-    path = f"{outdir}/images.vnl"
+    if args.logdir is not None:
+        path = f"{args.logdir}/images.vnl"
+        try:
+            file_log = open(path, "w")
+        except Exception as e:
+            print(f"Error opening log file '{path}' for writing: {e}",
+                  file=sys.stderr)
+            sys.exit(1)
+
+        for i,c in enumerate(args.camera):
+            print(f"## Camera {i}: {c}", file=file_log)
+        write_logline("# time iframe icam imagepath");
+
+else:
+    # We're replaying a log
+    import vnlog
+    import numpy as np
+
+    ## I parse the vnl myself because the vnlog python library is meant for
+    ## numbers only, but here I have strings
+    def parse_vnlog_header(f, what):
+        parser = vnlog.vnlog()
+        list_columns = None
+        for line in f:
+            parser.parse(line)
+            list_columns = parser.keys()
+            if list_columns is not None:
+                break
+        else:
+            print(f"Couldn't find a legend in the input '{what}'; must be a vnlog",
+                  file=sys.stderr)
+        dict_key_index = {}
+        for i in range(len(list_columns)):
+            dict_key_index[list_columns[i]] = i
+
+        return list_columns, dict_key_index
+
+    path = f"{args.logdir}/images.vnl"
     try:
-        file_log = open(path, "w")
+        f = open(path, 'r')
     except Exception as e:
-        print(f"Error opening log file '{path}' for writing: {e}",
+        print(f"Couldn't open log to replay '{path}': {e}",
               file=sys.stderr)
         sys.exit(1)
 
-    for i,c in enumerate(args.camera):
-        print(f"## Camera {i}: {c}", file=file_log)
-    write_logline("# time iframe icam imagepath");
+    list_columns, dict_key_index = parse_vnlog_header(f, path)
+
+    try:
+        max_len_imagepath = 256
+        keys = dict(time      = float,
+                    iframe    = int,
+                    icam      = int,
+                    imagepath = f"<U{max_len_imagepath}")
+        icol = dict()
+        for k in keys.keys():
+            icol[k] = dict_key_index[k]
+    except:
+        print(f"Couldn't find required keys {keys.keys()} in '{path}'",
+              file=sys.stderr)
+        sys.exit(1)
+
+    dtype = np.dtype( [(k,t) for k,t in keys.items()], )
+    log = \
+        np.loadtxt(f,
+                   usecols = tuple(icol[k] for k in keys.keys()),
+                   dtype   = dtype)
+    f.close()
+
+    if max(len(s) for s in log['imagepath']) >= max_len_imagepath:
+        print(f"Image paths in {path} are longer than the statically-defined value of {max_len_imagepath=}. Increase max_len_imagepath, or make the code more general", file=sys.stderr)
+        sys.exit(1)
+
 
 
 W        = 800
 H        = 600
-H_status = 20
+H_footer = 20 # we might have more than one of these
 
 window = Fl_Window(W,H, "mrcam stream")
 
+
+H_status      = H_footer
+H_time_slider = H_footer
+H_footers = (H_status + H_time_slider)
 
 Ngrid = math.ceil(math.sqrt(Ncameras))
 Wgrid = Ngrid
 Hgrid = math.ceil(Ncameras/Wgrid)
 
-w    = W           //Wgrid
-h    = (H-H_status)//Hgrid
+w_image    = W             // Wgrid
+h_image    = (H-H_footers) // Hgrid
 icam = 0
 y0   = 0
 
-status_widget = Fl_Output(0, H-H_status, W, H_status)
+if args.replay:
+
+    iframe_min = min(log['iframe'])
+    iframe_max = max(log['iframe'])
+
+    def time_slider_select(iframe):
+        global image_view_groups
+
+        for idx in np.nonzero(log['iframe'] == iframe)[0]:
+            time = log['time']     [idx]
+            icam = log['icam']     [idx]
+            path = log['imagepath'][idx]
+
+            if args.image_path_prefix is not None:
+                path = f"{args.image_path_prefix}/{path}"
+            elif args.image_directory is not None:
+                path = f"{args.image_directory}/{os.path.basename(path)}"
+
+            try:
+                image = mrcal.load_image(path)
+            except:
+                print(f"Couldn't read image at '{path}'", file=sys.stderr)
+                sys.exit(1)
+
+            image_view_groups[icam].update_image_widget( image,
+                                                         flip_x = args.flip_x,
+                                                         flip_y = args.flip_y)
+
+    time_slider_widget = \
+        Fl_Slider(0, H-H_footers,
+                  W,H_time_slider)
+    time_slider_widget.align(FL_ALIGN_BOTTOM)
+    time_slider_widget.type(FL_HORIZONTAL)
+    time_slider_widget.step(1)
+    time_slider_widget.callback( lambda *args: time_slider_select(round(time_slider_widget.value())) )
+    time_slider_widget.value(0)
+    time_slider_widget.bounds(float(iframe_min), float(iframe_max))
+
+status_widget = Fl_Output(0, H-H_status,
+                          W, H_status)
 status_widget.value('')
 
-image_views = Fl_Group(0, 0, W, H-H_status)
+image_views = Fl_Group(0, 0, W, H-H_footers)
 for i in range(Hgrid):
     x0 = 0
 
     for j in range(Wgrid):
         image_view_groups[icam] = \
             mrcam.Fl_Image_View_Group(x0,y0,
-                                      w if j < Wgrid-1 else (W         -x0),
-                                      h if i < Hgrid-1 else (H-H_status-y0),
+                                      w_image if j < Wgrid-1 else (W          -x0),
+                                      h_image if i < Hgrid-1 else (H-H_footers-y0),
                                       camera          = cameras[icam],
                                       single_buffered = args.single_buffered,
                                       status_widget   = status_widget,
@@ -187,13 +280,13 @@ for i in range(Hgrid):
         image_view_groups[icam].set_up_image_capture(period         = None, # don't auto-recur. I do that myself, making sure ALL the cameras are processed
                                                      image_callback = image_callback,
                                                      extension      = "jpg" if args.jpg else "png",
-                                                     outdir         = args.outdir,
+                                                     logdir         = args.logdir,
                                                      icam           = icam,
-                                                     flip_x         = 'x' in args.display_flip,
-                                                     flip_y         = 'y' in args.display_flip)
+                                                     flip_x         = args.flip_x,
+                                                     flip_y         = args.flip_y)
 
 
-        x0   += w
+        x0   += w_image
         icam += 1
 
         if icam == Ncameras:
@@ -201,14 +294,15 @@ for i in range(Hgrid):
     if icam == Ncameras:
         break
 
-    y0 += h
+    y0 += h_image
 image_views.end()
 
 window.resizable(image_views)
 window.end()
 window.show()
 
-# request the initial frame; will recur in image_callback
-request_image_set()
+if not args.replay:
+    # request the initial frame; will recur in image_callback
+    request_image_set()
 
 Fl.run()
