@@ -471,12 +471,15 @@ class Fl_Image_View_Group(Fl_Group):
             self.iframe += 1
 
             if period is not None:
+                # Ask for some data in the future
                 schedule_next_frame(self.camera.request, period)
 
 
+        # Tell FLTK to callback_image_ready() when data is available
         Fl.add_fd( self.camera.fd_image_ready,
                    callback_image_ready )
 
         if period is not None:
+            # Ask for some data
             self.camera.request()
 
