@@ -95,7 +95,7 @@ def image_callback(image,
     Ncameras_seen_this_frame += 1
     if Ncameras_seen_this_frame == Ncameras:
         # Every camera reported back. Ask for another frame
-        mrcam._schedule_next_frame(request_image_set, args.period)
+        mrcam.schedule_next_frame(request_image_set, args.period)
 
 kwargs = dict()
 if args.dims is not None:

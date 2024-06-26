@@ -228,7 +228,7 @@ def _parse_args_postprocess(args):
 
 
 _time_last_request_image_set = None
-def _schedule_next_frame(f, period):
+def schedule_next_frame(f, period):
     # I want the image requests to fire at a constant rate, ignoring the
     # other processing
     global _time_last_request_image_set
@@ -471,7 +471,7 @@ class Fl_Image_View_Group(Fl_Group):
             self.iframe += 1
 
             if period is not None:
-                _schedule_next_frame(self.camera.request, period)
+                schedule_next_frame(self.camera.request, period)
 
 
         Fl.add_fd( self.camera.fd_image_ready,
