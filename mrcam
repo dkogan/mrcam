@@ -239,6 +239,10 @@ if args.replay:
                 path = f"{args.image_path_prefix}/{path}"
             elif args.image_directory is not None:
                 path = f"{args.image_directory}/{os.path.basename(path)}"
+            elif path[0] != '/':
+                # The image filename has a relative path. I want it to be
+                # relative to the log directory
+                path = f"{args.logdir}/{path}"
 
             try:
                 image = mrcal.load_image(path)
