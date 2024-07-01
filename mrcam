@@ -148,22 +148,24 @@ else:
 
     ## I parse the vnl myself because the vnlog python library is meant for
     ## numbers only, but here I have strings
+
+    # This is essentially vnlog._slurp()
     def parse_vnlog_header(f, what):
         parser = vnlog.vnlog()
-        list_columns = None
+        keys = None
         for line in f:
             parser.parse(line)
-            list_columns = parser.keys()
-            if list_columns is not None:
+            keys = parser.keys()
+            if keys is not None:
                 break
         else:
             print(f"Couldn't find a legend in the input '{what}'; must be a vnlog",
                   file=sys.stderr)
         dict_key_index = {}
-        for i in range(len(list_columns)):
-            dict_key_index[list_columns[i]] = i
+        for i in range(len(keys)):
+            dict_key_index[keys[i]] = i
 
-        return list_columns, dict_key_index
+        return keys, dict_key_index
 
     path = f"{args.logdir}/images.vnl"
     try:
