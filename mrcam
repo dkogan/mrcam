@@ -44,6 +44,8 @@ args = parse_args()
 from fltk import *
 import math
 import mrcal
+from datetime import datetime
+
 
 file_log = None
 def write_logline(l):
@@ -104,8 +106,13 @@ def time_slider_select(i_iframe):
     record = log[i_iframe,:]
 
     # shape (Ncameras,); all of these
-    times = record['time']
-    paths = record['imagepath']
+    times   = record['time']
+    paths   = record['imagepath']
+    iframes = record['iframe']
+
+    t = int(times[0] + args.timezone_offset_hours*3600.)
+
+    time_slider_widget.label(f"Time; iframe={iframes[0]} timestamp={times[0]} {datetime.utcfromtimestamp(t).strftime('%Y-%m-%d %H:%M:%S')}{' UTC' if args.timezone_offset_hours==0 else ''}")
 
     for i_icam in range(Ncameras):
         if args.image_path_prefix is not None:
@@ -249,14 +256,15 @@ else:
 
 W        = 800
 H        = 600
-H_footer = 20 # we might have more than one of these
+H_footer = 30 # we might have more than one of these
 
 window = Fl_Window(W,H, "mrcam stream")
 
 
-H_status      = H_footer
-H_time_slider = H_footer
-H_footers = (H_status + H_time_slider)
+H_status                  = H_footer
+H_time_slider             = H_footer
+H_time_slider_with_labels = H_time_slider + H_footer
+H_footers                 = (H_status + H_time_slider_with_labels)
 
 Ngrid = math.ceil(math.sqrt(Ncameras))
 Wgrid = Ngrid

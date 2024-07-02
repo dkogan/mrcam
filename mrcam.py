@@ -89,6 +89,15 @@ def _add_common_cmd_options(parser,
                         filenames from the image paths in the log, and use the
                         given directory to find those filenames. Exclusive with
                         --image-path-prefix''')
+    parser.add_argument('--timezone-offset-hours',
+                        default=0,
+                        type=float,
+                        help='''Used with --replay to determine the mapping
+                        between the UNIX timestamps in the log file (in UTC) and
+                        local time. Given in hours. For instance, Pacific
+                        Standard Time is UTC-08:00, so pass
+                        --timezone-offset-hours -8. If omitted, we default to
+                        UTC''')
 
     if single_camera:
         parser.add_argument('camera',
