@@ -143,64 +143,74 @@ if not args.replay:
 
 else:
     # We're replaying a log
+
+    # I need at least vnlog 1.38 to support structured dtypes in vnlog.slurp().
+    # See
+    #   https://notes.secretsauce.net/notes/2024/07/02_vnlogslurp-with-non-numerical-data.html
     import vnlog
     import numpy as np
-
-    ## I parse the vnl myself because the vnlog python library is meant for
-    ## numbers only, but here I have strings
-
-    # This is essentially vnlog._slurp()
-    def parse_vnlog_header(f, what):
-        parser = vnlog.vnlog()
-        keys = None
-        for line in f:
-            parser.parse(line)
-            keys = parser.keys()
-            if keys is not None:
-                break
-        else:
-            print(f"Couldn't find a legend in the input '{what}'; must be a vnlog",
-                  file=sys.stderr)
-        dict_key_index = {}
-        for i in range(len(keys)):
-            dict_key_index[keys[i]] = i
-
-        return keys, dict_key_index
+    import numpysane as nps
 
     path = f"{args.logdir}/images.vnl"
-    try:
-        f = open(path, 'r')
-    except Exception as e:
-        print(f"Couldn't open log to replay '{path}': {e}",
-              file=sys.stderr)
+    max_len_imagepath = 128
+
+    dtype = np.dtype([ ('time',      float),
+                       ('iframe',    np.int32),
+                       ('icam',      np.int8),
+                       ('imagepath', f'U{max_len_imagepath}'),
+                      ])
+    log = vnlog.slurp(path, dtype=dtype)
+
+    # I have the whole log. I cut it down to include ONLY the cameras that were
+    # requested
+    i = np.min( np.abs(nps.dummy(np.array(args.camera), -1) - \
+                       log['icam']),
+                axis=-2) == 0
+    log = log[i]
+
+    if log.size == 0:
+        print(f"The requested cameras {args.camera=} don't have any data in the log {path}",
+              file = sys.stderr)
         sys.exit(1)
-
-    list_columns, dict_key_index = parse_vnlog_header(f, path)
-
-    try:
-        max_len_imagepath = 256
-        keys = dict(time      = float,
-                    iframe    = int,
-                    icam      = int,
-                    imagepath = f"<U{max_len_imagepath}")
-        icol = dict()
-        for k in keys.keys():
-            icol[k] = dict_key_index[k]
-    except:
-        print(f"Couldn't find required keys {keys.keys()} in '{path}'",
-              file=sys.stderr)
-        sys.exit(1)
-
-    dtype = np.dtype( [(k,t) for k,t in keys.items()], )
-    log = \
-        np.loadtxt(f,
-                   usecols = tuple(icol[k] for k in keys.keys()),
-                   dtype   = dtype)
-    f.close()
 
     if max(len(s) for s in log['imagepath']) >= max_len_imagepath:
         print(f"Image paths in {path} are longer than the statically-defined value of {max_len_imagepath=}. Increase max_len_imagepath, or make the code more general", file=sys.stderr)
         sys.exit(1)
+
+    # While the tool is running I want to be able to access the images in O(1),
+    # so I pre-sort the log now to make that possible. For each constant iframe
+    # I want a monotonically-increasing icam
+    log = np.sort(log, order=('iframe','icam'))
+
+    # I should have dense data over frames and cameras. I try to reshape it in
+    # that way, and confirm that everything lines up
+    Nframes  = len(log) // Ncameras
+    if Nframes*Ncameras != len(log):
+        print(f"The log {path} does not contain all dense combinations of {Ncameras=} and {Nframes=}. For the requested cameras it has {len(log)} entries",
+              file = sys.stderr)
+        for icam in args.camera:
+            print(f"  Requested camera {icam} has {np.count_nonzero(log['icam']==icam)} observed frames",
+                  file = sys.stderr)
+        print("These should all be idendical",
+              file=sys.stderr)
+        sys.exit(1)
+
+    log = log.reshape((Nframes,Ncameras))
+    if np.any(log['icam'] - log['icam'][0,:]):
+        print(f"The log {path} does not contain the same set of cameras in each frame",
+              file = sys.stderr)
+        sys.exit(1)
+    if np.any( np.sort(args.camera) - log['icam'][0,:] ):
+        print(f"The log {path} does not contain exactly the cameras requested in {args.camera=}",
+              file = sys.stderr)
+        sys.exit(1)
+    if np.any(log['iframe'] - log['iframe'][:,(0,)]):
+        print(f"The log {path} does not contain the same set of frames observing each camera",
+              file = sys.stderr)
+        sys.exit(1)
+
+    # Great. We have a dense set
+
 
 
 
@@ -226,25 +236,24 @@ y0   = 0
 
 if args.replay:
 
-    iframe_min = min(log['iframe'])
-    iframe_max = max(log['iframe'])
-
-    def time_slider_select(iframe):
+    def time_slider_select(i_iframe):
         global image_view_groups
 
-        for idx in np.nonzero(log['iframe'] == iframe)[0]:
-            time = log['time']     [idx]
-            icam = log['icam']     [idx]
-            path = log['imagepath'][idx]
+        record = log[i_iframe,:]
 
+        # shape (Ncameras,); all of these
+        times = record['time']
+        paths = record['imagepath']
+
+        for i_icam in range(Ncameras):
             if args.image_path_prefix is not None:
-                path = f"{args.image_path_prefix}/{path}"
+                path = f"{args.image_path_prefix}/{paths[i_icam]}"
             elif args.image_directory is not None:
-                path = f"{args.image_directory}/{os.path.basename(path)}"
-            elif path[0] != '/':
+                path = f"{args.image_directory}/{os.path.basename(paths[i_icam])}"
+            elif paths[i_icam][0] != '/':
                 # The image filename has a relative path. I want it to be
                 # relative to the log directory
-                path = f"{args.logdir}/{path}"
+                path = f"{args.logdir}/{paths[i_icam]}"
 
             try:
                 image = mrcal.load_image(path)
@@ -252,9 +261,9 @@ if args.replay:
                 print(f"Couldn't read image at '{path}'", file=sys.stderr)
                 sys.exit(1)
 
-            image_view_groups[icam].update_image_widget( image,
-                                                         flip_x = args.flip_x,
-                                                         flip_y = args.flip_y)
+            image_view_groups[i_icam].update_image_widget( image,
+                                                           flip_x = args.flip_x,
+                                                           flip_y = args.flip_y)
 
     time_slider_widget = \
         Fl_Slider(0, H-H_footers,
@@ -264,7 +273,7 @@ if args.replay:
     time_slider_widget.step(1)
     time_slider_widget.callback( lambda *args: time_slider_select(round(time_slider_widget.value())) )
     time_slider_widget.value(0)
-    time_slider_widget.bounds(float(iframe_min), float(iframe_max))
+    time_slider_widget.bounds(0, Nframes-1)
 
 status_widget = Fl_Output(0, H-H_status,
                           W, H_status)
