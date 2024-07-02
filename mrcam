@@ -97,6 +97,39 @@ def image_callback(image,
         # Every camera reported back. Ask for another frame
         mrcam.schedule_next_frame(request_image_set, args.period)
 
+
+def time_slider_select(i_iframe):
+    global image_view_groups
+
+    record = log[i_iframe,:]
+
+    # shape (Ncameras,); all of these
+    times = record['time']
+    paths = record['imagepath']
+
+    for i_icam in range(Ncameras):
+        if args.image_path_prefix is not None:
+            path = f"{args.image_path_prefix}/{paths[i_icam]}"
+        elif args.image_directory is not None:
+            path = f"{args.image_directory}/{os.path.basename(paths[i_icam])}"
+        elif paths[i_icam][0] != '/':
+            # The image filename has a relative path. I want it to be
+            # relative to the log directory
+            path = f"{args.logdir}/{paths[i_icam]}"
+
+        try:
+            image = mrcal.load_image(path)
+        except:
+            print(f"Couldn't read image at '{path}'", file=sys.stderr)
+            sys.exit(1)
+
+        image_view_groups[i_icam].update_image_widget( image,
+                                                       flip_x = args.flip_x,
+                                                       flip_y = args.flip_y)
+
+
+
+
 kwargs = dict()
 if args.dims is not None:
     kwargs['width' ] = args.dims[0]
@@ -235,36 +268,6 @@ icam = 0
 y0   = 0
 
 if args.replay:
-
-    def time_slider_select(i_iframe):
-        global image_view_groups
-
-        record = log[i_iframe,:]
-
-        # shape (Ncameras,); all of these
-        times = record['time']
-        paths = record['imagepath']
-
-        for i_icam in range(Ncameras):
-            if args.image_path_prefix is not None:
-                path = f"{args.image_path_prefix}/{paths[i_icam]}"
-            elif args.image_directory is not None:
-                path = f"{args.image_directory}/{os.path.basename(paths[i_icam])}"
-            elif paths[i_icam][0] != '/':
-                # The image filename has a relative path. I want it to be
-                # relative to the log directory
-                path = f"{args.logdir}/{paths[i_icam]}"
-
-            try:
-                image = mrcal.load_image(path)
-            except:
-                print(f"Couldn't read image at '{path}'", file=sys.stderr)
-                sys.exit(1)
-
-            image_view_groups[i_icam].update_image_widget( image,
-                                                           flip_x = args.flip_x,
-                                                           flip_y = args.flip_y)
-
     time_slider_widget = \
         Fl_Slider(0, H-H_footers,
                   W,H_time_slider)
@@ -319,5 +322,7 @@ window.show()
 if not args.replay:
     # request the initial frame; will recur in image_callback
     request_image_set()
+else:
+    time_slider_select(0)
 
 Fl.run()
