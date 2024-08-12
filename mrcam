@@ -123,6 +123,8 @@ def time_slider_select(i_iframe):
             # The image filename has a relative path. I want it to be
             # relative to the log directory
             path = f"{args.logdir}/{paths[i_icam]}"
+        else:
+            path = paths[i_icam]
 
         try:
             image = mrcal.load_image(path)
