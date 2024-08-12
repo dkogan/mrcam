@@ -112,7 +112,7 @@ def time_slider_select(i_iframe):
 
     t = int(times[0] + args.timezone_offset_hours*3600.)
 
-    time_slider_widget.label(f"Time; iframe={iframes[0]} timestamp={times[0]} {datetime.utcfromtimestamp(t).strftime('%Y-%m-%d %H:%M:%S')}{' UTC' if args.timezone_offset_hours==0 else ''}")
+    time_slider_widget.label(f"iframe={iframes[0]} timestamp={times[0]} {datetime.utcfromtimestamp(t).strftime('%Y-%m-%d %H:%M:%S')}{' UTC' if args.timezone_offset_hours==0 else ''}")
 
     for i_icam in range(Ncameras):
         if args.image_path_prefix is not None:
