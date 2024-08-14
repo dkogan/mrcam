@@ -180,7 +180,8 @@ if not args.replay:
             sys.exit(1)
 
         for i,c in enumerate(args.camera):
-            print(f"## Camera {i}: {c}", file=file_log)
+            if c is not None:
+                print(f"## Camera {i}: {c}", file=file_log)
         write_logline("# time iframe icam imagepath");
 
 else:
