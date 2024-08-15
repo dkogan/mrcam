@@ -219,7 +219,7 @@ c = mrcam.camera(args.camera,
 
 
 
-window        = Fl_Window(800, 600, "mrcam focus tool")
+window        = Fl_Window(1280, 1024, "mrcam focus tool")
 image_view_group = mrcam.Fl_Image_View_Group(0,0, 400,600,
                                              camera          = c,
                                              single_buffered = args.single_buffered,

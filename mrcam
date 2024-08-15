@@ -257,8 +257,8 @@ else:
 
 
 
-W        = 800
-H        = 600
+W        = 1280
+H        = 1024
 H_footer = 30 # we might have more than one of these
 
 window = Fl_Window(W,H, "mrcam stream")
