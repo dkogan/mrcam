@@ -295,7 +295,7 @@ class Fl_Image_View_Group(Fl_Group):
                  x,y,w,h,
                  *,
                  camera,
-                 feature_names = (),
+                 features        = (),
                  single_buffered = False,
                  status_widget   = None,
                  handle_extra    = None):
@@ -306,8 +306,8 @@ class Fl_Image_View_Group(Fl_Group):
         self.camera = camera
         self.iframe = 0
 
-        if feature_names: w_controls = 300
-        else:             w_controls = 0
+        if features: w_controls = 300
+        else:        w_controls = 0
 
         if status_widget is None:
             # no global status bar; create one here
@@ -332,11 +332,11 @@ class Fl_Image_View_Group(Fl_Group):
         group = Fl_Group(x + w-w_controls, y,
                          w_controls, h-h_status_here)
 
-        self.features                 = [dict() for i in feature_names]
+        self.features                 = [dict() for i in features]
         self.feature_dict_from_widget = dict()
 
         y = 0
-        for i,name in enumerate(feature_names):
+        for i,name in enumerate(features):
 
             feature_dict = self.features[i]
             desc = camera.feature_descriptor(name)
