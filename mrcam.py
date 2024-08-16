@@ -27,7 +27,9 @@ def _add_common_cmd_options(parser,
     parser.add_argument('--features',
                         help='''A comma-separated list of features for which GUI
                         controls should be displayed. The available features can
-                        be queried with the "arv-tool-0.8" tool''')
+                        be queried with the "arv-tool-0.8" tool. Each feature
+                        can be postfixed with [log] to indicate that a log-scale
+                        widget should be used''')
     parser.add_argument('--single-buffered',
                         action='store_true',
                         help='''By default the image display is double-buffered
@@ -336,7 +338,21 @@ class Fl_Image_View_Group(Fl_Group):
         self.feature_dict_from_widget = dict()
 
         y = 0
-        for i,name in enumerate(features):
+        for i,feature in enumerate(features):
+
+            m = re.match(r"(.*?)" +
+                         r"(?:" +
+                           r"\[" +
+                             r"([^\[]*)" +
+                           r"\]" +
+                         r")?$", feature) # should never fail
+
+            name = m.group(1).strip()
+            flags = m.group(2)
+            if flags and len(flags):
+                flags = set( [s.strip() for s in flags.split(',')] )
+            else:
+                flags = set()
 
             feature_dict = self.features[i]
             desc = camera.feature_descriptor(name)
@@ -351,7 +367,12 @@ class Fl_Image_View_Group(Fl_Group):
                                          label)
                 widget.align(FL_ALIGN_BOTTOM)
                 widget.type(FL_HORIZONTAL)
-                widget.bounds(*desc['bounds'])
+                if 'log' in flags:
+                    if any(x <= 0 for x in desc['bounds']):
+                        raise Exception(f"Requested log-scale feature '{name}' has non-positive bounds: {desc['bounds']}. Log-scale features must have strictly positive bounds")
+                    widget.bounds(*[np.log(x) for x in desc['bounds']])
+                else:
+                    widget.bounds(*desc['bounds'])
                 widget.callback(self.feature_callback_valuator)
             elif t == 'boolean':
                 h_here = h_control
@@ -382,6 +403,7 @@ class Fl_Image_View_Group(Fl_Group):
             feature_dict['widget']     = widget
             feature_dict['name']       = name
             feature_dict['descriptor'] = desc
+            feature_dict['flags']      = flags
             self.feature_dict_from_widget[id(widget)] = feature_dict
 
         self.sync_feature_widgets()
@@ -395,8 +417,11 @@ class Fl_Image_View_Group(Fl_Group):
 
     def feature_callback_valuator(self, widget):
         feature_dict = self.feature_dict_from_widget[id(widget)]
-        self.camera.feature_value(feature_dict['descriptor'], widget.value())
-
+        value = np.exp(widget.value()) if 'log' in feature_dict['flags'] else widget.value()
+        if feature_dict['descriptor']['type'] == 'integer':
+            value = np.round(value)
+        self.camera.feature_value(feature_dict['descriptor'],
+                                  value)
         self.sync_feature_widgets()
 
     def feature_callback_button(self, widget):
@@ -418,8 +443,10 @@ class Fl_Image_View_Group(Fl_Group):
             if metadata['locked']: widget.deactivate()
             else:                  widget.activate()
 
-            if isinstance(value, int) or isinstance(value, float) or isinstance(value, bool):
+            if isinstance(value, bool):
                 widget.value(value)
+            elif isinstance(value, int) or isinstance(value, float):
+                widget.value( np.log(value) if 'log' in feature_dict['flags'] else value )
             elif isinstance(value, str):
                 widget.value( widget.find_index(value) )
 
