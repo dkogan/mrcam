@@ -1,4 +1,5 @@
-include /usr/include/mrbuild/Makefile.common.header
+include choose_mrbuild.mk
+include $(MRBUILD_MK)/Makefile.common.header
 
 PROJECT_NAME := mrcam
 ABI_VERSION  := 0
@@ -46,4 +47,4 @@ DIST_PY3_MODULES := _mrcam
 all: _mrcam$(PY_EXT_SUFFIX)
 
 
-include /usr/include/mrbuild/Makefile.common.footer
+include $(MRBUILD_MK)/Makefile.common.footer
