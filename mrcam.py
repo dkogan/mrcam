@@ -261,30 +261,21 @@ def schedule_next_frame(f, period):
 
 
 
-class Fl_Gl_Image_With_Status_Widget(Fl_Gl_Image_Widget):
+class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
     def __init__(self,
                  *args,
-                 group,
-                 handle_extra = None,
+                 handler = None,
                  **kwargs):
 
-        self.group        = group;
-        self.handle_extra = handle_extra;
-
+        self.handler  = handler;
         return super().__init__(*args, **kwargs)
 
     def handle(self, event):
-        if event == FL_MOVE:
-            try:
-                q = self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), )
-                self.group.status_widget.value(f"{q[0]:.1f},{q[1]:.1f}")
-            except:
-                self.group.status_widget.value("")
-            # fall through to let parent handlers run
-
-        if self.handle_extra is not None:
-            self.handle_extra(self,event)
-        return super().handle(event)
+        res       = super().handle(event)
+        res_inner = self.handler(self,event)
+        if res_inner is not None:
+            return res_inner
+        return res
 
 
 
@@ -318,12 +309,25 @@ class Fl_Image_View_Group(Fl_Group):
             # use a global status bar
             h_status_here = 0
 
+
+        def handle_image_widget(self_image_widget, event):
+            if event == FL_MOVE:
+                try:
+                    q = self_image_widget.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), )
+                    self.status_widget.value(f"{q[0]:.1f},{q[1]:.1f}")
+                except:
+                    self.status_widget.value("")
+
+            if handle_extra is not None:
+                handle_extra(self,event)
+
+            return None # Use parent's return code
+
         self.image_widget = \
-            Fl_Gl_Image_With_Status_Widget(x, y,
-                                           w-w_controls, h-h_status_here,
-                                           group           = self,
-                                           double_buffered = not single_buffered,
-                                           handle_extra    = handle_extra)
+            Fl_Gl_Image_with_handle(x, y,
+                                    w-w_controls, h-h_status_here,
+                                    handler         = handle_image_widget,
+                                    double_buffered = not single_buffered)
         if status_widget is None:
             self.status_widget = Fl_Output(x, y + h-h_status_here, w, h_status_here)
         else:
