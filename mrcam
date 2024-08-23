@@ -306,7 +306,9 @@ for i in range(Hgrid):
                                       camera          = cameras[icam],
                                       single_buffered = args.single_buffered,
                                       status_widget   = status_widget,
-                                      features        = args.features)
+                                      features        = args.features,
+                                      image_view_groups = \
+                                      None if args.unlock_panzoom else image_view_groups)
         image_view_groups[icam].set_up_image_capture(period         = None, # don't auto-recur. I do that myself, making sure ALL the cameras are processed
                                                      image_callback = image_callback,
                                                      extension      = "jpg" if args.jpg else "png",

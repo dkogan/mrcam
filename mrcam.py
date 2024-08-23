@@ -114,6 +114,11 @@ def _add_common_cmd_options(parser,
                             --replay: an integer specifying the camera index in
                             the log. If omitted, we take the first camera''')
     else:
+        parser.add_argument('--unlock-panzoom',
+                            action='store_true',
+                            help='''If given, the pan/zoom in the all the image
+                            widgets are NOT locked together. By default they ARE
+                            locked together''')
         parser.add_argument('camera',
                             type = str,
                             nargs = '*',
@@ -265,9 +270,12 @@ class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
     def __init__(self,
                  *args,
                  handler = None,
+                 locked_panzoom_groups = None,
                  **kwargs):
 
-        self.handler  = handler;
+        self.handler               = handler
+        self.locked_panzoom_groups = locked_panzoom_groups
+
         return super().__init__(*args, **kwargs)
 
     def handle(self, event):
@@ -277,6 +285,31 @@ class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
             return res_inner
         return res
 
+
+    def set_panzoom(self,
+                    x_centerpixel, y_centerpixel,
+                    visible_width_pixels,
+                    panzoom_siblings = True):
+        r'''Pan/zoom the image
+
+        This is an override of the function to do this: any request to
+        pan/zoom the widget will come here first. panzoom_siblings
+        dispatches any pan/zoom commands to all the widgets, so that they
+        all work in unison.
+
+        '''
+        if not panzoom_siblings or \
+           self.locked_panzoom_groups is None:
+            return super().set_panzoom(x_centerpixel, y_centerpixel,
+                                       visible_width_pixels)
+
+        # All the widgets should pan/zoom together
+        return \
+            all( g.image_widget. \
+                 set_panzoom(x_centerpixel, y_centerpixel,
+                             visible_width_pixels,
+                             panzoom_siblings = False)              \
+                 for g in self.locked_panzoom_groups )
 
 
 h_status         = 20
@@ -288,10 +321,11 @@ class Fl_Image_View_Group(Fl_Group):
                  x,y,w,h,
                  *,
                  camera,
-                 features        = (),
-                 single_buffered = False,
-                 status_widget   = None,
-                 handle_extra    = None):
+                 features          = (),
+                 single_buffered   = False,
+                 status_widget     = None,
+                 handle_extra      = None,
+                 image_view_groups = None):
 
         super().__init__(x,y,w,h)
 
@@ -326,8 +360,9 @@ class Fl_Image_View_Group(Fl_Group):
         self.image_widget = \
             Fl_Gl_Image_with_handle(x, y,
                                     w-w_controls, h-h_status_here,
-                                    handler         = handle_image_widget,
-                                    double_buffered = not single_buffered)
+                                    handler               = handle_image_widget,
+                                    double_buffered       = not single_buffered,
+                                    locked_panzoom_groups = image_view_groups)
         if status_widget is None:
             self.status_widget = Fl_Output(x, y + h-h_status_here, w, h_status_here)
         else:
