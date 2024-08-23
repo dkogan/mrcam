@@ -149,18 +149,18 @@ def update_sharpness(image,
 
 def handle_event_image_widget(widget, event):
     if event != FL_PUSH:
-        return False
+        return None
 
     if Fl.event_button() != FL_RIGHT_MOUSE:
-        return False
+        return None
 
     try:
         q = np.round(np.array(widget.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ))).astype(int)
     except:
-        return False
+        return None
 
     if q is None:
-        return False
+        return None
 
 
 
@@ -175,7 +175,7 @@ def handle_event_image_widget(widget, event):
        np.any(q11 < 0)                or \
        np.any(imagersize-1 - q00 < 0) or \
        np.any(imagersize-1 - q11 < 0):
-        return False
+        return None
 
 
     # New region
@@ -201,7 +201,7 @@ def handle_event_image_widget(widget, event):
 
     region['data'] = np.array(())
 
-    return True
+    return 1
 
 
 kwargs = dict()

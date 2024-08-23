@@ -319,7 +319,7 @@ class Fl_Image_View_Group(Fl_Group):
                     self.status_widget.value("")
 
             if handle_extra is not None:
-                handle_extra(self,event)
+                return handle_extra(self,event)
 
             return None # Use parent's return code
 
