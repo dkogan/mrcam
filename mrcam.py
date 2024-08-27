@@ -27,9 +27,12 @@ def _add_common_cmd_options(parser,
     parser.add_argument('--features',
                         help='''A comma-separated list of features for which GUI
                         controls should be displayed. The available features can
-                        be queried with the "arv-tool-0.8" tool. Each feature
-                        can be postfixed with [log] to indicate that a log-scale
-                        widget should be used''')
+                        be queried with "arv-tool-0.8". Each feature can be
+                        postfixed with [log] to indicate that a log-scale widget
+                        should be used. Each feature can be specified as a regex
+                        to pick multiple features at once. If the regex matches
+                        any category, everything in that category will be
+                        selected''')
     parser.add_argument('--single-buffered',
                         action='store_true',
                         help='''By default the image display is double-buffered
@@ -321,6 +324,10 @@ class Fl_Image_View_Group(Fl_Group):
                  x,y,w,h,
                  *,
                  camera,
+                 # iterable of strings. Might contain regex; might contain
+                 # annotations such as [log] (applied to all regex matches). Any
+                 # feature name that doesn't exist EXACTLY as given will be
+                 # re-tried as a regex
                  features          = (),
                  single_buffered   = False,
                  status_widget     = None,
@@ -373,27 +380,49 @@ class Fl_Image_View_Group(Fl_Group):
         group = Fl_Group(x + w-w_controls, y,
                          w_controls, h-h_status_here)
 
-        self.features                 = [dict() for i in features]
+        def expand_features(features_selected):
+            feature_set = camera.feature_set()
+
+            for f in features_selected:
+
+                m = re.match(r"(.*?)" +
+                             r"(?:" +
+                               r"\[" +
+                                 r"([^\[]*)" +
+                               r"\]" +
+                               r")?$", f) # should never fail
+
+                name = m.group(1).strip()
+                flags = m.group(2)
+                if flags and len(flags):
+                    flags = set( [s.strip() for s in flags.split(',')] )
+                else:
+                    flags = set()
+
+                if name in feature_set:
+                    yield dict(name  = name,
+                               flags = flags)
+                    continue
+
+                # name not found exactly; try regex
+                matched_any = False
+                for name_exists in feature_set:
+                    if re.search(name, name_exists):
+                        matched_any = True
+                        yield dict(name  = name_exists,
+                                   flags = flags)
+                if not matched_any:
+                    raise Exception(f"Feature '{name}' doesn't exist or isn't implemented; tried both exact searching and a regex")
+
+
+        self.features = list(expand_features(features))
         self.feature_dict_from_widget = dict()
 
         y = 0
-        for i,feature in enumerate(features):
+        for feature_dict in self.features:
+            name  = features['name']
+            flags = features['flags']
 
-            m = re.match(r"(.*?)" +
-                         r"(?:" +
-                           r"\[" +
-                             r"([^\[]*)" +
-                           r"\]" +
-                         r")?$", feature) # should never fail
-
-            name = m.group(1).strip()
-            flags = m.group(2)
-            if flags and len(flags):
-                flags = set( [s.strip() for s in flags.split(',')] )
-            else:
-                flags = set()
-
-            feature_dict = self.features[i]
             desc = camera.feature_descriptor(name)
 
             t = desc['type']
@@ -440,9 +469,7 @@ class Fl_Image_View_Group(Fl_Group):
             y += h_here
 
             feature_dict['widget']     = widget
-            feature_dict['name']       = name
             feature_dict['descriptor'] = desc
-            feature_dict['flags']      = flags
             self.feature_dict_from_widget[id(widget)] = feature_dict
 
         self.sync_feature_widgets()
