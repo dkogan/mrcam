@@ -165,7 +165,7 @@ def _parse_args_postprocess(args):
             print("--replay and --feature are mutually exclusive",
                   file=sys.stderr)
             sys.exit(1)
-        args.features = args.features.split(',')
+        args.features = [ f for f in args.features.split(',') if len(f) ] # filter out empty features
     else:
         args.features = ()
 
