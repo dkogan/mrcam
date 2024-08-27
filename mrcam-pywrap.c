@@ -585,6 +585,124 @@ static PyObject* GetItemString(PyObject* dict, const char* key_string)
     return result;
 }
 
+
+// Recursively accumulate all implemented feature nodes into the set. Include
+// only nodes whose name matches the regex. If regex == NULL, we accumulate
+// EVERYTHING. If a node name matches a category name, we accumulate everything
+// in that category
+//
+// Based on arv_tool_list_features() in aravis/src/arvtool.c
+static bool
+accumulate_feature(// output; we accumulate here
+                   PyObject* set,
+                   // input
+                   ArvGc* genicam,
+                   const char* feature,
+                   GRegex* regex)
+{
+    ArvGcNode* node = arv_gc_get_node(genicam, feature);
+
+    if(! (ARV_IS_GC_FEATURE_NODE (node) &&
+          arv_gc_feature_node_is_implemented (ARV_GC_FEATURE_NODE (node), NULL)))
+        return true;
+
+    const char* name = arv_gc_feature_node_get_name (ARV_GC_FEATURE_NODE (node));
+    gboolean match = true;
+    if(regex)
+        match = g_regex_match(regex,
+                              name,
+                              0, NULL);
+
+    if (ARV_IS_GC_CATEGORY (node))
+    {
+        // Recurve even if the category name didn't match
+        const GSList* features = arv_gc_category_get_features (ARV_GC_CATEGORY (node));
+        for (const GSList* iter = features; iter != NULL; iter = iter->next)
+            if(!accumulate_feature(set,
+                                   genicam,
+                                   iter->data,
+                                   // If the category name DID match, select
+                                   // all the children nodes
+                                   match ? NULL : regex))
+                return false;
+    }
+    else if (match)
+    {
+        PyObject* pyname = PyUnicode_FromString(name);
+        if(pyname == NULL)
+        {
+            BARF("Couldn't create name object");
+            return false;
+        }
+        int result = PySet_Add(set, pyname);
+        Py_DECREF(pyname);
+        // Exception already set if PySet_Add() failed
+        return (0 == result);
+    }
+
+    return true;
+}
+
+
+static PyObject*
+feature_set(camera* self, PyObject* args, PyObject* kwargs)
+{
+    // error by default
+    PyObject*   result       = NULL;
+    GError*     error        = NULL;
+    const char* regex_string = NULL;
+
+    ArvGc*    genicam = NULL;
+    GRegex*   regex   = NULL;
+    PyObject* set     = NULL;
+
+    mrcam_t* ctx = &self->ctx;
+    ArvDevice* device = arv_camera_get_device(ARV_CAMERA(self->ctx.camera));
+    if(device == NULL)
+    {
+        BARF("Couldn't arv_camera_get_device()");
+        goto done;
+    }
+
+    char* keywords[] = {"regex",
+                        NULL};
+
+    if( !PyArg_ParseTupleAndKeywords(args, kwargs,
+                                     "|s:mrcam.feature_set", keywords,
+                                     &regex_string))
+        goto done;
+
+    set = PySet_New(NULL);
+    if(set == NULL)
+    {
+        BARF("Couldn't create output set");
+        goto done;
+    }
+
+    genicam = arv_device_get_genicam (device);
+    regex   = g_regex_new(regex_string, 0,0, &error);
+    if(error != NULL || regex == NULL)
+    {
+        BARF("Couldn't compile regex from string '%s'", regex_string);
+        g_clear_error(&error);
+        goto done;
+    }
+
+    if(!accumulate_feature(set,
+                           genicam, "Root", regex))
+        goto done;
+
+    result = set;
+
+ done:
+    if(regex != NULL)
+        g_regex_unref(regex);
+    if(result == NULL)
+        Py_XDECREF(set);
+    return result;
+}
+
+
 // The feature must be of any of the types in what[]. The list is ended with a
 // NULL. what_all_string is for error reporting
 static bool feature_Check(PyObject* feature,
@@ -1061,6 +1179,9 @@ static const char feature_descriptor_docstring[] =
 static const char feature_value_docstring[] =
 #include "feature_value.docstring.h"
     ;
+static const char feature_set_docstring[] =
+#include "feature_set.docstring.h"
+    ;
 
 
 static PyMethodDef camera_methods[] =
@@ -1071,6 +1192,7 @@ static PyMethodDef camera_methods[] =
 
         PYMETHODDEF_ENTRY(, feature_descriptor, METH_VARARGS | METH_KEYWORDS),
         PYMETHODDEF_ENTRY(, feature_value,      METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(, feature_set,        METH_VARARGS | METH_KEYWORDS),
         {}
     };
 
