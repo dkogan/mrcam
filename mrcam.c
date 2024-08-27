@@ -394,49 +394,39 @@ bool mrcam_init(// out
                             width * height)));
     }
 
+    // Set the triggering strategy
+    try_arv_or( arv_camera_set_string(*camera, "TriggerMode", "On", &error),
+                error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
+    if(error != NULL)
+    {
+        // No TriggerMode is available at all. I ignore the error. If there WAS
+        // a TriggerMode, and I couldn't set it to "On", then I DO flag an error
+        g_clear_error(&error);
+    }
+
+    // If either the feature or the requested enum don't exist, I let it go
+    try_arv_or( arv_camera_set_string(*camera, "TriggerSelector", "FrameStart", &error),
+                error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
+                error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+    if(error != NULL)
+        g_clear_error(&error);
+
     if(ctx->trigger == MRCAM_TRIGGER_SOFTWARE)
     {
-
-        // Set the triggering strategy. I'd like to just be able to grab a frame and
-        // be done with it: TriggerMode=Off. Doesn't work on some cameras, though.
-        // On the Emergent HR-20000 cameras I need to TriggerMode=Off and then I
-        // need to explicitly send a trigger command. Otherwise no images are
-        // forthcoming. So I do that here unconditionally, since it should work for
-        // other cameras as well
-
-        try_arv_or( arv_camera_set_string(*camera, "TriggerMode", "On", &error),
-                    error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
-        if(error != NULL)
-        {
-            // No TriggerMode is available at all. I ignore the error. If there WAS
-            // a TriggerMode, and I couldn't set it to "On", then I DO flag an error
-            g_clear_error(&error);
-        }
-
-        // For the Emergent HR-20000 cameras. If either the feature or the requested
-        // enum don't exist, I let it go
-        try_arv_or( arv_camera_set_string(*camera, "TriggerSelector", "FrameStart", &error),
-                    error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
-                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
-        if(error != NULL)
-            g_clear_error(&error);
-
-        // For the Emergent HR-20000 cameras. If either the feature or the requested
-        // enum don't exist, I let it go
         try_arv_or( arv_camera_set_string(*camera, "TriggerSource",   "Software", &error),
                     error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
                     error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
         if(error != NULL)
             g_clear_error(&error);
     }
-    else if(ctx->trigger == MRCAM_TRIGGER_HARDWARE_TTYS0)
+    else if(ctx->trigger == MRCAM_TRIGGER_HARDWARE_TTYS0 ||
+            ctx->trigger == MRCAM_TRIGGER_HARDWARE_EXTERNAL)
     {
-        // I did open_serial_device(ctx) above
-    }
-    else if(ctx->trigger == MRCAM_TRIGGER_HARDWARE_EXTERNAL)
-    {
-        // A magic trigger signal will come from somewhere. I don't worry about
-        // it here; nothing to do
+        try_arv_or( arv_camera_set_string(*camera, "TriggerSource",   "Line0", &error),
+                    error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
+                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+        if(error != NULL)
+            g_clear_error(&error);
     }
     else
     {
@@ -444,7 +434,8 @@ bool mrcam_init(// out
         goto done;
     }
 
-    // For the Emergent HR-20000 cameras. I get lost packets otherwise
+    // High-res cameras need BIG packets to maintain the signal integrity. Here
+    // I ask for packaets 9kB in size; that's about the bigger we can have
     try_arv_or( arv_camera_set_integer(*camera, "GevSCPSPacketSize", 9000, &error),
                 error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
     if(error != NULL)
@@ -947,8 +938,8 @@ bool request(mrcam_t* ctx,
     }
     else if(ctx->trigger == MRCAM_TRIGGER_HARDWARE_EXTERNAL)
     {
-        // A magic trigger signal will come from somewhere. I don't worry about
-        // it here; nothing to do
+        // A trigger signal will magically come from somewhere. I don't worry
+        // about it here; nothing to do
     }
     else
     {
