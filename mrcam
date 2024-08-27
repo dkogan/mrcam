@@ -168,6 +168,9 @@ if not args.replay:
                          **kwargs)
 
         if kwargs['trigger'] == 'TTYS0':
+            # As noted above, if we're generating a trigger signal, the LAST
+            # camera only should do that. So here the non-last cameras are set
+            # to expect a trigger signal, but not to produce it
             kwargs['trigger'] = 'HARDWARE_EXTERNAL'
 
 
