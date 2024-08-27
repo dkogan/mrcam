@@ -282,11 +282,10 @@ class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
         return super().__init__(*args, **kwargs)
 
     def handle(self, event):
-        res       = super().handle(event)
-        res_inner = self.handler(self,event)
-        if res_inner is not None:
-            return res_inner
-        return res
+        res = self.handler(self,event)
+        if res is not None:
+            return res
+        return super().handle(event)
 
 
     def set_panzoom(self,
