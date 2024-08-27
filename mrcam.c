@@ -309,7 +309,7 @@ bool mrcam_init(// out
     DEFINE_INTERNALS(ctx);
 
 
-    if(ctx->trigger == MRCAM_TRIGGER_TTYS0)
+    if(ctx->trigger == MRCAM_TRIGGER_HARDWARE_TTYS0)
         try(open_serial_device(ctx));
 
     try_arv_and( *camera = arv_camera_new (camera_name,
@@ -429,7 +429,7 @@ bool mrcam_init(// out
         if(error != NULL)
             g_clear_error(&error);
     }
-    else if(ctx->trigger == MRCAM_TRIGGER_TTYS0)
+    else if(ctx->trigger == MRCAM_TRIGGER_HARDWARE_TTYS0)
     {
         // I did open_serial_device(ctx) above
     }
@@ -938,7 +938,7 @@ bool request(mrcam_t* ctx,
         if(error != NULL)
             g_clear_error(&error);
     }
-    else if(ctx->trigger == MRCAM_TRIGGER_TTYS0)
+    else if(ctx->trigger == MRCAM_TRIGGER_HARDWARE_TTYS0)
     {
         // If the previous trigger pulse is still high for some reason, wait for
         // it to drop

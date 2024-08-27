@@ -42,7 +42,7 @@ typedef enum
 
 #define LIST_MRCAM_TRIGGER(_) \
     _(SOFTWARE) \
-    _(TTYS0)    \
+    _(HARDWARE_TTYS0)    \
     _(HARDWARE_EXTERNAL)
 
 typedef enum {
@@ -95,7 +95,7 @@ typedef struct
     mrcam_callback_image_uint8_t* active_callback;
     void*                         active_callback_cookie;
                                                 \
-    // used if MRCAM_TRIGGER_TTYS0
+    // used if MRCAM_TRIGGER_HARDWARE_TTYS0
     int fd_tty_trigger;
 
     bool acquiring : 1;
