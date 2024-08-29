@@ -680,14 +680,16 @@ feature_set(camera* self, PyObject* args, PyObject* kwargs)
     }
 
     genicam = arv_device_get_genicam (device);
-    regex   = g_regex_new(regex_string, 0,0, &error);
-    if(error != NULL || regex == NULL)
+    if(regex_string != NULL)
     {
-        BARF("Couldn't compile regex from string '%s'", regex_string);
-        g_clear_error(&error);
-        goto done;
+        regex   = g_regex_new(regex_string, 0,0, &error);
+        if(error != NULL || regex == NULL)
+        {
+            BARF("Couldn't compile regex from string '%s'", regex_string);
+            g_clear_error(&error);
+            goto done;
+        }
     }
-
     if(!accumulate_feature(set,
                            genicam, "Root", regex))
         goto done;
