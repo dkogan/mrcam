@@ -603,7 +603,8 @@ accumulate_feature(// output; we accumulate here
     ArvGcNode* node = arv_gc_get_node(genicam, feature);
 
     if(! (ARV_IS_GC_FEATURE_NODE (node) &&
-          arv_gc_feature_node_is_implemented (ARV_GC_FEATURE_NODE (node), NULL)))
+          arv_gc_feature_node_is_implemented (ARV_GC_FEATURE_NODE (node), NULL) &&
+          arv_gc_feature_node_is_available(   ARV_GC_FEATURE_NODE(node),  NULL)) )
         return true;
 
     const char* name = arv_gc_feature_node_get_name (ARV_GC_FEATURE_NODE (node));
