@@ -419,8 +419,8 @@ class Fl_Image_View_Group(Fl_Group):
 
         y = 0
         for feature_dict in self.features:
-            name  = features['name']
-            flags = features['flags']
+            name  = feature_dict['name']
+            flags = feature_dict['flags']
 
             desc = camera.feature_descriptor(name)
 
