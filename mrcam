@@ -242,6 +242,12 @@ else:
               file=sys.stderr)
         sys.exit(1)
 
+    if not (args.replay_from_frame >= 0 and \
+            args.replay_from_frame < Nframes):
+        print(f"We have {Nframes=} in the log '{path}', so --replay-from-frame must be in [0,{Nframes-1}], but we have --replay-from-frames {args.replay_from_frame}",
+              file = sys.stderr)
+        sys.exit(1)
+
     log = log.reshape((Nframes,Ncameras))
     if np.any(log['icam'] - log['icam'][0,:]):
         print(f"The log {path} does not contain the same set of cameras in each frame",
@@ -289,9 +295,9 @@ if args.replay:
     time_slider_widget.align(FL_ALIGN_BOTTOM)
     time_slider_widget.type(FL_HORIZONTAL)
     time_slider_widget.step(1)
-    time_slider_widget.callback( lambda *args: time_slider_select(round(time_slider_widget.value())) )
-    time_slider_widget.value(0)
     time_slider_widget.bounds(0, Nframes-1)
+    time_slider_widget.value(args.replay_from_frame)
+    time_slider_widget.callback( lambda *args: time_slider_select(round(time_slider_widget.value())) )
 
 status_widget = Fl_Output(0, H-H_status,
                           W, H_status)
@@ -340,6 +346,6 @@ if not args.replay:
     # request the initial frame; will recur in image_callback
     request_image_set()
 else:
-    time_slider_select(0)
+    time_slider_select(round(time_slider_widget.value()))
 
 Fl.run()

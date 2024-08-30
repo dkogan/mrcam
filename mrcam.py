@@ -85,6 +85,11 @@ def _add_common_cmd_options(parser,
                         action='store_true',
                         help='''If given, we replay the stored images in
                         --logdir instead of talking to camera hardware''')
+    parser.add_argument('--replay-from-frame',
+                        type=int,
+                        default=0,
+                        help='''If given, we start the replay at the given
+                        frame, instead of at the start of the log''')
     parser.add_argument('--image-path-prefix',
                         help='''Used with --replay. If given, we prepend the
                         given prefix to the image paths in the log. Exclusive
