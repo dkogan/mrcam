@@ -380,7 +380,7 @@ class Fl_Image_View_Group(Fl_Group):
                          w_controls, h-h_status_here)
 
         def expand_features(features_selected):
-            feature_set = camera.feature_set()
+            feature_set = camera.feature_set() if camera is not None else set()
 
             for f in features_selected:
 
