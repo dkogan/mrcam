@@ -427,7 +427,12 @@ class Fl_Image_View_Group(Fl_Group):
             name  = feature_dict['name']
             flags = feature_dict['flags']
 
-            desc = camera.feature_descriptor(name)
+            try:
+                desc = camera.feature_descriptor(name)
+            except Exception as e:
+                print(f"Warning: not adding widget for feature '{name}' because: {e}",
+                      file = sys.stderr)
+                continue
 
             t = desc['type']
             if t == 'integer' or t == 'float':
@@ -476,6 +481,9 @@ class Fl_Image_View_Group(Fl_Group):
             feature_dict['descriptor'] = desc
             self.feature_dict_from_widget[id(widget)] = feature_dict
 
+        # Keep only those features that were added successfully
+        self.features = [f for f in self.features if 'widget' in f]
+
         self.sync_feature_widgets()
 
         group.resizable(None)
@@ -508,8 +516,19 @@ class Fl_Image_View_Group(Fl_Group):
 
     def sync_feature_widgets(self):
         for feature_dict in self.features:
-            value,metadata = self.camera.feature_value(feature_dict['descriptor'])
             widget = feature_dict['widget']
+
+            try:
+                value,metadata = self.camera.feature_value(feature_dict['descriptor'])
+            except Exception as e:
+                if not feature_dict.get('warned-about-error-get-value'):
+                    feature_dict['warned-about-error-get-value'] = True
+                    name = feature_dict['name']
+                    print(f"Warning: couldn't get the value of feature '{name}': {e}")
+                    widget.deactivate()
+                    widget.value(0)
+                continue
+
             if metadata['locked']: widget.deactivate()
             else:                  widget.activate()
 
