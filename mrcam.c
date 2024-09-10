@@ -901,7 +901,8 @@ bool request(mrcam_t* ctx,
 
     if(ctx->acquiring || ctx->active_callback != NULL)
     {
-        MSG("Acquisition already in progress. If mrcam_request_...() was called, wait for the callback or call mrcam_cancel_request()");
+        MSG("Acquisition already in progress: acquiring=%d, active_callback_exists=%d. If mrcam_request_...() was called, wait for the callback or call mrcam_cancel_request()",
+            ctx->acquiring, !!ctx->active_callback);
         goto done;
     }
 
