@@ -630,6 +630,8 @@ bool fill_image_uint8(// out
                       // in
                       mrcam_t* ctx)
 {
+    if(ctx->verbose) MSG("%s()", __func__);
+
     DEFINE_INTERNALS(ctx);
 
     ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(*buffer);
@@ -652,6 +654,8 @@ bool fill_image_uint16(// out
                        // in
                        mrcam_t* ctx)
 {
+    if(ctx->verbose) MSG("%s()", __func__);
+
     DEFINE_INTERNALS(ctx);
 
     ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(*buffer);
@@ -674,6 +678,8 @@ bool fill_image_bgr(// out
                     // in
                     mrcam_t* ctx)
 {
+    if(ctx->verbose) MSG("%s()", __func__);
+
     DEFINE_INTERNALS(ctx);
 
     ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(*buffer);
@@ -724,6 +730,8 @@ bool receive_image(// out
                    const uint64_t timeout_us,
                    mrcam_t* ctx)
 {
+    if(ctx->verbose) MSG("%s()", __func__);
+
     DEFINE_INTERNALS(ctx);
     bool        result      = false;
     GError*     error       = NULL;
@@ -912,6 +920,8 @@ bool request(mrcam_t* ctx,
              mrcam_callback_image_uint8_t* callback,
              void* cookie)
 {
+    if(ctx->verbose) MSG("%s()", __func__);
+
     DEFINE_INTERNALS(ctx);
     bool    result = false;
     GError* error  = NULL;
@@ -1001,6 +1011,8 @@ bool mrcam_pull_uint8(// out
                       const uint64_t timeout_us,
                       mrcam_t* ctx)
 {
+    if(ctx->verbose) MSG("%s()", __func__);
+
     return
         request(ctx, NULL, NULL) &&
         // may block
@@ -1015,6 +1027,8 @@ bool mrcam_pull_uint16(// out
                        const uint64_t timeout_us,
                        mrcam_t* ctx)
 {
+    if(ctx->verbose) MSG("%s()", __func__);
+
     return
         request(ctx, NULL, NULL) &&
         // may block
@@ -1029,6 +1043,8 @@ bool mrcam_pull_bgr(// out
                     const uint64_t timeout_us,
                     mrcam_t* ctx)
 {
+    if(ctx->verbose) MSG("%s()", __func__);
+
     return
         request(ctx, NULL, NULL) &&
         // may block
@@ -1043,6 +1059,8 @@ bool mrcam_request_uint8( // in
                           void* cookie,
                           mrcam_t* ctx)
 {
+    if(ctx->verbose) MSG("%s()", __func__);
+
     return
         request(ctx, (mrcam_callback_image_uint8_t*)cb, cookie);
 }
@@ -1052,6 +1070,8 @@ bool mrcam_request_uint16(// in
                           void* cookie,
                           mrcam_t* ctx)
 {
+    if(ctx->verbose) MSG("%s()", __func__);
+
     return
         request(ctx, (mrcam_callback_image_uint8_t*)cb, cookie);
 }
@@ -1061,11 +1081,15 @@ bool mrcam_request_bgr(   // in
                           void* cookie,
                           mrcam_t* ctx)
 {
+    if(ctx->verbose) MSG("%s()", __func__);
+
     return
         request(ctx, (mrcam_callback_image_uint8_t*)cb, cookie);
 }
 bool mrcam_cancel_request(mrcam_t* ctx)
 {
+    if(ctx->verbose) MSG("%s()", __func__);
+
 #warning finish this
     return false;
 }
