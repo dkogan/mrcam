@@ -74,6 +74,20 @@ const char* pixfmt__name(mrcam_pixfmt_t pixfmt)
 }
 
 static
+const char* pixfmt__name_from_ArvPixelFormat(ArvPixelFormat pixfmt)
+{
+    switch(pixfmt)
+    {
+#define CHOOSE(name, name_genicam, ...) case ARV_PIXEL_FORMAT_ ## name: return #name;
+    LIST_MRCAM_PIXFMT(CHOOSE)
+    default:
+        MSG("ERROR: unknown ArvPixelFormat = %d", (int)pixfmt);
+        return "UNKNOWN";
+    }
+#undef CHOOSE
+}
+
+static
 bool is_little_endian(void)
 {
     union
@@ -683,7 +697,7 @@ bool fill_image_bgr(// out
     if(pixfmt == ARV_PIXEL_FORMAT_BGR_8_PACKED)
         return fill_image_unpacked((mrcal_image_uint8_t*)image, *buffer, sizeof(mrcal_bgr_t));
 
-    if(pixfmt == ARV_PIXEL_FORMAT_BAYER_RG_8)
+    if(ctx->sws_context != NULL)
     {
         if(!fill_image_swscale((mrcal_image_uint8_t*)image,
                                *buffer, ctx))
@@ -693,7 +707,9 @@ bool fill_image_bgr(// out
         goto done;
     }
 
-    MSG("I don't yet know how to handle ARV_PIXEL_FORMAT 0x%x", pixfmt);
+    MSG("%s() doesn't yet know how to handle pixfmt '%s'",
+        __func__,
+        pixfmt__name_from_ArvPixelFormat(pixfmt));
     goto done;
 
  done:
