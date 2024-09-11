@@ -42,7 +42,9 @@ def parse_args():
                         defaults to 30 seconds''')
 
     mrcam._add_common_cmd_options(parser,
-                                  single_camera = True)
+                                  single_camera = True,
+                                  nolog         = True,
+                                  noreplay      = True)
 
     args = parser.parse_args()
 

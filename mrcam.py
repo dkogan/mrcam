@@ -11,7 +11,9 @@ from _mrcam import *
 
 def _add_common_cmd_options(parser,
                             *,
-                            single_camera):
+                            single_camera,
+                            nolog,
+                            noreplay):
 
     parser.add_argument('--verbose','-v',
                         action='store_true',
@@ -68,46 +70,48 @@ def _add_common_cmd_options(parser,
                         default = "SOFTWARE",
                         help='''The trigger mode. If omitted, we use "SOFTWARE". Pass any invalid mode (like
                         "") to get a list of valid values on stderr.''')
-    parser.add_argument('--logdir',
-                        help='''The directory to write the images and metadata
-                        (if no --replay) or to read them (if --replay). If
-                        omitted, we do NOT log anything to disk. If --replay,
-                        --logdir is required''')
-    parser.add_argument('--jpg',
-                        action='store_true',
-                        help='''If given, we write the output images as .jpg
-                        files, using lossy compression. If omitted, we write out
-                        lossless .png files (bigger, much slower to compress,
-                        decompress). Some pixel formats (deep ones, in
-                        particular) do not work with.jpg''')
+    if not args.nolog:
+        parser.add_argument('--logdir',
+                            help='''The directory to write the images and metadata
+                            (if no --replay) or to read them (if --replay). If
+                            omitted, we do NOT log anything to disk. If --replay,
+                            --logdir is required''')
+        parser.add_argument('--jpg',
+                            action='store_true',
+                            help='''If given, we write the output images as .jpg
+                            files, using lossy compression. If omitted, we write out
+                            lossless .png files (bigger, much slower to compress,
+                            decompress). Some pixel formats (deep ones, in
+                            particular) do not work with.jpg''')
 
-    parser.add_argument('--replay',
-                        action='store_true',
-                        help='''If given, we replay the stored images in
-                        --logdir instead of talking to camera hardware''')
-    parser.add_argument('--replay-from-frame',
-                        type=int,
-                        default=0,
-                        help='''If given, we start the replay at the given
-                        frame, instead of at the start of the log''')
-    parser.add_argument('--image-path-prefix',
-                        help='''Used with --replay. If given, we prepend the
-                        given prefix to the image paths in the log. Exclusive
-                        with --image-directory''')
-    parser.add_argument('--image-directory',
-                        help='''Used with --replay. If given, we extract the
-                        filenames from the image paths in the log, and use the
-                        given directory to find those filenames. Exclusive with
-                        --image-path-prefix''')
-    parser.add_argument('--timezone-offset-hours',
-                        default=0,
-                        type=float,
-                        help='''Used with --replay to determine the mapping
-                        between the UNIX timestamps in the log file (in UTC) and
-                        local time. Given in hours. For instance, Pacific
-                        Standard Time is UTC-08:00, so pass
-                        --timezone-offset-hours -8. If omitted, we default to
-                        UTC''')
+    if not args.noreplay:
+        parser.add_argument('--replay',
+                            action='store_true',
+                            help='''If given, we replay the stored images in
+                            --logdir instead of talking to camera hardware''')
+        parser.add_argument('--replay-from-frame',
+                            type=int,
+                            default=0,
+                            help='''If given, we start the replay at the given
+                            frame, instead of at the start of the log''')
+        parser.add_argument('--image-path-prefix',
+                            help='''Used with --replay. If given, we prepend the
+                            given prefix to the image paths in the log. Exclusive
+                            with --image-directory''')
+        parser.add_argument('--image-directory',
+                            help='''Used with --replay. If given, we extract the
+                            filenames from the image paths in the log, and use the
+                            given directory to find those filenames. Exclusive with
+                            --image-path-prefix''')
+        parser.add_argument('--timezone-offset-hours',
+                            default=0,
+                            type=float,
+                            help='''Used with --replay to determine the mapping
+                            between the UNIX timestamps in the log file (in UTC) and
+                            local time. Given in hours. For instance, Pacific
+                            Standard Time is UTC-08:00, so pass
+                            --timezone-offset-hours -8. If omitted, we default to
+                            UTC''')
 
     if single_camera:
         parser.add_argument('camera',

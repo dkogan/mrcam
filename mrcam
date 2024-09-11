@@ -29,7 +29,9 @@ def parse_args():
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
     mrcam._add_common_cmd_options(parser,
-                                  single_camera = False)
+                                  single_camera = False,
+                                  nolog         = False,
+                                  noreplay      = False)
 
     args = parser.parse_args()
 
