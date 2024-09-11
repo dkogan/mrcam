@@ -9,8 +9,8 @@ SYNOPSIS
 
   [ A window pops up showing a live view of the first available camera ]
 
-This tool provides the most basic camera tools: an image preview with some
-rudimentary image capture and parameter control
+This tool provides the most basic camera tools: a live image view and/or a log
+replay with feature controls.
 
 '''
 
