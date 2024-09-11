@@ -124,16 +124,19 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 
 
     if(0) ;
-#define PARSE(name, ...)                        \
-    else if(0 == strcmp(pixfmt_string, #name))  \
+#define PARSE(name, name_genicam, ...)           \
+    else if(0 == strcmp(pixfmt_string, #name) || \
+            0 == strcmp(pixfmt_string, #name_genicam))  \
         pixfmt = MRCAM_PIXFMT_ ## name;
     LIST_MRCAM_PIXFMT(PARSE)
     else
     {
-#define SAY(name, ...) "'" #name "', "
-        BARF("Unknown pixel format '%s'; I know about: ("
+#define SAY(name, name_genicam, ...) "'" #name "', " #name_genicam "', "
+        BARF("Unknown pixel format '%s'; mrcam knows about: ("
              LIST_MRCAM_PIXFMT(SAY)
-             ")",
+             ")\n"
+             "These aren't all supported by each camera:\n"
+             "run 'arv-tool-0.8 features PixelFormat' to query the hardware",
              pixfmt_string);
         goto done;
 #undef SAY

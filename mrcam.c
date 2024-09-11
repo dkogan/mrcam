@@ -31,7 +31,8 @@ mrcam_output_type_t mrcam_output_type(mrcam_pixfmt_t pixfmt)
 {
     switch(pixfmt)
     {
-#define CHOOSE(name, T, ...) case MRCAM_PIXFMT_ ## name: return MRCAM_ ## T;
+        // I just check one; MRCAM_PIXFMT_name and ..._name_genicam are identical
+#define CHOOSE(name, name_genicam, T, ...) case MRCAM_PIXFMT_ ## name: return MRCAM_ ## T;
         LIST_MRCAM_PIXFMT(CHOOSE)
     default: break;
 #undef CHOOSE
@@ -47,7 +48,8 @@ ArvPixelFormat pixfmt__ArvPixelFormat(mrcam_pixfmt_t pixfmt)
 {
     switch(pixfmt)
     {
-#define CHOOSE(name, ...) case MRCAM_PIXFMT_ ## name: return ARV_PIXEL_FORMAT_ ## name;
+        // I just check one; MRCAM_PIXFMT_name and ..._name_genicam are identical
+#define CHOOSE(name, name_genicam, ...) case MRCAM_PIXFMT_ ## name: return ARV_PIXEL_FORMAT_ ## name;
     LIST_MRCAM_PIXFMT(CHOOSE)
     default:
         MSG("ERROR: unknown mrcam_pixfmt_t = %d", (int)pixfmt);
@@ -62,7 +64,7 @@ const char* pixfmt__name(mrcam_pixfmt_t pixfmt)
 {
     switch(pixfmt)
     {
-#define CHOOSE(name, ...) case MRCAM_PIXFMT_ ## name: return #name;
+#define CHOOSE(name, name_genicam, ...) case MRCAM_PIXFMT_ ## name: return #name;
     LIST_MRCAM_PIXFMT(CHOOSE)
     default:
         MSG("ERROR: unknown mrcam_pixfmt_t = %d", (int)pixfmt);
@@ -113,16 +115,16 @@ bool pixfmt__av_pixfmt(// input
 
     switch(pixfmt)
     {
-
-#define CHOOSE(name, T, av_pixfmt)              \
-        case MRCAM_PIXFMT_ ## name:             \
-            *av_pixfmt_input = av_pixfmt;       \
+        // I just check one; MRCAM_PIXFMT_name and ..._name_genicam are identical
+#define CHOOSE(name, name_genicam, T, av_pixfmt)        \
+        case MRCAM_PIXFMT_ ## name:                     \
+            *av_pixfmt_input = av_pixfmt;               \
             break;
 
         LIST_MRCAM_PIXFMT(CHOOSE)
     default:
-        MSG("ERROR: unknown mrcam_pixfmt_t = '%s'",
-            pixfmt__name(pixfmt));
+        MSG("ERROR: unknown mrcam_pixfmt_t = %d; this is a bug!",
+            (int)pixfmt);
         return false;
 #undef CHOOSE
     }
@@ -600,7 +602,7 @@ bool fill_image_swscale(// out
 static bool is_pixfmt_matching(ArvPixelFormat pixfmt,
                                mrcam_pixfmt_t mrcam_pixfmt)
 {
-#define CHECK(name, T, ...) if(pixfmt == ARV_PIXEL_FORMAT_ ## name && mrcam_pixfmt == MRCAM_PIXFMT_ ## name) return true;
+#define CHECK(name, name_genicam, T, ...) if(pixfmt == ARV_PIXEL_FORMAT_ ## name && mrcam_pixfmt == MRCAM_PIXFMT_ ## name) return true;
     LIST_MRCAM_PIXFMT(CHECK);
 #undef CHECK
     MSG("Mismatched pixel format! I asked for '%s', but got ArvPixelFormat 0x%x",

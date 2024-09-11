@@ -3,8 +3,17 @@
 #include <mrcal/mrcal-image.h>
 
 // I define this myself, in order to avoid requiring the user to #include
-// <arv.h>. This is a few common formats. MRCAM_PIXFMT_... has an equivalent
-// ARV_PIXEL_FORMAT.
+// <arv.h>. This is a few common formats. The fields are:
+//
+// - MRCAM_PIXFMT_.../ARV_PIXEL_FORMAT_... (these are equivalent)
+//
+// - The formats returned by arv_camera_dup_available_pixel_formats_as_strings()
+//   or by running "arv-tool-0.8 features PixelFormat"; these are similar to the
+//   above, but spelled differently
+//
+// - The output dense type we use after we unpack the data
+//
+// - The ffmpeg conversion type, if needed
 //
 // An ffmpeg pixel format of AV_PIX_FMT_NONE means "the input is already packed,
 // and there's no need to invoke ffmpeg at all"
@@ -17,24 +26,27 @@
 // packing each pixel into 12 bits instead of 10. And I see that libswscale
 // doesn't support this: AV_PIX_FMT_GRAY10BE and AV_PIX_FMT_GRAY12BE use 16 bits
 // per pixel, not 10 or 12
-#define LIST_MRCAM_PIXFMT(_)                            \
-  _(MONO_8,        uint8,  AV_PIX_FMT_NONE)             \
-  /* Each pixel takes up 16 bits. NOT packed */         \
-  _(MONO_10,       uint16, AV_PIX_FMT_NONE)             \
-  _(MONO_12,       uint16, AV_PIX_FMT_NONE)             \
-  _(MONO_14,       uint16, AV_PIX_FMT_NONE)             \
-  _(MONO_16,       uint16, AV_PIX_FMT_NONE)             \
-  _(BAYER_GR_8,    bgr,    AV_PIX_FMT_BAYER_GRBG8)      \
-  _(BAYER_RG_8,    bgr,    AV_PIX_FMT_BAYER_RGGB8)      \
-  _(BAYER_GB_8,    bgr,    AV_PIX_FMT_BAYER_GBRG8)      \
-  _(BAYER_BG_8,    bgr,    AV_PIX_FMT_BAYER_BGGR8)      \
-  _(RGB_8_PACKED,  bgr,    AV_PIX_FMT_NONE)             \
-  _(BGR_8_PACKED,  bgr,    AV_PIX_FMT_NONE)
+#define LIST_MRCAM_PIXFMT(_)                                    \
+  _(MONO_8,       Mono8,    uint8,  AV_PIX_FMT_NONE)            \
+  /* Each pixel takes up 16 bits. NOT packed */                 \
+  _(MONO_10,      Mono10,   uint16, AV_PIX_FMT_NONE)            \
+  _(MONO_12,      Mono12,   uint16, AV_PIX_FMT_NONE)            \
+  _(MONO_14,      Mono14,   uint16, AV_PIX_FMT_NONE)            \
+  _(MONO_16,      Mono16,   uint16, AV_PIX_FMT_NONE)            \
+  _(BAYER_GR_8,   BayerGR8, bgr,    AV_PIX_FMT_BAYER_GRBG8)     \
+  _(BAYER_RG_8,   BayerRG8, bgr,    AV_PIX_FMT_BAYER_RGGB8)     \
+  _(BAYER_GB_8,   BayerGB8, bgr,    AV_PIX_FMT_BAYER_GBRG8)     \
+  _(BAYER_BG_8,   BayerBG8, bgr,    AV_PIX_FMT_BAYER_BGGR8)     \
+  _(RGB_8_PACKED, RGB8,     bgr,    AV_PIX_FMT_NONE)            \
+  _(BGR_8_PACKED, BGR8,     bgr,    AV_PIX_FMT_NONE)
 
 
 typedef enum
 {
-#define ENUM(name, ...) MRCAM_PIXFMT_ ## name,
+#define ENUM(name, name_genicam,...)                           \
+    MRCAM_PIXFMT_ ## name,                                     \
+    MRCAM_PIXFMT_ ## name_genicam = MRCAM_PIXFMT_ ## name,
+
     LIST_MRCAM_PIXFMT(ENUM) MRCAM_PIXFMT_COUNT
 #undef ENUM
 } mrcam_pixfmt_t;

@@ -129,20 +129,22 @@ static bool parse_args(// out
 
             if(0) ;
 
-#define PARSE(name, ...)                                        \
-            else if(0 == strcmp(optarg, #name))                 \
+#define PARSE(name, name_genicam, ...)                          \
+            else if(0 == strcmp(optarg, #name) ||               \
+                    0 == strcmp(optarg, #name_genicam))         \
                 options->pixfmt = MRCAM_PIXFMT_ ## name;
 
             LIST_MRCAM_PIXFMT(PARSE)
             else
             {
-                MSG("Unknown pixel format '%s'; I know about:", optarg);
-
-#define SAY(name, ...) MSG("  " #name);
-                LIST_MRCAM_PIXFMT(SAY);
-#undef SAY
-
+#define SAY(name, name_genicam, ...) "  " #name "\n  " #name_genicam "\n"
+                MSG("Unknown pixel format '%s'; mrcam knows about:\n"
+                    LIST_MRCAM_PIXFMT(SAY)
+                    "These aren't all supported by each camera:\n"
+                    "run 'arv-tool-0.8 features PixelFormat' to query the hardware",
+                    optarg);
                 exit(1);
+#undef SAY
             }
 #undef PARSE
             break;
