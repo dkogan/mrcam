@@ -11,9 +11,7 @@ from _mrcam import *
 
 def _add_common_cmd_options(parser,
                             *,
-                            single_camera,
-                            nolog,
-                            noreplay):
+                            single_camera):
 
     parser.add_argument('--verbose','-v',
                         action='store_true',
@@ -70,48 +68,6 @@ def _add_common_cmd_options(parser,
                         default = "SOFTWARE",
                         help='''The trigger mode. If omitted, we use "SOFTWARE". Pass any invalid mode (like
                         "") to get a list of valid values on stderr.''')
-    if not args.nolog:
-        parser.add_argument('--logdir',
-                            help='''The directory to write the images and metadata
-                            (if no --replay) or to read them (if --replay). If
-                            omitted, we do NOT log anything to disk. If --replay,
-                            --logdir is required''')
-        parser.add_argument('--jpg',
-                            action='store_true',
-                            help='''If given, we write the output images as .jpg
-                            files, using lossy compression. If omitted, we write out
-                            lossless .png files (bigger, much slower to compress,
-                            decompress). Some pixel formats (deep ones, in
-                            particular) do not work with.jpg''')
-
-    if not args.noreplay:
-        parser.add_argument('--replay',
-                            action='store_true',
-                            help='''If given, we replay the stored images in
-                            --logdir instead of talking to camera hardware''')
-        parser.add_argument('--replay-from-frame',
-                            type=int,
-                            default=0,
-                            help='''If given, we start the replay at the given
-                            frame, instead of at the start of the log''')
-        parser.add_argument('--image-path-prefix',
-                            help='''Used with --replay. If given, we prepend the
-                            given prefix to the image paths in the log. Exclusive
-                            with --image-directory''')
-        parser.add_argument('--image-directory',
-                            help='''Used with --replay. If given, we extract the
-                            filenames from the image paths in the log, and use the
-                            given directory to find those filenames. Exclusive with
-                            --image-path-prefix''')
-        parser.add_argument('--timezone-offset-hours',
-                            default=0,
-                            type=float,
-                            help='''Used with --replay to determine the mapping
-                            between the UNIX timestamps in the log file (in UTC) and
-                            local time. Given in hours. For instance, Pacific
-                            Standard Time is UTC-08:00, so pass
-                            --timezone-offset-hours -8. If omitted, we default to
-                            UTC''')
 
     if single_camera:
         parser.add_argument('camera',
@@ -170,10 +126,6 @@ def _parse_args_postprocess(args):
         args.dims = (w,h)
 
     if args.features is not None:
-        if args.replay:
-            print("--replay and --feature are mutually exclusive",
-                  file=sys.stderr)
-            sys.exit(1)
         args.features = [ f for f in args.features.split(',') if len(f) ] # filter out empty features
     else:
         args.features = ()
@@ -195,63 +147,6 @@ def _parse_args_postprocess(args):
         print("--image-path-prefix and --image-directory are mutually exclusive",
               file=sys.stderr)
         sys.exit(1)
-
-    if args.replay and \
-       args.logdir is None:
-        print("--replay REQUIRES --logdir to specify the log being read",
-              file=sys.stderr)
-        sys.exit(1)
-
-
-
-    if args.replay:
-        def camera_for_replay(s):
-            if s is None:
-                return [0]
-
-            try:
-                i = int(s)
-                if i < 0:
-                    print(f"--replay given, so the cameras must be a list of non-negative integers and/or A-B ranges. Invalid camera given: '{s}'",
-                          file=sys.stderr)
-                    sys.exit(1)
-                return [i]
-            except Exception as e:
-                pass
-
-            m = re.match("^([0-9]+)-([0-9]+)$", s)
-            if m is None:
-                print(f"--replay given, so the cameras must be a list of non-negative integers and/or A-B ranges. Invalid camera given: '{s}'",
-                      file=sys.stderr)
-                sys.exit(1)
-            try:
-                i0 = int(m.group(1))
-                i1 = int(m.group(2))
-            except Exception as e:
-                print(f"--replay given, so the cameras must be a list of non-negative integers and/or A-B ranges. Invalid camera given: '{s}'",
-                      file=sys.stderr)
-                sys.exit(1)
-            return list(range(i0,i1+1))
-
-
-        if args.camera is None:
-            # one camera; unspecified
-            args.camera = 0
-        elif isinstance(args.camera, str):
-            # one camera; parse as int > 0
-            try:
-                args.camera = int(args.camera)
-            except:
-                print(f"--replay given, so the camera must be an integer >= 0",
-                      file=sys.stderr)
-                sys.exit(1)
-            if args.camera < 0:
-                print(f"--replay given, so the camera must be an integer >= 0",
-                      file=sys.stderr)
-                sys.exit(1)
-        else:
-            # multiple cameras
-            args.camera = [c for cam in args.camera for c in camera_for_replay(cam)]
 
 
 
