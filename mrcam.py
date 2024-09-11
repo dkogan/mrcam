@@ -573,9 +573,9 @@ class Fl_Image_View_Group(Fl_Group):
                              *,
                              period         = None, # if given, we automatically recur
                              # guaranteed to be called with each frame; even on error
+                             image_callback = None,
                              flip_x         = False,
                              flip_y         = False,
-                             image_callback = None,
                              **image_callback_cookie):
 
         if self.camera is None:
