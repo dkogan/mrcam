@@ -63,15 +63,11 @@ def parse_args():
                         filenames from the image paths in the log, and use the
                         given directory to find those filenames. Exclusive with
                         --image-path-prefix''')
-    parser.add_argument('--timezone-offset-hours',
-                        default=0,
+    parser.add_argument('--utcoffset-hours',
                         type=float,
-                        help='''Used with --replay to determine the mapping
-                        between the UNIX timestamps in the log file (in UTC) and
-                        local time. Given in hours. For instance, Pacific
-                        Standard Time is UTC-08:00, so pass
-                        --timezone-offset-hours -8. If omitted, we default to
-                        UTC''')
+                        help='''Used to determine the mapping between the image
+                        UNIX timestamps (in UTC) and local time. If omitted, we
+                        default to local time''')
 
 
     args = parser.parse_args()
@@ -163,6 +159,15 @@ import datetime
 file_log           = None
 log_replay         = []
 time_slider_widget = None
+
+if args.utcoffset_hours is not None:
+    utcoffset_sec = args.utcoffset_hours*3600
+    tzname        = f"{'-' if args.utcoffset_hours<0 else ''}{int(abs(args.utcoffset_hours)):02d}:{round( (abs(args.utcoffset_hours) % 1)*60 ):02d}"
+else:
+    import time
+    t = time.localtime()
+    utcoffset_sec = t.tm_gmtoff
+    tzname        = t.tm_zone
 
 def write_logline(l):
     global file_log
@@ -298,9 +303,9 @@ def update_image_from_path(icam, path):
                                                  flip_y = args.flip_y)
 
 def time_slider_update_label(iframe,time):
-    t = int(time + args.timezone_offset_hours*3600.)
+    t = int(time + utcoffset_sec)
     t = datetime.datetime.fromtimestamp(t, datetime.UTC)
-    time_slider_widget.label(f"iframe={iframe}/{int(time_slider_widget.maximum())} timestamp={time:.03f} {t.strftime('%Y-%m-%d %H:%M:%S')}{' UTC' if args.timezone_offset_hours==0 else ''}")
+    time_slider_widget.label(f"iframe={iframe}/{int(time_slider_widget.maximum())} timestamp={time:.03f} {t.strftime('%Y-%m-%d %H:%M:%S')} {tzname}")
 
 def time_slider_select(i_iframe):
     global image_view_groups
