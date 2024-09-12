@@ -158,13 +158,9 @@ file_log = None
 def write_logline(l):
     global file_log
 
-    def write(f,l):
-        print(l,file=f)
-        f.flush()
-
     if file_log is not None:
-        write(file_log,l)
-    write(sys.stdout, l)
+        print(l,file=file_log)
+        file_log.flush()
 
 
 def request_image_set():
