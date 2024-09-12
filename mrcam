@@ -318,6 +318,13 @@ def time_slider_select(i_iframe):
     for icam in range(Ncameras):
         update_image_from_path(icam, complete_path(paths[icam]))
 
+    # if live-updating we color the slider green
+    if args.logdir is not None:
+        if int(time_slider_widget.value()) == int(time_slider_widget.maximum()):
+            time_slider_widget.color(FL_GREEN)
+        else:
+            time_slider_widget.color(FL_BACKGROUND_COLOR)
+
 
 def open_log(logdir,
              camera,
@@ -497,7 +504,9 @@ if have_time_slider:
     else:
         time_slider_widget.bounds(0, 0)
         time_slider_widget.value(0)
-
+    # if live-updating we color the slider green
+    if args.logdir is not None:
+        time_slider_widget.color(FL_GREEN)
     time_slider_widget.callback( lambda *args: time_slider_select(round(time_slider_widget.value())) )
 
 
