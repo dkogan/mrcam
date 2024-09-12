@@ -154,7 +154,10 @@ import mrcal
 import datetime
 
 
-file_log = None
+file_log           = None
+log_replay         = []
+time_slider_widget = None
+
 def write_logline(l):
     global file_log
 
@@ -174,6 +177,7 @@ def image_callback(image,
                    *,
                    timestamp_us,
                    iframe,
+                   # All these are th cookie given to set_up_image_capture()
                    icam,
                    logdir,
                    extension):
@@ -181,64 +185,190 @@ def image_callback(image,
     global Ncameras_seen_this_frame
     global iframe_this
 
-    if logdir is not None:
+    if iframe_this != iframe:
+        iframe_this = iframe
+        Ncameras_seen_this_frame = 0
+
+    if logdir is None:
+
+        image_view_groups[icam].update_image_widget( image  = image,
+                                                     flip_x = args.flip_x,
+                                                     flip_y = args.flip_y )
+    else:
+
+        if Ncameras_seen_this_frame == 0:
+            # Started this set of cameras. Add empty record; fill it in as I get
+            # frames
+            log_replay.append( dict(time      = [None] * Ncameras,
+                                    imagepath = [None] * Ncameras,
+                                    iframe    = [None] * Ncameras) )
+
+
+        timestamp_s = timestamp_us / 1e6
+
         # write image to disk
         filename = f"frame{iframe:05d}-cam{icam}.{extension}"
         path = f"{logdir}/{filename}"
 
         if image is None:
-            write_logline(f"{timestamp_us/1e6:.3f} {iframe} {icam} -");
+            write_logline(f"{timestamp_s:.3f} {iframe} {icam} -");
         else:
             mrcal.save_image(path, image)
-            write_logline(f"{timestamp_us/1e6:.3f} {iframe} {icam} {filename}");
+            write_logline(f"{timestamp_s:.3f} {iframe} {icam} {filename}");
+
+        time_slider_now = time_slider_widget.value()
+        time_slider_at_max = \
+            time_slider_now == time_slider_widget.maximum()
+
+        if time_slider_at_max:
+            image_view_groups[icam].update_image_widget( image  = image,
+                                                         flip_x = args.flip_x,
+                                                         flip_y = args.flip_y )
+
+        log_replay[-1]['time'     ][icam] = timestamp_s
+        log_replay[-1]['imagepath'][icam] = path
+        log_replay[-1]['iframe'   ][icam] = iframe
 
 
     # schedule the next set of images
-    if iframe_this != iframe:
-        iframe_this = iframe
-        Ncameras_seen_this_frame = 0
     Ncameras_seen_this_frame += 1
     if Ncameras_seen_this_frame == Ncameras:
-        # Every camera reported back. Ask for another frame
+        # Every camera reported back. Finish up and ask for another frame
+
+        if time_slider_widget is not None:
+            time_slider_widget.maximum(iframe)
+            # The bounds changed, so the handle should be rendered in a
+            # different spot
+            time_slider_widget.redraw()
+
+            if time_slider_at_max:
+                time_slider_widget.value(iframe)
+                time_slider_update_label(iframe, timestamp_s)
+
         mrcam.schedule_next_frame(request_image_set, args.period)
 
 
+def update_image_from_path(icam, path):
+    try:
+        image = mrcal.load_image(path)
+    except:
+        print(f"Couldn't read image at '{path}'", file=sys.stderr)
+        sys.exit(1)
+
+    image_view_groups[icam].update_image_widget( image,
+                                                 flip_x = args.flip_x,
+                                                 flip_y = args.flip_y)
+
+def time_slider_update_label(iframe,time):
+    t = int(time + args.timezone_offset_hours*3600.)
+    t = datetime.datetime.fromtimestamp(t, datetime.UTC)
+    time_slider_widget.label(f"iframe={iframe} timestamp={time:.03f} {t.strftime('%Y-%m-%d %H:%M:%S')}{' UTC' if args.timezone_offset_hours==0 else ''}")
+
 def time_slider_select(i_iframe):
     global image_view_groups
+    global log_replay
 
-    record = log[i_iframe,:]
+    record = log_replay[i_iframe]
 
     # shape (Ncameras,); all of these
     times   = record['time']
     paths   = record['imagepath']
     iframes = record['iframe']
 
-    t = int(times[0] + args.timezone_offset_hours*3600.)
-    t = datetime.datetime.fromtimestamp(t, datetime.UTC)
+    time_slider_update_label(iframes[0], times[0])
 
-    time_slider_widget.label(f"iframe={iframes[0]} timestamp={times[0]:.03f} {t.strftime('%Y-%m-%d %H:%M:%S')}{' UTC' if args.timezone_offset_hours==0 else ''}")
-
-    for i_icam in range(Ncameras):
+    for icam in range(Ncameras):
         if args.image_path_prefix is not None:
-            path = f"{args.image_path_prefix}/{paths[i_icam]}"
+            path = f"{args.image_path_prefix}/{paths[icam]}"
         elif args.image_directory is not None:
-            path = f"{args.image_directory}/{os.path.basename(paths[i_icam])}"
-        elif paths[i_icam][0] != '/':
+            path = f"{args.image_directory}/{os.path.basename(paths[icam])}"
+        elif paths[icam][0] != '/':
             # The image filename has a relative path. I want it to be
             # relative to the log directory
-            path = f"{args.logdir}/{paths[i_icam]}"
+            path = f"{args.logdir}/{paths[icam]}"
         else:
-            path = paths[i_icam]
+            path = paths[icam]
 
-        try:
-            image = mrcal.load_image(path)
-        except:
-            print(f"Couldn't read image at '{path}'", file=sys.stderr)
-            sys.exit(1)
+        update_image_from_path(icam, path)
 
-        image_view_groups[i_icam].update_image_widget( image,
-                                                       flip_x = args.flip_x,
-                                                       flip_y = args.flip_y)
+
+def open_log(logdir,
+             camera,
+             replay_from_frame):
+    # I need at least vnlog 1.38 to support structured dtypes in vnlog.slurp().
+    # See
+    #   https://notes.secretsauce.net/notes/2024/07/02_vnlogslurp-with-non-numerical-data.html
+    import vnlog
+    import numpy as np
+    import numpysane as nps
+
+    path = f"{logdir}/images.vnl"
+    max_len_imagepath = 128
+
+    dtype = np.dtype([ ('time',      float),
+                       ('iframe',    np.int32),
+                       ('icam',      np.int8),
+                       ('imagepath', f'U{max_len_imagepath}'),
+                      ])
+    log = vnlog.slurp(path, dtype=dtype)
+
+    # I have the whole log. I cut it down to include ONLY the cameras that were
+    # requested
+    i = np.min( np.abs(nps.dummy(np.array(camera), -1) - \
+                       log['icam']),
+                axis=-2) == 0
+    log = log[i]
+
+    if log.size == 0:
+        print(f"The requested cameras {camera=} don't have any data in the log {path}",
+              file = sys.stderr)
+        sys.exit(1)
+
+    if max(len(s) for s in log['imagepath']) >= max_len_imagepath:
+        print(f"Image paths in {path} are longer than the statically-defined value of {max_len_imagepath=}. Increase max_len_imagepath, or make the code more general", file=sys.stderr)
+        sys.exit(1)
+
+    # While the tool is running I want to be able to access the images in O(1),
+    # so I pre-sort the log now to make that possible. For each constant iframe
+    # I want a monotonically-increasing icam
+    log = np.sort(log, order=('iframe','icam'))
+
+    # I should have dense data over frames and cameras. I try to reshape it in
+    # that way, and confirm that everything lines up
+    Nframes  = len(log) // Ncameras
+    if Nframes*Ncameras != len(log):
+        print(f"The log {path} does not contain all dense combinations of {Ncameras=} and {Nframes=}. For the requested cameras it has {len(log)} entries",
+              file = sys.stderr)
+        for icam in camera:
+            print(f"  Requested camera {icam} has {np.count_nonzero(log['icam']==icam)} observed frames",
+                  file = sys.stderr)
+        print("These should all be idendical",
+              file=sys.stderr)
+        sys.exit(1)
+
+    if not (replay_from_frame >= 0 and \
+            replay_from_frame < Nframes):
+        print(f"We have {Nframes=} in the log '{path}', so --replay-from-frame must be in [0,{Nframes-1}], but we have --replay-from-frames {replay_from_frame}",
+              file = sys.stderr)
+        sys.exit(1)
+
+    log = log.reshape((Nframes,Ncameras))
+    if np.any(log['icam'] - log['icam'][0,:]):
+        print(f"The log {path} does not contain the same set of cameras in each frame",
+              file = sys.stderr)
+        sys.exit(1)
+    if np.any( np.sort(camera) - log['icam'][0,:] ):
+        print(f"The log {path} does not contain exactly the cameras requested in {camera=}",
+              file = sys.stderr)
+        sys.exit(1)
+    if np.any(log['iframe'] - log['iframe'][:,(0,)]):
+        print(f"The log {path} does not contain the same set of frames observing each camera",
+              file = sys.stderr)
+        sys.exit(1)
+
+    # Great. We have a dense set. We're done!
+    return log
+
 
 
 
@@ -262,7 +392,7 @@ image_view_groups = [None] * Ncameras
 # that at capture time all the cameras get ready to capture, and only then do we
 # actually send the trigger; otherwise when the first camera sends the trigger,
 # the last camera might still be initializing
-if not args.replay:
+if args.replay is None:
     for i,camera in reversed(list(enumerate(args.camera))):
         cameras[i] = \
             mrcam.camera(camera,
@@ -293,80 +423,10 @@ if not args.replay:
 
 else:
     # We're replaying a log
-
-    # I need at least vnlog 1.38 to support structured dtypes in vnlog.slurp().
-    # See
-    #   https://notes.secretsauce.net/notes/2024/07/02_vnlogslurp-with-non-numerical-data.html
-    import vnlog
-    import numpy as np
-    import numpysane as nps
-
-    path = f"{args.logdir}/images.vnl"
-    max_len_imagepath = 128
-
-    dtype = np.dtype([ ('time',      float),
-                       ('iframe',    np.int32),
-                       ('icam',      np.int8),
-                       ('imagepath', f'U{max_len_imagepath}'),
-                      ])
-    log = vnlog.slurp(path, dtype=dtype)
-
-    # I have the whole log. I cut it down to include ONLY the cameras that were
-    # requested
-    i = np.min( np.abs(nps.dummy(np.array(args.camera), -1) - \
-                       log['icam']),
-                axis=-2) == 0
-    log = log[i]
-
-    if log.size == 0:
-        print(f"The requested cameras {args.camera=} don't have any data in the log {path}",
-              file = sys.stderr)
-        sys.exit(1)
-
-    if max(len(s) for s in log['imagepath']) >= max_len_imagepath:
-        print(f"Image paths in {path} are longer than the statically-defined value of {max_len_imagepath=}. Increase max_len_imagepath, or make the code more general", file=sys.stderr)
-        sys.exit(1)
-
-    # While the tool is running I want to be able to access the images in O(1),
-    # so I pre-sort the log now to make that possible. For each constant iframe
-    # I want a monotonically-increasing icam
-    log = np.sort(log, order=('iframe','icam'))
-
-    # I should have dense data over frames and cameras. I try to reshape it in
-    # that way, and confirm that everything lines up
-    Nframes  = len(log) // Ncameras
-    if Nframes*Ncameras != len(log):
-        print(f"The log {path} does not contain all dense combinations of {Ncameras=} and {Nframes=}. For the requested cameras it has {len(log)} entries",
-              file = sys.stderr)
-        for icam in args.camera:
-            print(f"  Requested camera {icam} has {np.count_nonzero(log['icam']==icam)} observed frames",
-                  file = sys.stderr)
-        print("These should all be idendical",
-              file=sys.stderr)
-        sys.exit(1)
-
-    if not (args.replay_from_frame >= 0 and \
-            args.replay_from_frame < Nframes):
-        print(f"We have {Nframes=} in the log '{path}', so --replay-from-frame must be in [0,{Nframes-1}], but we have --replay-from-frames {args.replay_from_frame}",
-              file = sys.stderr)
-        sys.exit(1)
-
-    log = log.reshape((Nframes,Ncameras))
-    if np.any(log['icam'] - log['icam'][0,:]):
-        print(f"The log {path} does not contain the same set of cameras in each frame",
-              file = sys.stderr)
-        sys.exit(1)
-    if np.any( np.sort(args.camera) - log['icam'][0,:] ):
-        print(f"The log {path} does not contain exactly the cameras requested in {args.camera=}",
-              file = sys.stderr)
-        sys.exit(1)
-    if np.any(log['iframe'] - log['iframe'][:,(0,)]):
-        print(f"The log {path} does not contain the same set of frames observing each camera",
-              file = sys.stderr)
-        sys.exit(1)
-
-    # Great. We have a dense set
-
+    log_replay = \
+        open_log(args.replay,
+                 args.camera,
+                 args.replay_from_frame)
 
 
 
@@ -376,11 +436,17 @@ H_footer = 30 # we might have more than one of these
 
 window = Fl_Window(W,H, "mrcam stream")
 
+have_time_slider = \
+    args.replay is not None or \
+    args.logdir is not None
+
 
 H_status                  = H_footer
 H_time_slider             = H_footer
 H_time_slider_with_labels = H_time_slider + H_footer
-H_footers                 = (H_status + H_time_slider_with_labels)
+H_footers                 = H_status
+if have_time_slider:
+    H_footers += H_time_slider_with_labels
 
 Ngrid = math.ceil(math.sqrt(Ncameras))
 Wgrid = Ngrid
@@ -391,16 +457,22 @@ h_image    = (H-H_footers) // Hgrid
 icam = 0
 y0   = 0
 
-if args.replay:
+if have_time_slider:
     time_slider_widget = \
         Fl_Slider(0, H-H_footers,
                   W,H_time_slider)
     time_slider_widget.align(FL_ALIGN_BOTTOM)
     time_slider_widget.type(FL_HORIZONTAL)
     time_slider_widget.step(1)
-    time_slider_widget.bounds(0, Nframes-1)
-    time_slider_widget.value(args.replay_from_frame)
+    if len(log_replay) > 0:
+        time_slider_widget.bounds(0, len(log_replay)-1)
+        time_slider_widget.value(args.replay_from_frame)
+    else:
+        time_slider_widget.bounds(0, 0)
+        time_slider_widget.value(0)
+
     time_slider_widget.callback( lambda *args: time_slider_select(round(time_slider_widget.value())) )
+
 
 status_widget = Fl_Output(0, H-H_status,
                           W, H_status)
@@ -421,13 +493,18 @@ for i in range(Hgrid):
                                       features        = args.features,
                                       image_view_groups = \
                                       None if args.unlock_panzoom else image_view_groups)
-        image_view_groups[icam].set_up_image_capture(period         = None, # don't auto-recur. I do that myself, making sure ALL the cameras are processed
-                                                     image_callback = image_callback,
-                                                     extension      = "jpg" if args.jpg else "png",
-                                                     logdir         = args.logdir,
-                                                     icam           = icam,
-                                                     flip_x         = args.flip_x,
-                                                     flip_y         = args.flip_y)
+        if image_view_groups[icam].camera is not None:
+            image_view_groups[icam].set_up_image_capture(period         = None, # don't auto-recur. I do that myself, making sure ALL the cameras are processed
+                                                         flip_x         = args.flip_x,
+                                                         flip_y         = args.flip_y,
+
+                                                         auto_update_image_widget = False,
+
+                                                         image_callback = image_callback,
+                                                         # These are all passed to image_callback()
+                                                         extension      = "jpg" if args.jpg else "png",
+                                                         logdir         = args.logdir,
+                                                         icam           = icam)
 
 
         x0   += w_image
@@ -445,7 +522,7 @@ window.resizable(image_views)
 window.end()
 window.show()
 
-if not args.replay:
+if args.replay is None:
     # request the initial frame; will recur in image_callback
     request_image_set()
 else:

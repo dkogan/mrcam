@@ -470,11 +470,13 @@ class Fl_Image_View_Group(Fl_Group):
 
     def set_up_image_capture(self,
                              *,
-                             period         = None, # if given, we automatically recur
+                             period                   = None, # if given, we automatically recur
+                             flip_x                   = False,
+                             flip_y                   = False,
+                             auto_update_image_widget = True,
+
                              # guaranteed to be called with each frame; even on error
                              image_callback = None,
-                             flip_x         = False,
-                             flip_y         = False,
                              **image_callback_cookie):
 
         if self.camera is None:
@@ -483,9 +485,11 @@ class Fl_Image_View_Group(Fl_Group):
         def callback_image_ready(fd):
             frame = self.camera.requested_image()
 
-            self.update_image_widget( image        = frame['image'],
-                                      flip_x       = flip_x,
-                                      flip_y       = flip_y,)
+            if auto_update_image_widget:
+                self.update_image_widget( image  = frame['image'],
+                                          flip_x = flip_x,
+                                          flip_y = flip_y )
+
             if image_callback is not None:
                 image_callback(frame['image'],
                                timestamp_us = frame['timestamp_us'],
