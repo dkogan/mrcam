@@ -226,9 +226,10 @@ def image_callback(image,
                                                          flip_y = args.flip_y )
 
         log_replay[-1]['time'     ][icam] = timestamp_s
-        log_replay[-1]['imagepath'][icam] = path
         log_replay[-1]['iframe'   ][icam] = iframe
-
+        if image is not None:
+            log_replay[-1]['imagepath'][icam] = path
+            # Otherwise, leave at None
 
     # schedule the next set of images
     Ncameras_seen_this_frame += 1
@@ -248,7 +249,33 @@ def image_callback(image,
         mrcam.schedule_next_frame(request_image_set, args.period)
 
 
+
+def complete_path(path):
+
+    if path is None:
+        return None
+
+    if args.logdir is not None:
+        # We're logging; we already have the full path
+        return path
+
+    if args.image_path_prefix is not None:
+        return f"{args.image_path_prefix}/{path}"
+    if args.image_directory is not None:
+        return f"{args.image_directory}/{os.path.basename(path)}"
+    if path[0] != '/':
+        # The image filename has a relative path. I want it to be
+        # relative to the log directory
+        return f"{args.logdir}/{path}"
+
+    return path
+
+
 def update_image_from_path(icam, path):
+    if path is None:
+        print("WARNING: need to write a black image to the GL_image_display, but it doesn't have that function yet. Leaving the stale image")
+        return
+
     try:
         image = mrcal.load_image(path)
     except:
@@ -278,18 +305,7 @@ def time_slider_select(i_iframe):
     time_slider_update_label(iframes[0], times[0])
 
     for icam in range(Ncameras):
-        if args.image_path_prefix is not None:
-            path = f"{args.image_path_prefix}/{paths[icam]}"
-        elif args.image_directory is not None:
-            path = f"{args.image_directory}/{os.path.basename(paths[icam])}"
-        elif paths[icam][0] != '/':
-            # The image filename has a relative path. I want it to be
-            # relative to the log directory
-            path = f"{args.logdir}/{paths[icam]}"
-        else:
-            path = paths[icam]
-
-        update_image_from_path(icam, path)
+        update_image_from_path(icam, complete_path(paths[icam]))
 
 
 def open_log(logdir,
