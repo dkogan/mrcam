@@ -195,6 +195,7 @@ class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
     def set_panzoom(self,
                     x_centerpixel, y_centerpixel,
                     visible_width_pixels,
+                    ratios           = False,
                     panzoom_siblings = True):
         r'''Pan/zoom the image
 
@@ -203,19 +204,49 @@ class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
         dispatches any pan/zoom commands to all the widgets, so that they
         all work in unison.
 
+        if ratios: the values are given not in pixels but in ratios of
+        width/height. This is important if we're trying to lock the pan/zoom in
+        cameras with unequal image sizes. ALL the calls to keep the panzoom
+        locked use ratios=True
+
         '''
         if not panzoom_siblings or \
            self.locked_panzoom_groups is None:
-            return super().set_panzoom(x_centerpixel, y_centerpixel,
-                                       visible_width_pixels)
+
+            if not ratios:
+                return super().set_panzoom(x_centerpixel, y_centerpixel,
+                                           visible_width_pixels)
+            else:
+                if self.image_width  is None or \
+                   self.image_height is None:
+                    return
+
+                return super().set_panzoom(x_centerpixel        * self.image_width,
+                                           y_centerpixel        * self.image_height,
+                                           visible_width_pixels * self.image_width)
 
         # All the widgets should pan/zoom together
-        return \
-            all( g.image_widget. \
-                 set_panzoom(x_centerpixel, y_centerpixel,
-                             visible_width_pixels,
-                             panzoom_siblings = False)              \
-                 for g in self.locked_panzoom_groups )
+        if not ratios:
+            if self.image_width  is None or \
+               self.image_height is None:
+                return
+            return \
+                all( g.image_widget. \
+                     set_panzoom(x_centerpixel        / self.image_width,
+                                 y_centerpixel        / self.image_height,
+                                 visible_width_pixels / self.image_width,
+                                 panzoom_siblings = False,
+                                 ratios           = True) \
+                     for g in self.locked_panzoom_groups )
+        else:
+            return \
+                all( g.image_widget. \
+                     set_panzoom(x_centerpixel,
+                                 y_centerpixel,
+                                 visible_width_pixels,
+                                 panzoom_siblings = False,
+                                 ratios           = True) \
+                     for g in self.locked_panzoom_groups )
 
 
 h_status         = 20
@@ -445,6 +476,12 @@ class Fl_Image_View_Group(Fl_Group):
                             flip_y):
 
         if image is not None:
+
+            # GL_image_display should make these available automatically. But it
+            # doesn't do that yet, so I do that myself here
+            self.image_widget.image_width  = image.shape[1]
+            self.image_widget.image_height = image.shape[0]
+
             # Update the image preview; deep images are shown as a heat map
             if image.itemsize > 1:
                 if image.ndim > 2:
@@ -467,6 +504,8 @@ class Fl_Image_View_Group(Fl_Group):
         else:
             print("Error capturing the image. I will try again",
                   file=sys.stderr)
+            self.image_widget.image_width  = None
+            self.image_widget.image_height = None
 
     def set_up_image_capture(self,
                              *,
