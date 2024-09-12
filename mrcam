@@ -142,7 +142,7 @@ def parse_args():
             # multiple cameras
             args.camera = [c for cam in args.camera for c in camera_for_replay(cam)]
 
-    if args.features is not None and \
+    if args.features and \
        args.replay   is not None:
         print("--replay and --features are mutually exclusive",
               file=sys.stderr)
