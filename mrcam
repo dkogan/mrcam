@@ -296,7 +296,11 @@ def time_slider_select(i_iframe):
     global image_view_groups
     global log_replay
 
-    record = log_replay[i_iframe]
+    try:
+        record = log_replay[i_iframe]
+    except IndexError:
+        print(f"WARNING: {i_iframe=} is out-of-bounds in log_replay: {len(log_replay)=}. This is a bug")
+        return
 
     # shape (Ncameras,); all of these
     times   = record['time']
