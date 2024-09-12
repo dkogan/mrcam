@@ -142,12 +142,6 @@ def _parse_args_postprocess(args):
     args.flip_y = 'y' in args.display_flip
 
 
-    if args.image_path_prefix is not None and \
-       args.image_directory   is not None:
-        print("--image-path-prefix and --image-directory are mutually exclusive",
-              file=sys.stderr)
-        sys.exit(1)
-
 
 
 _time_last_request_image_set = None

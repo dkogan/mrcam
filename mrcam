@@ -78,6 +78,12 @@ def parse_args():
 
     mrcam._parse_args_postprocess(args)
 
+    if args.image_path_prefix is not None and \
+       args.image_directory   is not None:
+        print("--image-path-prefix and --image-directory are mutually exclusive",
+              file=sys.stderr)
+        sys.exit(1)
+
 
     if args.replay is not None and \
        args.logdir is not None:
