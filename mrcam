@@ -216,9 +216,9 @@ def image_callback(image,
             mrcal.save_image(path, image)
             write_logline(f"{timestamp_s:.3f} {iframe} {icam} {filename}");
 
-        time_slider_now = time_slider_widget.value()
+        time_slider_now = int(time_slider_widget.value())
         time_slider_at_max = \
-            time_slider_now == time_slider_widget.maximum()
+            time_slider_now == int(time_slider_widget.maximum())
 
         if time_slider_at_max:
             image_view_groups[icam].update_image_widget( image  = image,
@@ -238,13 +238,14 @@ def image_callback(image,
 
         if time_slider_widget is not None:
             time_slider_widget.maximum(iframe)
-            # The bounds changed, so the handle should be rendered in a
-            # different spot
-            time_slider_widget.redraw()
 
             if time_slider_at_max:
                 time_slider_widget.value(iframe)
                 time_slider_update_label(iframe, timestamp_s)
+            else:
+                time_slider_update_label(time_slider_now, timestamp_s)
+                # The bounds changed, so the handle should be redrawn
+                time_slider_widget.redraw()
 
         mrcam.schedule_next_frame(request_image_set, args.period)
 
@@ -289,7 +290,7 @@ def update_image_from_path(icam, path):
 def time_slider_update_label(iframe,time):
     t = int(time + args.timezone_offset_hours*3600.)
     t = datetime.datetime.fromtimestamp(t, datetime.UTC)
-    time_slider_widget.label(f"iframe={iframe} timestamp={time:.03f} {t.strftime('%Y-%m-%d %H:%M:%S')}{' UTC' if args.timezone_offset_hours==0 else ''}")
+    time_slider_widget.label(f"iframe={iframe}/{int(time_slider_widget.maximum())} timestamp={time:.03f} {t.strftime('%Y-%m-%d %H:%M:%S')}{' UTC' if args.timezone_offset_hours==0 else ''}")
 
 def time_slider_select(i_iframe):
     global image_view_groups
