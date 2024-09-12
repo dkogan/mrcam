@@ -273,7 +273,11 @@ def complete_path(path):
     if path[0] != '/':
         # The image filename has a relative path. I want it to be
         # relative to the log directory
-        return f"{args.logdir}/{path}"
+        if args.logdir is not None:
+            return f"{args.logdir}/{path}"
+        if args.replay is not None:
+            return f"{args.replay}/{path}"
+        raise Exception("We're replaying but both logdir and replay are None. This is a bug")
 
     return path
 
