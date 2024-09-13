@@ -132,14 +132,15 @@ def _parse_args_postprocess(args):
 
     if args.display_flip is not None:
         args.display_flip = set(args.display_flip.split(','))
-        set_remaining = args.display_flip - set( ('x','y'))
+
+        set_remaining = args.display_flip - set( ('x','y','xy'))
         if len(set_remaining):
-            print(f"--display-flip takes a comma-separated list of ONLY 'x' and/or 'y': got unknown elements {set_remaining}", file = sys.stderr)
+            print(f"--display-flip takes a comma-separated list of ONLY 'x' and/or 'y' and/or 'xy': got unknown elements {set_remaining}", file = sys.stderr)
             sys.exit(1)
     else:
         args.display_flip = set()
-    args.flip_x = 'x' in args.display_flip
-    args.flip_y = 'y' in args.display_flip
+    args.flip_x = 'x' in args.display_flip or 'xy' in args.display_flip
+    args.flip_y = 'y' in args.display_flip or 'xy' in args.display_flip
 
 
 
