@@ -254,7 +254,7 @@ def image_callback(image,
                 time_slider_widget.value(iframe)
                 time_slider_update_label(iframe, timestamp_s)
             else:
-                time_slider_update_label(time_slider_now, timestamp_s)
+                time_slider_update_label(time_slider_now, log_replay[time_slider_now]['time'][0])
                 # The bounds changed, so the handle should be redrawn
                 time_slider_widget.redraw()
 
