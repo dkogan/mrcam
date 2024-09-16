@@ -264,7 +264,7 @@ def image_callback(image,
 
 def complete_path(path):
 
-    if path is None:
+    if path is None or path == '-':
         return None
 
     if args.logdir is not None:
