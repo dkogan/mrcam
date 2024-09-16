@@ -205,6 +205,12 @@ class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
         locked use ratios=True
 
         '''
+
+        if self.image is not None:
+            (image_height,image_width) = self.image.shape[:2]
+        else:
+            (image_height,image_width) = (None,None)
+
         if not panzoom_siblings or \
            self.locked_panzoom_groups is None:
 
@@ -212,24 +218,24 @@ class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
                 return super().set_panzoom(x_centerpixel, y_centerpixel,
                                            visible_width_pixels)
             else:
-                if self.image_width  is None or \
-                   self.image_height is None:
+                if image_width  is None or \
+                   image_height is None:
                     return
 
-                return super().set_panzoom(x_centerpixel        * self.image_width,
-                                           y_centerpixel        * self.image_height,
-                                           visible_width_pixels * self.image_width)
+                return super().set_panzoom(x_centerpixel        * image_width,
+                                           y_centerpixel        * image_height,
+                                           visible_width_pixels * image_width)
 
         # All the widgets should pan/zoom together
         if not ratios:
-            if self.image_width  is None or \
-               self.image_height is None:
+            if image_width  is None or \
+               image_height is None:
                 return
             return \
                 all( g.image_widget. \
-                     set_panzoom(x_centerpixel        / self.image_width,
-                                 y_centerpixel        / self.image_height,
-                                 visible_width_pixels / self.image_width,
+                     set_panzoom(x_centerpixel        / image_width,
+                                 y_centerpixel        / image_height,
+                                 visible_width_pixels / image_width,
                                  panzoom_siblings = False,
                                  ratios           = True) \
                      for g in self.locked_panzoom_groups )
@@ -284,7 +290,20 @@ class Fl_Image_View_Group(Fl_Group):
             if event == FL_MOVE:
                 try:
                     q = self_image_widget.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), )
-                    self.status_widget.value(f"{q[0]:.1f},{q[1]:.1f}")
+
+                    pixel_value_text = ''
+
+                    if self.image_widget.image is not None:
+                        qint_x = round(q[0])
+                        qint_y = round(q[1])
+
+                        (image_height,image_width) = self.image_widget.image.shape[:2]
+                        if qint_x >= 0 and qint_x < image_width and \
+                           qint_y >= 0 and qint_y < image_height:
+
+                            pixel_value_text = f",{self.image_widget.image[qint_y,qint_x,...]}"
+
+                    self.status_widget.value(f"{q[0]:.1f},{q[1]:.1f}{pixel_value_text}")
                 except:
                     self.status_widget.value("")
 
@@ -477,12 +496,9 @@ class Fl_Image_View_Group(Fl_Group):
                             flip_x,
                             flip_y):
 
-        if image is not None:
+        self.image_widget.image = image
 
-            # GL_image_display should make these available automatically. But it
-            # doesn't do that yet, so I do that myself here
-            self.image_widget.image_width  = image.shape[1]
-            self.image_widget.image_height = image.shape[0]
+        if image is not None:
 
             # Update the image preview; deep images are shown as a heat map
             if image.itemsize > 1:
@@ -506,8 +522,6 @@ class Fl_Image_View_Group(Fl_Group):
         else:
             print("Error capturing the image. I will try again",
                   file=sys.stderr)
-            self.image_widget.image_width  = None
-            self.image_widget.image_height = None
 
     def set_up_image_capture(self,
                              *,
