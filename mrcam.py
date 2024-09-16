@@ -301,6 +301,13 @@ class Fl_Image_View_Group(Fl_Group):
                                     locked_panzoom_groups = image_view_groups)
         if status_widget is None:
             self.status_widget = Fl_Output(x, y + h-h_status_here, w, h_status_here)
+            # We're making our own status widget. I'd like it to be output-only
+            # and not user-focusable. This will allow keyboard input to not be
+            # sent to THIS widget, so that left/right and 'u' go to the time
+            # slider and image windows respectively. For status widgets that
+            # were PASSED to us, we make the caller do this; because they might
+            # actually want to do something different
+            self.status_widget.visible_focus(0)
         else:
             self.status_widget = status_widget
 

@@ -523,6 +523,12 @@ status_widget = Fl_Output(0, H-H_status,
                           W, H_status)
 status_widget.value('')
 
+# I want the status widget to be output-only and not user-focusable. This will
+# allow keyboard input to not be sent to THIS status widget, so that left/right
+# and 'u' go to the time slider and image windows respectively.
+status_widget.visible_focus(0)
+
+
 image_views = Fl_Group(0, 0, W, H-H_footers)
 for i in range(Hgrid):
     x0 = 0
