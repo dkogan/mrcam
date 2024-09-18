@@ -758,7 +758,7 @@ bool receive_image(// out
     try(ARV_IS_BUFFER(*buffer));
 
     ArvBufferStatus status = arv_buffer_get_status(*buffer);
-    // All the statuses from arvbuffer.h, as of aravis 0.8.30
+    // All the statuses from arvbuffer.h, as of aravis 0.8.29
 #define LIST_STATUS(_)                          \
   _(ARV_BUFFER_STATUS_UNKNOWN)                  \
   _(ARV_BUFFER_STATUS_SUCCESS)                  \
@@ -768,8 +768,7 @@ bool receive_image(// out
   _(ARV_BUFFER_STATUS_WRONG_PACKET_ID)          \
   _(ARV_BUFFER_STATUS_SIZE_MISMATCH)            \
   _(ARV_BUFFER_STATUS_FILLING)                  \
-  _(ARV_BUFFER_STATUS_ABORTED)                  \
-  _(ARV_BUFFER_STATUS_PAYLOAD_NOT_SUPPORTED)
+  _(ARV_BUFFER_STATUS_ABORTED)
 #define CHECK(s) else if(status == s) { MSG("ERROR: arv_stream_pop_buffer() says " #s); goto done; }
     if(status == ARV_BUFFER_STATUS_SUCCESS) ;
     LIST_STATUS(CHECK)
