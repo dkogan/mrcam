@@ -188,7 +188,7 @@ def image_callback(image,
                    *,
                    timestamp_us,
                    iframe,
-                   # All these are th cookie given to set_up_image_capture()
+                   # All these are the cookie given to set_up_image_capture()
                    icam,
                    logdir,
                    extension):
