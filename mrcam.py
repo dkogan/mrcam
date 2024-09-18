@@ -520,8 +520,10 @@ class Fl_Image_View_Group(Fl_Group):
 
             self.sync_feature_widgets()
         else:
-            print("Error capturing the image. I will try again",
-                  file=sys.stderr)
+            # black image
+            self.image_widget.update_image(image_data = None,
+                                           flip_x     = flip_x,
+                                           flip_y     = flip_y)
 
     def set_up_image_capture(self,
                              *,
@@ -541,6 +543,10 @@ class Fl_Image_View_Group(Fl_Group):
             frame = self.camera.requested_image()
 
             if auto_update_image_widget:
+                if frame['image'] is None:
+                    print("Error capturing the image. I will try again",
+                          file=sys.stderr)
+
                 self.update_image_widget( image  = frame['image'],
                                           flip_x = flip_x,
                                           flip_y = flip_y )

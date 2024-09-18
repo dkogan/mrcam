@@ -200,6 +200,11 @@ def image_callback(image,
         iframe_this = iframe
         Ncameras_seen_this_frame = 0
 
+
+    if image is None:
+        print("Error capturing the image. I will try again",
+              file=sys.stderr)
+
     if logdir is None:
 
         image_view_groups[icam].update_image_widget( image  = image,
@@ -289,14 +294,14 @@ def complete_path(path):
 
 def update_image_from_path(icam, path):
     if path is None:
-        print("WARNING: need to write a black image to the GL_image_display, but it doesn't have that function yet. Leaving the stale image")
-        return
+        image = None # write an all-black image
 
-    try:
-        image = mrcal.load_image(path)
-    except:
-        print(f"Couldn't read image at '{path}'", file=sys.stderr)
-        sys.exit(1)
+    else:
+        try:
+            image = mrcal.load_image(path)
+        except:
+            print(f"Couldn't read image at '{path}'", file=sys.stderr)
+            sys.exit(1)
 
     image_view_groups[icam].update_image_widget( image,
                                                  flip_x = args.flip_x,
