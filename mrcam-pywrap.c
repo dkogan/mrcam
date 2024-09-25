@@ -651,7 +651,7 @@ accumulate_feature(// output; we accumulate here
 
 
 static PyObject*
-feature_set(camera* self, PyObject* args, PyObject* kwargs)
+features(camera* self, PyObject* args, PyObject* kwargs)
 {
     // error by default
     PyObject*   result       = NULL;
@@ -674,7 +674,7 @@ feature_set(camera* self, PyObject* args, PyObject* kwargs)
                         NULL};
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "|s:mrcam.feature_set", keywords,
+                                     "|s:mrcam.features", keywords,
                                      &regex_string))
         goto done;
 
@@ -1187,8 +1187,8 @@ static const char feature_descriptor_docstring[] =
 static const char feature_value_docstring[] =
 #include "feature_value.docstring.h"
     ;
-static const char feature_set_docstring[] =
-#include "feature_set.docstring.h"
+static const char features_docstring[] =
+#include "features.docstring.h"
     ;
 
 
@@ -1200,7 +1200,7 @@ static PyMethodDef camera_methods[] =
 
         PYMETHODDEF_ENTRY(, feature_descriptor, METH_VARARGS | METH_KEYWORDS),
         PYMETHODDEF_ENTRY(, feature_value,      METH_VARARGS | METH_KEYWORDS),
-        PYMETHODDEF_ENTRY(, feature_set,        METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(, features,           METH_VARARGS | METH_KEYWORDS),
         {}
     };
 

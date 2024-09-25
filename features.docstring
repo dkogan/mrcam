@@ -3,7 +3,7 @@ Report the set of features supported by a camera
 SYNOPSIS
 
     camera = mrcam.camera()
-    print(camera.feature_set())
+    print(camera.features())
 
     ===>
     {'ColorAdjustmentSelector',
@@ -13,9 +13,8 @@ SYNOPSIS
 
 A genicam camera is configurable by a set of "features". These give you control
 over (usually) exposure time and gain and countless other things. The specific
-set of configurable features varies from camera to camera, and this
-'feature_set()' function reports a set of strings identifying the supported
-features.
+set of configurable features varies from camera to camera, and this 'features()'
+function reports a set of strings identifying the supported features.
 
 ARGUMENTS
 
