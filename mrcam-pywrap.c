@@ -1232,7 +1232,7 @@ static PyTypeObject camera_type =
 
 
 #define MODULE_DOCSTRING \
-    "Python-wrapper around the mrcam aravis wrapper library\n"
+    "mrcam: an aravis frontend to genicam cameras\n"
 
 static struct PyModuleDef module_def =
     {
