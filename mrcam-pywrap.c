@@ -1204,7 +1204,7 @@ static PyMethodDef camera_methods[] =
 
 static PyMemberDef camera_members[] =
     {
-        {"fd_image_ready", T_INT, offsetof(camera,pipefd[0]), READONLY, fd_image_ready_docstring},
+        {"fd_image_ready", T_INT, offsetof(camera,fd_read), READONLY, fd_image_ready_docstring},
         {}
     };
 
