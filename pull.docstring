@@ -1,1 +1,29 @@
-asdf
+Reads an image from a camera. Synchronously.
+
+SYNOPSIS
+
+    camera = mrcam.camera()
+
+    frame = camera.pull()
+
+    # frame['image'] is a numpy array containing the image
+
+pull() retrieves an image off the camera in a blocking fashion: the call will
+block until the image is retrieved, or the timeout expires. To get images
+asynchronously, look at request().
+
+At this time a missed timeout is treated like any other error: we raise an
+exception
+
+ARGUMENTS
+
+- timeout: optional floating point value indicating when we should give up
+  waiting for the frame. Given in seconds. If omitted or <=0, we wait forever
+
+RETURNED VALUE
+
+The returned data is given in a dict with keys
+
+- 'image':     the numpy array containing the image
+- 'timestamp': the unix timestamp of the host machine during image capture, in
+  floating-point seconds

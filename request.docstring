@@ -1,1 +1,65 @@
-asdf
+Requests an image from a camera for asynchronous capture
+
+SYNOPSIS
+
+    from fltk import *
+    from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
+
+    camera = mrcam.camera()
+
+    def callback_image_ready(fd):
+        frame = camera.requested_image()
+        image_widget.update_image(image_data = frame['image'])
+        Fl.add_timeout(1., camera.request)
+
+    Fl.add_fd( camera.fd_image_ready,
+               callback_image_ready )
+    camera.request()
+
+    window       = Fl_Window(800,600, "mrcam")
+    image_widget = Fl_Gl_Image_Widget(0,0, 800,600)
+
+    window.resizable(image_widget)
+    window.end()
+    window.show()
+
+    Fl.run()
+
+    ### An interactive GUI window pops up, displaying the live camera feed at
+    ### 1Hz
+
+request() asks the camera to initiate an image capture, and to tell us when it
+is done. The call will NOT block. This is critically important for applications
+that need to be ready to do other work, notably GUI applications. To get images
+synchronously, look at pull().
+
+The image capture sequence is:
+
+- camera.request() call is made to ask for a frame
+
+- camera.fd_image_ready is a file descriptor that can be poll()-ed or
+  select()-ed. When the requested image is ready, this file descriptor becomes
+  ready for reading. In the main loop, an application would poll() ALL the
+  descriptors that potentially have work for the application to do (keyboard,
+  mouse, network, timerfd, mrcam, ...). When any of the descriptors get data to
+  be read, the application wakes up and does the necessary work. In the example
+  above we add this camera file descriptor to the set that the FLTK GUI waits
+  for by calling Fl.add_fd(...). When the requested image is ready, Fl.run()
+  wakes up and calls callback_image_ready()
+
+- In callback_image_ready() we call camera.requested_image() to retrieve the
+  incoming image
+
+This function normally cannot fail. Any image capture errors will be indicated
+by requested_image()['image'] being None.
+
+It is guaranteed that every request() call will be followed by a single response
+that should be ingested by a single requested_image() call.
+
+ARGUMENTS
+
+None
+
+RETURNED VALUE
+
+None

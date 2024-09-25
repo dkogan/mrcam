@@ -1,1 +1,71 @@
-may block.
+Retrieve a requested image from a camera during asynchronous capture
+
+SYNOPSIS
+
+    from fltk import *
+    from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
+
+    camera = mrcam.camera()
+
+    def callback_image_ready(fd):
+        frame = camera.requested_image()
+        image_widget.update_image(image_data = frame['image'])
+        Fl.add_timeout(1., camera.request)
+
+    Fl.add_fd( camera.fd_image_ready,
+               callback_image_ready )
+    camera.request()
+
+    window       = Fl_Window(800,600, "mrcam")
+    image_widget = Fl_Gl_Image_Widget(0,0, 800,600)
+
+    window.resizable(image_widget)
+    window.end()
+    window.show()
+
+    Fl.run()
+
+    ### An interactive GUI window pops up, displaying the live camera feed at
+    ### 1Hz
+
+requested_image() is used to retrieve an image we asked for in a previous
+request() call.
+
+The image capture sequence is:
+
+- camera.request() call is made to ask for a frame
+
+- camera.fd_image_ready is a file descriptor that can be poll()-ed or
+  select()-ed. When the requested image is ready, this file descriptor becomes
+  ready for reading. In the main loop, an application would poll() ALL the
+  descriptors that potentially have work for the application to do (keyboard,
+  mouse, network, timerfd, mrcam, ...). When any of the descriptors get data to
+  be read, the application wakes up and does the necessary work. In the example
+  above we add this camera file descriptor to the set that the FLTK GUI waits
+  for by calling Fl.add_fd(...). When the requested image is ready, Fl.run()
+  wakes up and calls callback_image_ready()
+
+- In callback_image_ready() we call camera.requested_image() to retrieve the
+  incoming image
+
+Usually requested_image() is called as part of the above sequence. If we want to
+allow requested_image() to block, like pull() does, you can call
+requested_image(block = True)
+
+On error requested_image()['image'] is None.
+
+It is guaranteed that every request() call will be followed by a single response
+that should be ingested by a single requested_image() call.
+
+ARGUMENTS
+
+- block: optional boolean, defaulting to False. if block: this function is
+  allowed to block, waiting for data
+
+RETURNED VALUE
+
+A dict with keys:
+
+- 'image':     the numpy array containing the image, or None on error
+- 'timestamp': the unix timestamp of the host machine during image capture, in
+  floating-point seconds

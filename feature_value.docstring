@@ -1,0 +1,78 @@
+Get/set the value of a camera feature
+
+SYNOPSIS
+
+    from pprint import pprint
+
+    camera     = mrcam.camera()
+    descriptor = camera.feature_descriptor('ExposureTime')
+
+    pprint(descriptor)
+    ===> {'bounds': (35.0, 1460000.0),
+          'increment': 35.0,
+          'node': 46957520,
+          'precision': 1,
+          'representation': 'LOGARITHMIC',
+          'type': 'float',
+          'unit': 'us'}
+
+
+    # Get the current value
+    print(camera.feature_value(descriptor))
+    ===> (35000.0, {'locked': False})
+
+    # Set a new value
+    camera.feature_value(descriptor, 1000)
+
+A genicam camera is configurable by a set of "features". These give you control
+over (usually) exposure time and gain and countless other things. To access
+these features in mrcam, a "descriptor" has to be obtained by calling
+'feature_descriptor()', and this descriptor can then be pased to
+'feature_value()' to get/set the values of a particular feature.
+
+To get the current value of a feature, pass the feature name only. To set the
+value of a feature, pass the name AND the new value.
+
+Each feature has a type, defined as a string in descriptor['type']. This is one
+of:
+
+- "integer"
+- "float"
+- "boolean"
+- "command"
+- "enumeration"
+
+Integers and floats use the normal Python types. Setting an integer feature from
+a float value calls round() first.
+
+Getting a boolean returns True or False. Setting a boolean uses the normal
+Python logic rules.
+
+A "command" an action to be executed. Getting a "command" feature returns None.
+To execute the "command", "set" it to a true value. So to execute a "command",
+call feature_value(descriptor,True). feature_value(descriptor) and
+feature_value(descriptor,0) will NOT execute the command.
+
+An "enumeration" is a feature that can take some preset values only. These
+presets are available as strings in the descriptor['entries'] tuple. These
+strings are used when getting or setting an enumeration feature
+
+ARGUMENTS
+
+- name:  required string identifying the feature being queried
+
+- value: optional value. If omitted or None, we GET the current value of the
+  feature. If given, we SET the feature to the given value.
+
+RETURNED VALUE
+
+If value is given and non-None, we are SETTING the value of the feature. We
+return None.
+
+If value is omitted or None, we are GETTING the current value of the feature. We
+return a tuple:
+
+- value: the current value of the feature
+
+- metadata: a dict. Currently the only key is 'locked', which indicates whether
+  this feature is currently allowed to be set

@@ -1,2 +1,92 @@
-asdf
-asdf
+mrcam camera object
+
+SYNOPSIS
+
+    from fltk import *
+    from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
+
+    camera = mrcam.camera()
+
+    def callback_image_ready(fd):
+        frame = camera.requested_image()
+        image_widget.update_image(image_data = frame['image'])
+        Fl.add_timeout(1., camera.request)
+
+    Fl.add_fd( camera.fd_image_ready,
+               callback_image_ready )
+    camera.request()
+
+    window       = Fl_Window(800,600, "mrcam")
+    image_widget = Fl_Gl_Image_Widget(0,0, 800,600)
+
+    window.resizable(image_widget)
+    window.end()
+    window.show()
+
+    Fl.run()
+
+    ### An interactive GUI window pops up, displaying the live camera feed at
+    ### 1Hz
+
+mrcam.camera represents a single camera. For a multi-camera system, create
+multiple mrcam.camera objects.
+
+This class can be used to quickly build applications in Python that capture and
+process images with mrcam (and thus, aravis). The above sample is a full GUI
+application to display a live stream from a camera at 1Hz.
+
+ARGUMENTS
+
+- name: optional string identifying the camera. This is very flexible. The set
+  of ways to identify the camera are given in the aravis docs:
+
+  https://aravisproject.github.io/docs/aravis-0.8/ArvCamera.html#arv-camera-new
+
+  The name may be omitted or None to select the first available camera
+
+- pixfmt: optional string for the requested pixel format. If omitted, we select
+  "MONO_8". mrcam supports many common pixel formats, but not everything
+  supported by aravis. To get a list of formats supported by mrcam, pass an
+  invalid string here (such as '', for instance). To get a list of formats
+  supported by the hardware, run 'arv-tool-0.8 features PixelFormat'
+
+- trigger: optional string for the requested trigger mode. Currently we support
+  one of:
+
+  - 'SOFTWARE': software "triggering". The image will be captured "soon" after
+    it is requested. This is useful for testing, but if any kind of camera
+    synchronization is required, this mode does not work
+
+  - 'HARDWARE_EXTERNAL': we ask for "hardware" triggering. The implementation
+    details are specific to each camera. Usually there's a physical pin feeding
+    into the camera; an electrical pulse on this pin initiates the image
+    capture. In this 'HARDWARE_EXTERNAL' mode we tell the camera to wait for a
+    pulse to begin capture, but we don't actually supply this pulse. Some
+    external process has to do that
+
+  - 'HARDWARE_TTYS0': like 'HARDWARE_EXTERNAL', but we produce the trigger pulse
+    as well: by sending \xFF to /dev/ttyS0. The start bit in each character is
+    the pulse. It is assumed that the Tx pin in the RS-232 port is connected
+    (usually through some level shifters and/or buffers) to the trigger pin in
+    the camera
+
+- width, height: optional integers defaulting to 0. If given, we use these as
+  the given image dimensions. Otherwise, we take the highest-resolution image
+  shape available
+
+- recreate_stream_with_each_frame: optional boolean, defaulting to False. I'm
+  observing that for some cameras it is required to destroy and re-create the
+  aravis stream with each frame. If you see a successful capture of 1 frame, and
+  no subsequent successful captures, set this to True. Needing this is probably
+  a bug in the camera hardware and/or mrcam and/or aravis. Hopefully this will
+  disappear
+
+- verbose: optional boolean, defaulting to False. If verbose: we output lots of
+  diagnostics to the console. Every aravis call is traced. Note that this is
+  separate from the much-deeper aravis diagnostics documented here:
+
+    https://aravisproject.github.io/docs/aravis-0.8/aravis-building.html
+
+RETURNED VALUE
+
+The mrcam.camera object to be used for image capture
