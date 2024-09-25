@@ -307,6 +307,8 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
                                      &timeout_sec))
         goto done;
 
+    if(timeout_sec < 0) timeout_sec = 0;
+
     // generic type
     mrcal_image_uint8_t mrcal_image;
     uint64_t timestamp_us;
