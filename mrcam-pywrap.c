@@ -361,9 +361,9 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
         // BARF() already called
         goto done;
 
-    result = Py_BuildValue("{sOsk}",
-                           "image",        image,
-                           "timestamp_us", timestamp_us);
+    result = Py_BuildValue("{sOsd}",
+                           "image",     image,
+                           "timestamp", (double)timestamp_us / 1e6);
     if(result == NULL)
     {
         BARF("Couldn't build %s() result", __func__);
@@ -543,9 +543,9 @@ requested_image(camera* self, PyObject* args, PyObject* kwargs)
         Py_INCREF(image);
     }
 
-    result = Py_BuildValue("{sOsk}",
-                           "image",        image,
-                           "timestamp_us", s.timestamp_us);
+    result = Py_BuildValue("{sOsd}",
+                           "image",     image,
+                           "timestamp", (double)timestamp_us / 1e6);
     if(result == NULL)
     {
         BARF("Couldn't build %s() result", __func__);

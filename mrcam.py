@@ -553,8 +553,8 @@ class Fl_Image_View_Group(Fl_Group):
 
             if image_callback is not None:
                 image_callback(frame['image'],
-                               timestamp_us = frame['timestamp_us'],
-                               iframe       = self.iframe,
+                               timestamp = frame['timestamp'],
+                               iframe    = self.iframe,
                                **image_callback_cookie)
 
             self.iframe += 1

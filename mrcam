@@ -186,7 +186,7 @@ Ncameras_seen_this_frame = 0
 iframe_this              = -1
 def image_callback(image,
                    *,
-                   timestamp_us,
+                   timestamp,
                    iframe,
                    # All these are the cookie given to set_up_image_capture()
                    icam,
@@ -219,18 +219,15 @@ def image_callback(image,
                                     imagepath = [None] * Ncameras,
                                     iframe    = [None] * Ncameras) )
 
-
-        timestamp_s = timestamp_us / 1e6
-
         # write image to disk
         filename = f"frame{iframe:05d}-cam{icam}.{extension}"
         path = f"{logdir}/{filename}"
 
         if image is None:
-            write_logline(f"{timestamp_s:.3f} {iframe} {icam} -");
+            write_logline(f"{timestamp:.3f} {iframe} {icam} -");
         else:
             mrcal.save_image(path, image)
-            write_logline(f"{timestamp_s:.3f} {iframe} {icam} {filename}");
+            write_logline(f"{timestamp:.3f} {iframe} {icam} {filename}");
 
         time_slider_now = int(time_slider_widget.value())
         time_slider_at_max = \
@@ -241,7 +238,7 @@ def image_callback(image,
                                                          flip_x = args.flip_x,
                                                          flip_y = args.flip_y )
 
-        log_replay[-1]['time'     ][icam] = timestamp_s
+        log_replay[-1]['time'     ][icam] = timestamp
         log_replay[-1]['iframe'   ][icam] = iframe
         if image is not None:
             log_replay[-1]['imagepath'][icam] = path
@@ -257,7 +254,7 @@ def image_callback(image,
 
             if time_slider_at_max:
                 time_slider_widget.value(iframe)
-                time_slider_update_label(iframe, timestamp_s)
+                time_slider_update_label(iframe, timestamp)
             else:
                 time_slider_update_label(time_slider_now, log_replay[time_slider_now]['time'][0])
                 # The bounds changed, so the handle should be redrawn
