@@ -547,7 +547,7 @@ requested_image(camera* self, PyObject* args, PyObject* kwargs)
 
     result = Py_BuildValue("{sOsd}",
                            "image",     image,
-                           "timestamp", (double)timestamp_us / 1e6);
+                           "timestamp", (double)s.timestamp_us / 1e6);
     if(result == NULL)
     {
         BARF("Couldn't build %s() result", __func__);
