@@ -5,3 +5,6 @@ demo/test of the mrcam C API. The options are very similar to those taken by the
 The output is the captured images on disk, written to --logdir (or if --logdir
 is omitted, the images are captured, but not actually stored on disk). And each
 frame metadata is written on stdout as a vnlog stream.
+
+The frames are captured at the requested --period, in seconds. If the requested
+period is <= 0, we capture the frames as quickly as possible.

@@ -53,6 +53,7 @@ def parse_args():
 
 args = parse_args()
 
+import time
 import numpy as np
 import numpysane as nps
 import cv2
@@ -62,7 +63,7 @@ from Fl_gnuplotlib import *
 
 focus_regions = []
 imagersize = None
-t = 0
+t0 = time.time()
 
 
 
@@ -118,13 +119,14 @@ def sharpness(image):
 
 def update_sharpness(image,
                      **kwargs_extra):
-    global t
     global imagersize
 
     if image is None:
         # Error occurred capturing the image. Let it go; hopefully the next one
         # will work
         return
+
+    t = time.time()-t0
 
     if imagersize is None:
         imagersize = np.array((image.shape[1], image.shape[0]),)
@@ -141,10 +143,6 @@ def update_sharpness(image,
                             dict(tuplesize = -2,
                                  _with     = f"lines lw 2 lc \"{region['color_string']}\"")) \
                            for region in focus_regions])
-
-    t += args.period
-
-
 
 
 def handle_event_image_widget(widget, event):

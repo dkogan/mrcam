@@ -365,13 +365,15 @@ int main(int argc, char **argv)
         if(capturefailed)
             goto done;
 
-        int64_t t2 = gettimeofday_int64();
+        if(options.period > 0)
+        {
+            int64_t t2 = gettimeofday_int64();
 
-        // I sleep the requested period, minus whatever time already elapsed
-        int t_sleep = (int)(options.period*1e6 + 0.5) - (int)(t2-t0);
-        if(t_sleep > 0)
-            usleep(t_sleep);
-
+            // I sleep the requested period, minus whatever time already elapsed
+            int t_sleep = (int)(options.period*1e6 + 0.5) - (int)(t2-t0);
+            if(t_sleep > 0)
+                usleep(t_sleep);
+        }
     }
 
     result = 0;
