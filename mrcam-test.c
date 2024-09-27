@@ -354,7 +354,8 @@ int main(int argc, char **argv)
                 if(err) continue;
             }
             printf("%d %d %s %ld.%06ld %s\n",
-                   iframe, icam, options.camera_names[icam],
+                   iframe, icam,
+                   options.camera_names[icam] == NULL ? "-" : options.camera_names[icam],
                    timestamps_us[icam] / 1000000,
                    timestamps_us[icam] % 1000000,
                    filename);
