@@ -16,7 +16,7 @@
 typedef struct { int width,height; } dimensions_t;
 #define LIST_OPTIONS(_)                                                 \
     _(int,            Nframes, Nframes, 1,                   required_argument, " N",           'N', "N:") \
-    _(const char*,    outdir,  outdir,  ".",                 required_argument, " DIR",         'o', "o:") \
+    _(const char*,    logdir,  logdir,  ".",                 required_argument, " DIR",         'l', "l:") \
     _(bool,           jpg,     jpg,     false,               no_argument,       ,               'j', "j" ) \
     _(double,         period,  period,  1.0,                 required_argument, " PERIOD_SEC",  'T', "T:") \
     /* The default pixel format is MONO_*. Should match the one in camera_init() in mrcam-pywrap.c */ \
@@ -122,7 +122,7 @@ static bool parse_args(// out
             }
             break;
 
-        case 'o': options->outdir                          = optarg;       break;
+        case 'l': options->logdir                          = optarg;       break;
         case 'j': options->jpg                             = true;         break;
         case 'T': options->period                          = atof(optarg); break;
         case 'v': options->verbose                         = true;         break;
@@ -304,7 +304,7 @@ int main(int argc, char **argv)
             char filename[1024];
             if( snprintf(filename, sizeof(filename),
                           fmt,
-                          options.outdir,
+                          options.logdir,
                           iframe,
                           icam,
                           options.jpg ? "jpg" : "png") >= (int)sizeof(filename) )
