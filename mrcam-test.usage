@@ -2,6 +2,6 @@ mrcam-test is a command-line image-capture tool. It is used mostly as a
 demo/test of the mrcam C API. The options are very similar to those taken by the
 "mrcam" Python tool, and work the same way.
 
-The output is the captured images on disk, written to --logdir (or to ./ if
---logdir is omitted). And each frame metadata is written on stdout as a vnlog
-stream.
+The output is the captured images on disk, written to --logdir (or if --logdir
+is omitted, the images are captured, but not actually stored on disk). And each
+frame metadata is written on stdout as a vnlog stream.

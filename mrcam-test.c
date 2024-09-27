@@ -16,7 +16,7 @@
 typedef struct { int width,height; } dimensions_t;
 #define LIST_OPTIONS(_)                                                 \
     _(int,            Nframes, Nframes, 1,                   required_argument, " N",           'N', "N:") \
-    _(const char*,    logdir,  logdir,  ".",                 required_argument, " DIR",         'l', "l:") \
+    _(const char*,    logdir,  logdir,  NULL,                required_argument, " DIR",         'l', "l:") \
     _(bool,           jpg,     jpg,     false,               no_argument,       ,               'j', "j" ) \
     _(double,         period,  period,  1.0,                 required_argument, " PERIOD_SEC",  'T', "T:") \
     /* The default pixel format is MONO_*. Should match the one in camera_init() in mrcam-pywrap.c */ \
@@ -300,58 +300,59 @@ int main(int argc, char **argv)
 // #pragma omp parallel for private(icam) num_threads(options.Ncameras)
         for(icam=0; icam<options.Ncameras; icam++)
         {
-            const char* fmt = "%s/frame-%05d-cam%d.%s"; // in variable to not confuse MSG()
-            char filename[1024];
-            if( snprintf(filename, sizeof(filename),
-                          fmt,
-                          options.logdir,
-                          iframe,
-                          icam,
-                          options.jpg ? "jpg" : "png") >= (int)sizeof(filename) )
+            char filename[1024] = "-";
+            if(options.logdir != NULL)
             {
-                MSG("Static buffer overflow. Increase sizeof(filename)");
-                __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
-                continue;
+                const char* fmt = "%s/frame-%05d-cam%d.%s"; // in variable to not confuse MSG()
+                if( snprintf(filename, sizeof(filename),
+                             fmt,
+                             options.logdir,
+                             iframe,
+                             icam,
+                             options.jpg ? "jpg" : "png") >= (int)sizeof(filename) )
+                {
+                    MSG("Static buffer overflow. Increase sizeof(filename)");
+                    __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
+                    continue;
 
+                }
+
+                bool err = false;
+                switch(mrcam_output_type(ctx[icam].pixfmt))
+                {
+                case MRCAM_uint8:
+                    if(!mrcal_image_uint8_save(  filename, &images.image_uint8 [icam]))
+                    {
+                        MSG("Couldn't save to '%s'", filename);
+                        __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
+                        err = true;
+                    }
+                    break;
+
+                case MRCAM_uint16:
+                    if(!mrcal_image_uint16_save( filename, &images.image_uint16[icam]))
+                    {
+                        MSG("Couldn't save to '%s'", filename);
+                        __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
+                        err = true;
+                    }
+                    break;
+
+                case MRCAM_bgr:
+                    if(!mrcal_image_bgr_save(   filename, &images.image_bgr   [icam]))
+                    {
+                        MSG("Couldn't save to '%s'", filename);
+                        __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
+                        err = true;
+                    }
+                    break;
+
+                default:
+                    err = true;
+                    break;
+                }
+                if(err) continue;
             }
-
-            bool err = false;
-            switch(mrcam_output_type(ctx[icam].pixfmt))
-            {
-            case MRCAM_uint8:
-                if(!mrcal_image_uint8_save(  filename, &images.image_uint8 [icam]))
-                {
-                    MSG("Couldn't save to '%s'", filename);
-                    __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
-                    err = true;
-                }
-                break;
-
-            case MRCAM_uint16:
-                if(!mrcal_image_uint16_save( filename, &images.image_uint16[icam]))
-                {
-                    MSG("Couldn't save to '%s'", filename);
-                    __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
-                    err = true;
-                }
-                break;
-
-            case MRCAM_bgr:
-                if(!mrcal_image_bgr_save(   filename, &images.image_bgr   [icam]))
-                {
-                    MSG("Couldn't save to '%s'", filename);
-                    __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
-                    err = true;
-                }
-                break;
-
-            default:
-                err = true;
-                break;
-            }
-            if(err) continue;
-
-
             printf("%d %d %s %ld.%06ld %s\n",
                    iframe, icam, options.camera_names[icam],
                    timestamps_us[icam] / 1000000,
