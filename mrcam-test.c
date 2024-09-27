@@ -58,18 +58,20 @@ static bool parse_args(// out
 {
     void sayusage(bool to_stderr)
     {
-#warning usage documentation
-        // const char* usage =
-        //     #include "mrcam-test.usage.h"
-        //     ;
+        const char* usage =
+            #include "mrcam-test.usage.h"
+            ;
 
 #define OPTIONS_HELP_MSG(type, name_var, name_opt, default, has_arg, placeholder, id, shortopt) \
     "  [--" #name_opt placeholder "]\n"
 
         FILE* fp = to_stderr ? stderr : stdout;
         fprintf(fp,
-                "%s\n" LIST_OPTIONS(OPTIONS_HELP_MSG),
-                argv[0]);
+                "Usage: %s\n" LIST_OPTIONS(OPTIONS_HELP_MSG)
+                "  [CAMERA0 [CAMERA1 ....]]\n\n"
+                "%s",
+                argv[0],
+                usage);
     }
 
 

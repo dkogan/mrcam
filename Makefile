@@ -20,6 +20,11 @@ CCXXFLAGS += -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-pa
 # to each other. These don't matter
 CCXXFLAGS += -Wno-cast-function-type
 
+# stolen docstring logic from Makefile.common.footer
+%.usage.h: %.usage
+	< $^ sed 's/\\/\\\\/g; s/"/\\"/g; s/^/"/; s/$$/\\n"/;' > $@
+
+mrcam-test.o: mrcam-test.usage.h
 mrcam-test.o: CPPFLAGS += -fopenmp
 mrcam-test:   LDFLAGS  += -fopenmp
 mrcam-test:   LDLIBS += -lmrcal
