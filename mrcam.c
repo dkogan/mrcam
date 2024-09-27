@@ -730,7 +730,7 @@ bool receive_image(// out
                    const uint64_t timeout_us,
                    mrcam_t* ctx)
 {
-    if(ctx->verbose) MSG("%s()", __func__);
+    if(ctx->verbose) MSG("%s(timeout_us=%"PRIu64")", __func__, timeout_us);
 
     DEFINE_INTERNALS(ctx);
     bool        result      = false;
