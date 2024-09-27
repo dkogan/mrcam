@@ -749,8 +749,6 @@ bool receive_image(// out
         else                MSG("Evaluating   arv_stream_pop_buffer()");
     }
 
-    *timestamp_us = gettimeofday_uint64();
-
     // May block. If we don't want to block, it's our job to make sure to have
     // called receive_image() when an output image has already been buffered
     if (timeout_us > 0) buffer_here = arv_stream_timeout_pop_buffer(*stream, timeout_us);
@@ -815,6 +813,7 @@ bool receive_image(// out
 #undef LIST_PAYLOAD_TYPE
 #undef CHECK
 
+    *timestamp_us = gettimeofday_uint64();
     result = true;
 
  done:
