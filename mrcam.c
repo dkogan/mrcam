@@ -283,6 +283,15 @@ init_stream(mrcam_t* ctx)
 
     do
     {
+        if(ctx->trigger == MRCAM_TRIGGER_CONTINUOUS)
+        {
+            try_arv( arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_CONTINUOUS, &error) );
+            if(error == NULL) break; // success; done
+            g_clear_error(&error);
+            MSG("Failure!!! arv_camera_set_acquisition_mode(ARV_ACQUISITION_MODE_CONTINUOUS) failed");
+            goto done;
+        }
+
         try_arv_or( arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_SINGLE_FRAME, &error),
                     error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
         if(error == NULL) break; // success; done
@@ -443,6 +452,9 @@ bool mrcam_init(// out
                     error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
         if(error != NULL)
             g_clear_error(&error);
+    }
+    else if(ctx->trigger == MRCAM_TRIGGER_CONTINUOUS)
+    {
     }
     else
     {
@@ -755,10 +767,14 @@ bool receive_image(// out
     else                buffer_here = arv_stream_pop_buffer        (*stream);
 
     // This MUST have been done by this function, regardless of things failing
-    try_arv(arv_camera_stop_acquisition(*camera, &error));
-    // if it failed, ctx->acquiring will remain at true. Probably there's no way
-    // to recover anyway
-    ctx->acquiring = false;
+    if(ctx->trigger != MRCAM_TRIGGER_CONTINUOUS)
+    {
+        try_arv(arv_camera_stop_acquisition(*camera, &error));
+
+        // if it failed, ctx->acquiring will remain at true. Probably there's no way
+        // to recover anyway
+        ctx->acquiring = false;
+    }
 
     try(buffer_here == *buffer);
     try(ARV_IS_BUFFER(*buffer));
@@ -925,7 +941,7 @@ bool request(mrcam_t* ctx,
     bool    result = false;
     GError* error  = NULL;
 
-    if(ctx->acquiring || ctx->active_callback != NULL)
+    if((ctx->acquiring && !ctx->acquiring_continuous) || ctx->active_callback != NULL)
     {
         MSG("Acquisition already in progress: acquiring=%d, active_callback_exists=%d. If mrcam_request_...() was called, wait for the callback or call mrcam_cancel_request()",
             ctx->acquiring, !!ctx->active_callback);
@@ -943,9 +959,15 @@ bool request(mrcam_t* ctx,
         MSG("arv_stream_push_buffer()");
     arv_stream_push_buffer(*stream, *buffer);
 
-    try_arv( arv_camera_start_acquisition(*camera, &error));
-    ctx->acquiring = true;
 
+    if(ctx->trigger != MRCAM_TRIGGER_CONTINUOUS ||
+       !ctx->acquiring_continuous)
+    {
+        try_arv( arv_camera_start_acquisition(*camera, &error));
+        ctx->acquiring = true;
+        if(ctx->trigger == MRCAM_TRIGGER_CONTINUOUS)
+            ctx->acquiring_continuous = true;
+    }
 
     if(ctx->trigger == MRCAM_TRIGGER_SOFTWARE)
     {
@@ -967,6 +989,9 @@ bool request(mrcam_t* ctx,
     {
         // A trigger signal will magically come from somewhere. I don't worry
         // about it here; nothing to do
+    }
+    else if(ctx->trigger == MRCAM_TRIGGER_CONTINUOUS)
+    {
     }
     else
     {

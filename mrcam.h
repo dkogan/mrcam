@@ -52,10 +52,40 @@ typedef enum
 } mrcam_pixfmt_t;
 
 
-#define LIST_MRCAM_TRIGGER(_) \
-    _(SOFTWARE) \
-    _(HARDWARE_TTYS0)    \
-    _(HARDWARE_EXTERNAL)
+/*
+All the modes other than CONTINUOUS are frame-by-frame modes: we request and
+capture one frame, the we request and capture the next one, and so on. These all
+use ARV_ACQUISITION_MODE_SINGLE_FRAME, starting and stopping the acquisition for
+each frame.
+
+SOFTWARE: software "triggering". We request a frame by sending a
+  "TriggerSoftware" command. The image will be captured "soon" after it is
+  requested. This is useful for testing, but if any kind of camera
+  synchronization is required, this mode does not work
+
+HARDWARE_EXTERNAL: "hardware" triggering. The implementation details are
+  specific to each camera. Usually there's a physical pin feeding into the
+  camera; an electrical pulse on this pin initiates the image capture. In this
+  'HARDWARE_EXTERNAL' mode we tell the camera to wait for a pulse to begin
+  capture, but we don't actually supply this pulse. Some external process has to
+  do that
+
+HARDWARE_TTYS0: like 'HARDWARE_EXTERNAL', but we produce the trigger pulse
+  as well: by sending \xFF to /dev/ttyS0. The start bit in each character is
+  the pulse. It is assumed that the Tx pin in the RS-232 port is connected
+  (usually through some level shifters and/or buffers) to the trigger pin in
+  the camera
+
+CONTINUOUS: a single acquisition cycle (ARV_ACQUISITION_MODE_CONTINUOUS) is
+  started at the beginning of the capture, and frames are received as the camera
+  pushes them.
+*/
+#define LIST_MRCAM_TRIGGER(_)                   \
+    _(SOFTWARE)                                 \
+    _(HARDWARE_TTYS0)                           \
+    _(HARDWARE_EXTERNAL)                        \
+    _(CONTINUOUS)
+
 
 typedef enum {
 #define ENUM(name, ...) MRCAM_TRIGGER_ ## name,
@@ -113,6 +143,7 @@ typedef struct
     bool acquiring : 1;
     bool recreate_stream_with_each_frame : 1;
     bool verbose : 1;
+    bool acquiring_continuous : 1;
 
 } mrcam_t;
 
