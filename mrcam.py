@@ -23,7 +23,8 @@ def _add_common_cmd_options(parser,
                         type=float,
                         default = 1.0,
                         help='''Image capture period, in seconds. Defaults to
-                        1.0sec/frame''')
+                        1.0sec/frame. If set to <= 0, we capture frames as
+                        quickly as possible; with no frame-frame delay''')
     parser.add_argument('--features',
                         help='''A comma-separated list of features for which GUI
                         controls should be displayed. The available features can
