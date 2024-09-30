@@ -63,6 +63,13 @@ def _add_common_cmd_options(parser,
                         default = "MONO_8",
                         help='''The pixel format. If omitted, we use "MONO_8". Pass any invalid format (like
                         "") to get a list of valid values on stderr.''')
+    parser.add_argument('--acquisition-mode',
+                        # should match the LIST_OPTIONS macro in mrcam-test.c
+                        # and camera_init() in mrcam-pywrap.c
+                        default = "SINGLE_FRAME",
+                        help='''The acquisition mode. If omitted, we use
+                        "SINGLE_FRAME". Pass any invalid mode (like "") to get a
+                        list of valid values on stderr.''')
     parser.add_argument('--trigger',
                         # should match the LIST_OPTIONS macro in mrcam-test.c
                         # and camera_init() in mrcam-pywrap.c

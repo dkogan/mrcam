@@ -211,21 +211,11 @@ init_stream(mrcam_t* ctx)
 
     DEFINE_INTERNALS(ctx);
 
-
-    // To capture a single frame, I create the stream, set stuff up, and do the
-    // capture. This is what arv_camera_acquisition() does. I would like to
-    // create the stream once and to enable the acquisition once, but that
-    // doesn't work in general (FLIR grasshopper works ok; Emergent HR-20000 can
-    // reuse the stream, but needs the acquisition restarted; pleora iport ntx
-    // talking to a tenum needs the whole stream restarted). So I restart
-    // everything.
-    //
-    // To make things even more exciting, the frame de-init happens in
-    // receive_image() after I captured the image. If I'm asynchronous,
-    // receive_image() happens from the callback_arv(), which is called from the
-    // stream thread, which means I cannot stop the stream thread in
-    // receive_image(). So I just let the stream thread run, and restart it when
-    // I need a new frame
+    // The frame de-init happens in receive_image() after I captured the image.
+    // If I'm asynchronous, receive_image() happens from the callback_arv(),
+    // which is called from the stream thread, which means I cannot stop the
+    // stream thread in receive_image(). So I just let the stream thread run,
+    // and restart it when I need a new frame
     g_clear_object(stream);
 
     try_arv_and( *stream = arv_camera_create_stream(*camera,
@@ -234,9 +224,10 @@ init_stream(mrcam_t* ctx)
                  ARV_IS_STREAM(*stream) );
 
     /*
-    For the Emergent HR-20000 cameras. I get lost packets otherwise. Running as
-    root is another workaround: it enables the "Packet socket method". Either of
-    these are needed in addition to the GevSCPSPacketSize setting
+    For the Emergent HR-20000 cameras. I get lost packets if I don't do this.
+    Running as root is another workaround: it enables the "Packet socket
+    method". Either of these are needed in addition to the GevSCPSPacketSize
+    setting
 
     Ultimately we need to set the SO_RCVBUF setting on the socket. Described
     like this in socket(7):
@@ -274,38 +265,25 @@ init_stream(mrcam_t* ctx)
                       NULL);
 
 
-    // In case we end up with ARV_ACQUISITION_MODE_MULTI_FRAME, I ask for just
-    // one frame. If it fails, I guess that's fine.
-    try_arv_or( arv_camera_set_integer(*camera, "AcquisitionFrameCount", 1, &error),
-                true );
+    // If ARV_ACQUISITION_MODE_MULTI_FRAME, I ask for just one frame
+    if(ctx->acquisition_mode == MRCAM_ACQUISITION_MODE_MULTI_FRAME)
+        try_arv(arv_camera_set_integer(*camera, "AcquisitionFrameCount", 1, &error));
     if(error != NULL)
         g_clear_error(&error);
 
-    do
+#define SET(name, ...)                                                  \
+    else if(ctx->acquisition_mode == MRCAM_ACQUISITION_MODE_ ## name)   \
+        try_arv(arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_ ## name, &error));
+    if(0); LIST_MRCAM_ACQUISITION_MODE(SET)
+    else
     {
-        if(ctx->trigger == MRCAM_TRIGGER_CONTINUOUS)
-        {
-            try_arv( arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_CONTINUOUS, &error) );
-            if(error == NULL) break; // success; done
-            g_clear_error(&error);
-            MSG("Failure!!! arv_camera_set_acquisition_mode(ARV_ACQUISITION_MODE_CONTINUOUS) failed");
-            goto done;
-        }
-
-        try_arv_or( arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_SINGLE_FRAME, &error),
-                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
-        if(error == NULL) break; // success; done
-        g_clear_error(&error);
-
-        try_arv_or( arv_camera_set_acquisition_mode(*camera, ARV_ACQUISITION_MODE_MULTI_FRAME, &error),
-                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
-        if(error == NULL) break; // success; done
-        g_clear_error(&error);
-
-        MSG("Failure!!! arv_camera_set_acquisition_mode() couldn't set a usable acquisition mode. All were rejected");
+        MSG("Unknown acquisition_mode mode '%d'; I know about:", (int)(ctx->acquisition_mode));
+#define SAY(name, ...) MSG("  " #name);
+        LIST_MRCAM_ACQUISITION_MODE(SAY);
+#undef SAY
         goto done;
-
-    } while(false);
+    }
+#undef SET
 
     result = true;
 
@@ -328,6 +306,7 @@ bool mrcam_init(// out
     *ctx = (mrcam_t){ .recreate_stream_with_each_frame = options->recreate_stream_with_each_frame,
                       .pixfmt                          = options->pixfmt,
                       .trigger                         = options->trigger,
+                      .acquisition_mode                = options->acquisition_mode,
                       .verbose                         = options->verbose,
                       .fd_tty_trigger                  = -1};
 
@@ -420,22 +399,24 @@ bool mrcam_init(// out
     }
 
     // Set the triggering strategy
-    try_arv_or( arv_camera_set_string(*camera, "TriggerMode", "On", &error),
-                error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
-    if(error != NULL)
+    if(ctx->trigger != MRCAM_TRIGGER_NONE)
     {
-        // No TriggerMode is available at all. I ignore the error. If there WAS
-        // a TriggerMode, and I couldn't set it to "On", then I DO flag an error
-        g_clear_error(&error);
+        try_arv_or( arv_camera_set_string(*camera, "TriggerMode", "On", &error),
+                    error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
+        if(error != NULL)
+        {
+            // No TriggerMode is available at all. I ignore the error. If there WAS
+            // a TriggerMode, and I couldn't set it to "On", then I DO flag an error
+            g_clear_error(&error);
+        }
+
+        // If either the feature or the requested enum don't exist, I let it go
+        try_arv_or( arv_camera_set_string(*camera, "TriggerSelector", "FrameStart", &error),
+                    error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
+                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+        if(error != NULL)
+            g_clear_error(&error);
     }
-
-    // If either the feature or the requested enum don't exist, I let it go
-    try_arv_or( arv_camera_set_string(*camera, "TriggerSelector", "FrameStart", &error),
-                error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
-                error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
-    if(error != NULL)
-        g_clear_error(&error);
-
     if(ctx->trigger == MRCAM_TRIGGER_SOFTWARE)
     {
         try_arv_or( arv_camera_set_string(*camera, "TriggerSource",   "Software", &error),
@@ -453,9 +434,8 @@ bool mrcam_init(// out
         if(error != NULL)
             g_clear_error(&error);
     }
-    else if(ctx->trigger == MRCAM_TRIGGER_CONTINUOUS)
-    {
-    }
+    else if(ctx->trigger == MRCAM_TRIGGER_NONE)
+    {}
     else
     {
         MSG("Unknown trigger enum value '%d'", ctx->trigger);
@@ -767,7 +747,7 @@ bool receive_image(// out
     else                buffer_here = arv_stream_pop_buffer        (*stream);
 
     // This MUST have been done by this function, regardless of things failing
-    if(ctx->trigger != MRCAM_TRIGGER_CONTINUOUS)
+    if(ctx->acquisition_mode != MRCAM_ACQUISITION_MODE_CONTINUOUS)
     {
         try_arv(arv_camera_stop_acquisition(*camera, &error));
 
@@ -960,12 +940,12 @@ bool request(mrcam_t* ctx,
     arv_stream_push_buffer(*stream, *buffer);
 
 
-    if(ctx->trigger != MRCAM_TRIGGER_CONTINUOUS ||
+    if(ctx->acquisition_mode != MRCAM_ACQUISITION_MODE_CONTINUOUS ||
        !ctx->acquiring_continuous)
     {
         try_arv( arv_camera_start_acquisition(*camera, &error));
         ctx->acquiring = true;
-        if(ctx->trigger == MRCAM_TRIGGER_CONTINUOUS)
+        if(ctx->acquisition_mode == MRCAM_ACQUISITION_MODE_CONTINUOUS)
             ctx->acquiring_continuous = true;
     }
 
@@ -990,9 +970,8 @@ bool request(mrcam_t* ctx,
         // A trigger signal will magically come from somewhere. I don't worry
         // about it here; nothing to do
     }
-    else if(ctx->trigger == MRCAM_TRIGGER_CONTINUOUS)
-    {
-    }
+    else if(ctx->trigger == MRCAM_TRIGGER_NONE)
+    {}
     else
     {
         MSG("Unknown trigger enum value '%d'", ctx->trigger);

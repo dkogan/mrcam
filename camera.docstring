@@ -50,33 +50,43 @@ ARGUMENTS
   invalid string here (such as '', for instance). To get a list of formats
   supported by the hardware, run 'arv-tool-0.8 features PixelFormat'
 
-- trigger: optional string for the requested trigger mode. All the modes other
-  than CONTINUOUS are frame-by-frame modes: we request and capture one frame,
-  the we request and capture the next one, and so on. These all use
-  ARV_ACQUISITION_MODE_SINGLE_FRAME, starting and stopping the acquisition for
-  each frame. Currently we support one of:
+- trigger: optional string, defaulting to 'SOFTWARE'. Currently we support:
 
-  - 'SOFTWARE': software "triggering". We request a frame by sending a
+  - "NONE": no triggering at all. The camera will decide to send us frames all by
+    itself.
+
+  - "SOFTWARE": software "triggering". We request a frame by sending a
     "TriggerSoftware" command. The image will be captured "soon" after it is
     requested. This is useful for testing, but if any kind of camera
     synchronization is required, this mode does not work
 
-  - 'HARDWARE_EXTERNAL': "hardware" triggering. The implementation details are
+  - "HARDWARE_EXTERNAL": "hardware" triggering. The implementation details are
     specific to each camera. Usually there's a physical pin feeding into the
     camera; an electrical pulse on this pin initiates the image capture. In this
     'HARDWARE_EXTERNAL' mode we tell the camera to wait for a pulse to begin
-    capture, but we don't actually supply this pulse. Some external process has
-    to do that
+    capture, but we don't actually supply this pulse. Some external process has to
+    do that
 
-  - 'HARDWARE_TTYS0': like 'HARDWARE_EXTERNAL', but we produce the trigger pulse
+  - "HARDWARE_TTYS0": like 'HARDWARE_EXTERNAL', but we produce the trigger pulse
     as well: by sending \xFF to /dev/ttyS0. The start bit in each character is
     the pulse. It is assumed that the Tx pin in the RS-232 port is connected
     (usually through some level shifters and/or buffers) to the trigger pin in
     the camera
 
-  - 'CONTINUOUS': a single acquisition cycle (ARV_ACQUISITION_MODE_CONTINUOUS)
-    is started at the beginning of the capture, and frames are received as the
-    camera pushes them.
+- acquisition_mode: optional string, defaulting to 'SINGLE_FRAME'. Currently we
+  support:
+
+  - SINGLE_FRAME
+  - MULTI_FRAME
+  - CONTINUOUS
+
+  The SINGLE_FRAME and MULTI_FRAME modes are frame-by-frame modes: we request
+  and capture one frame, then we request and capture the next one, and so on.
+  The MULTI_FRAME mode also asks for ONE frame. These start and stop the
+  acquisition for each frame.
+
+  By contrast, the CONTINUOUS mode starts the acquisition at the beginning of
+  the capture, and keeps it going for all the subsequent frames
 
 - width, height: optional integers defaulting to 0. If given, we use these as
   the given image dimensions. Otherwise, we take the highest-resolution image

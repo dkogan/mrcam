@@ -85,6 +85,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 
     char* keywords[] = {"name",
                         "pixfmt",
+                        "acquisition_mode",
                         "trigger",
                         "width",
                         "height",
@@ -94,21 +95,24 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 
     // The default pixel format is "MONO_8". Should match the one in the
     // LIST_OPTIONS macro in mrcam-test.c
-    const char* camera_name    = NULL;
-    const char* pixfmt_string  = "MONO_8";
-    const char* trigger_string = "SOFTWARE";
+    const char* camera_name             = NULL;
+    const char* pixfmt_string           = "MONO_8";
+    const char* acquisition_mode_string = "SINGLE_FRAME";
+    const char* trigger_string          = "SOFTWARE";
     int width   = 0; // by default, auto-detect the dimensions
     int height  = 0;
     int recreate_stream_with_each_frame = 0;
     int verbose = 0;
 
-    mrcam_pixfmt_t  pixfmt;
-    mrcam_trigger_t trigger;
+    mrcam_pixfmt_t           pixfmt;
+    mrcam_acquisition_mode_t acquisition_mode;
+    mrcam_trigger_t          trigger;
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "|z$ssiipp:mrcam.__init__", keywords,
+                                     "|z$sssiipp:mrcam.__init__", keywords,
                                      &camera_name,
                                      &pixfmt_string,
+                                     &acquisition_mode_string,
                                      &trigger_string,
                                      &width, &height,
                                      &recreate_stream_with_each_frame,
@@ -145,6 +149,23 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 
     if(0) ;
 #define PARSE(name, ...)                        \
+    else if(0 == strcmp(acquisition_mode_string, #name))  \
+        acquisition_mode = MRCAM_ACQUISITION_MODE_ ## name;
+    LIST_MRCAM_ACQUISITION_MODE(PARSE)
+    else
+    {
+#define SAY(name, ...) "'" #name "', "
+        BARF("Unknown acquisition_mode mode '%s'; I know about: ("
+             LIST_MRCAM_ACQUISITION_MODE(SAY)
+             ")",
+             acquisition_mode_string);
+        goto done;
+#undef SAY
+    }
+#undef PARSE
+
+    if(0) ;
+#define PARSE(name, ...)                        \
     else if(0 == strcmp(trigger_string, #name))  \
         trigger = MRCAM_TRIGGER_ ## name;
     LIST_MRCAM_TRIGGER(PARSE)
@@ -164,6 +185,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     const mrcam_options_t mrcam_options =
         {
             .pixfmt                          = pixfmt,
+            .acquisition_mode                = acquisition_mode,
             .trigger                         = trigger,
             .width                           = width,
             .height                          = height,

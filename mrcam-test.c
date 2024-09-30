@@ -23,6 +23,7 @@ typedef struct { int width,height; } dimensions_t;
     _(mrcam_pixfmt_t, pixfmt,  pixfmt,  MRCAM_PIXFMT_MONO_8, required_argument, " PIXELFORMAT", 'F', ""  ) \
     _(dimensions_t,   dims,    dims,    {},                  required_argument, " WIDTH,HEIGHT",'D', ""  ) \
     _(mrcam_trigger_t,trigger, trigger, MRCAM_TRIGGER_SOFTWARE,required_argument, " TRIGGER",     't', ""  ) \
+    _(mrcam_acquisition_mode_t,acquisition_mode, acquisition-mode, MRCAM_ACQUISITION_MODE_SINGLE_FRAME,required_argument, " ACQUISITION-MODE",     'a', ""  ) \
     _(bool,           recreate_stream_with_each_frame,recreate-stream-with-each-frame, false, no_argument, ,'R', "") \
     _(bool,           verbose, verbose, false,               no_argument,       ,               'v', "v")
 
@@ -169,22 +170,34 @@ static bool parse_args(// out
             }
 
         case 't':
-
             if(0) ;
-
 #define PARSE(name, ...)                                        \
             else if(0 == strcmp(optarg, #name))                 \
                 options->trigger = MRCAM_TRIGGER_ ## name;
-
             LIST_MRCAM_TRIGGER(PARSE)
             else
             {
                 MSG("Unknown trigger mode '%s'; I know about:", optarg);
-
 #define SAY(name, ...) MSG("  " #name);
                 LIST_MRCAM_TRIGGER(SAY);
 #undef SAY
+                exit(1);
+            }
+#undef PARSE
+            break;
 
+        case 'a':
+            if(0) ;
+#define PARSE(name, ...)                                        \
+            else if(0 == strcmp(optarg, #name))                 \
+                options->acquisition_mode = MRCAM_ACQUISITION_MODE_ ## name;
+            LIST_MRCAM_ACQUISITION_MODE(PARSE)
+            else
+            {
+                MSG("Unknown acquisition_mode mode '%s'; I know about:", optarg);
+#define SAY(name, ...) MSG("  " #name);
+                LIST_MRCAM_ACQUISITION_MODE(SAY);
+#undef SAY
                 exit(1);
             }
 #undef PARSE
@@ -235,6 +248,7 @@ int main(int argc, char **argv)
                 .width                           = options.dims.width,
                 .height                          = options.dims.height,
                 .trigger                         = options.trigger,
+                .acquisition_mode                = options.acquisition_mode,
                 .recreate_stream_with_each_frame = options.recreate_stream_with_each_frame,
                 .verbose                         = options.verbose
             };

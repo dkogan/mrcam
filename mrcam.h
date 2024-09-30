@@ -53,10 +53,10 @@ typedef enum
 
 
 /*
-All the modes other than CONTINUOUS are frame-by-frame modes: we request and
-capture one frame, the we request and capture the next one, and so on. These all
-use ARV_ACQUISITION_MODE_SINGLE_FRAME, starting and stopping the acquisition for
-each frame.
+The trigger modes:
+
+NONE: no triggering at all. The camera will decide to send us frames all by
+  itself.
 
 SOFTWARE: software "triggering". We request a frame by sending a
   "TriggerSoftware" command. The image will be captured "soon" after it is
@@ -75,24 +75,38 @@ HARDWARE_TTYS0: like 'HARDWARE_EXTERNAL', but we produce the trigger pulse
   the pulse. It is assumed that the Tx pin in the RS-232 port is connected
   (usually through some level shifters and/or buffers) to the trigger pin in
   the camera
-
-CONTINUOUS: a single acquisition cycle (ARV_ACQUISITION_MODE_CONTINUOUS) is
-  started at the beginning of the capture, and frames are received as the camera
-  pushes them.
 */
 #define LIST_MRCAM_TRIGGER(_)                   \
+    _(NONE)                                     \
     _(SOFTWARE)                                 \
     _(HARDWARE_TTYS0)                           \
-    _(HARDWARE_EXTERNAL)                        \
-    _(CONTINUOUS)
-
-
+    _(HARDWARE_EXTERNAL)
 typedef enum {
 #define ENUM(name, ...) MRCAM_TRIGGER_ ## name,
     LIST_MRCAM_TRIGGER(ENUM) MRCAM_TRIGGER_COUNT
 #undef ENUM
 } mrcam_trigger_t;
 
+/* These have the same meaning as ARV_ACQUISITION_MODE_... The numerical values
+may not be the same because the mrcam.h header does NOT #include arv.h
+
+The SINGLE_FRAME and MULTI_FRAME modes are frame-by-frame modes: we request and
+capture one frame, then we request and capture the next one, and so on. The
+MULTI_FRAME mode also asks for ONE frame. These start and stop the acquisition
+for each frame.
+
+By contrast, the CONTINUOUS mode starts the acquisition at the beginning of the
+capture, and keeps it going for all the subsequent frames
+*/
+#define LIST_MRCAM_ACQUISITION_MODE(_)          \
+    _(SINGLE_FRAME)                             \
+    _(MULTI_FRAME)                              \
+    _(CONTINUOUS)
+typedef enum {
+#define ENUM(name, ...) MRCAM_ACQUISITION_MODE_ ## name,
+    LIST_MRCAM_ACQUISITION_MODE(ENUM) MRCAM_ACQUISITION_MODE_COUNT
+#undef ENUM
+} mrcam_acquisition_mode_t;
 
 
 typedef enum {MRCAM_UNKNOWN = -1,
@@ -122,8 +136,8 @@ typedef struct
     // camera. I don't NEED to store all these here, but it makes life easier
     mrcam_pixfmt_t pixfmt;
 
-    // The trigger mode
-    mrcam_trigger_t trigger;
+    mrcam_trigger_t          trigger;
+    mrcam_acquisition_mode_t acquisition_mode;
 
     // Used to convert from non-trivial pixel formats coming out of the camera
     // to unpacked bits mrcam reports. Needed for bayered or packed formats.
@@ -149,8 +163,10 @@ typedef struct
 
 typedef struct
 {
-    const mrcam_pixfmt_t pixfmt;
-    mrcam_trigger_t trigger;
+    const mrcam_pixfmt_t           pixfmt;
+    const mrcam_trigger_t          trigger;
+    const mrcam_acquisition_mode_t acquisition_mode;
+
     // if either is <=0, we try to autodetect by asking the camera
     // for WidthMax and HeightMax. Some cameras report the native
     // resolution of the imager there, but some others report bugus
