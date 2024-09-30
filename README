@@ -38,11 +38,10 @@ LIMITATIONS
 
 Today mrcam is aimed at a subset of functionality supported by aravis:
 
-- Simple pixel formats only (8-bit bayer, 8,10,12,14,16-bit monochrome, rgb8, bgr8)
+- Simple pixel formats only (8-bit bayer, 8,10,12,14,16-bit monochrome, rgb8,
+  bgr8)
 
 - GNU/Linux only
-
-- Getting frames one-at-a-time; no streaming
 
 This is very much a work in progress, and capabilities will be extended over
 time.
