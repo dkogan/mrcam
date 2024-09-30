@@ -154,11 +154,10 @@ typedef struct
     // used if MRCAM_TRIGGER_HARDWARE_TTYS0
     int fd_tty_trigger;
 
-    bool acquiring : 1;
+    bool acquiring                       : 1;
     bool recreate_stream_with_each_frame : 1;
-    bool verbose : 1;
-    bool acquiring_continuous : 1;
-
+    bool verbose                         : 1;
+    bool acquiring_continuous            : 1;
 } mrcam_t;
 
 typedef struct
