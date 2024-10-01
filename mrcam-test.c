@@ -24,6 +24,7 @@ typedef struct { int width,height; } dimensions_t;
     _(dimensions_t,   dims,    dims,    {},                  required_argument, " WIDTH,HEIGHT",'D', ""  ) \
     _(mrcam_trigger_t,trigger, trigger, MRCAM_TRIGGER_SOFTWARE,required_argument, " TRIGGER",     't', ""  ) \
     _(mrcam_acquisition_mode_t,acquisition_mode, acquisition-mode, MRCAM_ACQUISITION_MODE_SINGLE_FRAME,required_argument, " ACQUISITION-MODE",     'a', ""  ) \
+    _(int,            time_decimation_factor,time-decimation-factor, 1, required_argument, ,'f', "") \
     _(bool,           recreate_stream_with_each_frame,recreate-stream-with-each-frame, false, no_argument, ,'R', "") \
     _(bool,           verbose, verbose, false,               no_argument,       ,               'v', "v")
 
@@ -201,6 +202,10 @@ static bool parse_args(// out
                 exit(1);
             }
 #undef PARSE
+            break;
+
+        case 'f':
+            options->time_decimation_factor = atoi(optarg);
             break;
 
         case '?':

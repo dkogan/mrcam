@@ -184,6 +184,10 @@ static bool open_serial_device(mrcam_t* ctx)
 
 static void
 callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer);
+static bool
+request(mrcam_t* ctx,
+        mrcam_callback_image_uint8_t* callback,
+        void* cookie);
 
 static void report_available_pixel_formats(ArvCamera* camera,
                                            mrcam_t* ctx)
@@ -308,6 +312,7 @@ bool mrcam_init(// out
                       .trigger                         = options->trigger,
                       .acquisition_mode                = options->acquisition_mode,
                       .verbose                         = options->verbose,
+                      .time_decimation_factor          = options->time_decimation_factor,
                       .fd_tty_trigger                  = -1};
 
     DEFINE_INTERNALS(ctx);
@@ -898,8 +903,22 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
             // On error image is {0}, which indicates an error. We invoke the
             // callback regardless. I want to make sure that the caller can be
             // sure to expect ONE callback with each request
-            ctx->active_callback(image, timestamp_us, ctx->active_callback_cookie);
-            ctx->active_callback = NULL;
+            if(ctx->time_decimation_factor <= 1 ||
+               ++ctx->time_decimation_index == ctx->time_decimation_factor)
+            {
+                MSG("decimated callback");
+                ctx->active_callback(image, timestamp_us, ctx->active_callback_cookie);
+                ctx->active_callback = NULL;
+
+                ctx->time_decimation_index = 0;
+            }
+            else
+            {
+                ctx->active_callback = NULL;
+                request(ctx,
+                        ctx->active_callback,
+                        ctx->active_callback_cookie);
+            }
         }
 
         break;
@@ -1006,6 +1025,23 @@ bool request(mrcam_t* ctx,
 }
 
 
+static bool pull_common(// out
+                        uint64_t* timestamp_us,
+                        // in
+                        const uint64_t timeout_us,
+                        mrcam_t* ctx)
+{
+    int N = ctx->time_decimation_factor;
+    if(N < 1) N = 1;
+
+    for(; N > 0; N--)
+        if(! (request(ctx, NULL, NULL) &&
+              // may block
+              receive_image(timestamp_us,
+                            timeout_us, ctx)) )
+            return false;
+    return true;
+}
 // timeout_us=0 means "wait forever"
 bool mrcam_pull_uint8(// out
                       mrcal_image_uint8_t* image,
@@ -1015,12 +1051,8 @@ bool mrcam_pull_uint8(// out
                       mrcam_t* ctx)
 {
     if(ctx->verbose) MSG("%s()", __func__);
-
+    if(!pull_common(timestamp_us,timeout_us,ctx)) return false;
     return
-        request(ctx, NULL, NULL) &&
-        // may block
-        receive_image(timestamp_us,
-                      timeout_us, ctx) &&
         fill_image_uint8(image, ctx);
 }
 bool mrcam_pull_uint16(// out
@@ -1031,12 +1063,8 @@ bool mrcam_pull_uint16(// out
                        mrcam_t* ctx)
 {
     if(ctx->verbose) MSG("%s()", __func__);
-
+    if(!pull_common(timestamp_us,timeout_us,ctx)) return false;
     return
-        request(ctx, NULL, NULL) &&
-        // may block
-        receive_image(timestamp_us,
-                      timeout_us, ctx) &&
         fill_image_uint16(image, ctx);
 }
 bool mrcam_pull_bgr(// out
@@ -1047,12 +1075,8 @@ bool mrcam_pull_bgr(// out
                     mrcam_t* ctx)
 {
     if(ctx->verbose) MSG("%s()", __func__);
-
+    if(!pull_common(timestamp_us,timeout_us,ctx)) return false;
     return
-        request(ctx, NULL, NULL) &&
-        // may block
-        receive_image(timestamp_us,
-                      timeout_us, ctx) &&
         fill_image_bgr(image, ctx);
 }
 

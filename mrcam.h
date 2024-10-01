@@ -154,6 +154,13 @@ typedef struct
     // used if MRCAM_TRIGGER_HARDWARE_TTYS0
     int fd_tty_trigger;
 
+    // If time_decimation_factor > 1, we report every Nth frame to the user.
+    // This applies to mrcam_pull_...() and mrcam_request(). The
+    // time_decimation_index is the internal counter that's updated to respect
+    // the factor when using the asynchronous request() function
+    int time_decimation_factor;
+    int time_decimation_index;
+
     bool acquiring                       : 1;
     bool recreate_stream_with_each_frame : 1;
     bool verbose                         : 1;
@@ -173,6 +180,9 @@ typedef struct
     // dimensions
     int width;
     int height;
+
+    // If time_decimation_factor > 1, we report every Nth frame to the user.
+    int time_decimation_factor;
 
     // Shouldn't be needed, but I can't get data from some cameras
     // without it
