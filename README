@@ -49,7 +49,7 @@ time.
 
 BUILD/INSTALLATION
 
-This is a work in progress. Today this mrcam has been used primarily on recent
+This is a work in progress. As of today, mrcam has been used primarily on recent
 Debian systems. Some required dependency packages are currently only in
 Debian/unstable, and not yet in any release of Debian or Ubuntu. The required
 dependencies are all available for recent-ish Debian and Ubuntu releases from
@@ -64,9 +64,12 @@ After adding the apt server to /etc/apt/sources.list, to build mrcam:
     libswscale-dev           \
     mrbuild                  \
     libmrcal-dev             \
+    python3-opencv           \
     python3-mrcal            \
     python3-gl-image-display \
     python3-fltk             \
+    python3-numpysane        \
+    python3-gnuplotlib       \
     python3-vnlog &&         \
   make
 
