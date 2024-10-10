@@ -776,14 +776,30 @@ static bool feature_Check(PyObject* feature,
     return false;
 }
 
-static void* feature_GetNode(PyObject* feature)
+static void* feature_GetNodeOrAddress(PyObject* feature,
+                                      bool* is_node)
 {
-    PyObject* node = GetItemString(feature, "node");
+    PyObject* node;
+    const char* what;
+
+    what = "node";
+    node = GetItemString(feature, what);
     if(node == NULL) return NULL;
+
+    if(node != Py_None)
+        *is_node = true;
+    else
+    {
+        what = "address";
+        node = GetItemString(feature, what);
+        if(node == NULL) return NULL;
+
+        *is_node = false;
+    }
 
     if(!PyLong_Check(node))
     {
-        BARF("The 'node' must be a long");
+        BARF("The '%s' must be a long", what);
         return NULL;
     }
     static_assert(sizeof(void*) >= sizeof(long), "I'm using a PyLong to store a pointer; it must be large-enough");
@@ -797,12 +813,12 @@ static void* feature_GetNode(PyObject* feature)
     node_and_long_t u = {.long_value = PyLong_AsLong(node)};
     if(PyErr_Occurred())
     {
-        BARF("The 'node' couldn't be interpreted numerically");
+        BARF("The '%s' couldn't be interpreted numerically", what);
         return NULL;
     }
     if(u.node == NULL)
     {
-        BARF("The 'node' was NULL");
+        BARF("The '%s' was NULL", what);
         return NULL;
     }
     return u.node;
@@ -828,6 +844,38 @@ feature_descriptor(camera* self, PyObject* args, PyObject* kwargs)
                                      "s:mrcam.feature_descriptor", keywords,
                                      &feature))
         goto done;
+
+    long address;
+    if( feature[0] == 'R' &&
+        feature[1] == '[' &&
+        feature[strlen(feature)-1] == ']' )
+    {
+        errno = 0;
+        address = strtol(&feature[2], NULL, 0);
+        if(errno != 0)
+        {
+            BARF("Feature '%s' starts with R[ but doesn't have the expected R[ADDRESS] format", feature);
+            goto done;
+        }
+
+        result = Py_BuildValue("{sssOsls(ii)sisOsO}",
+                               "type",           "integer",
+                               "node",           Py_None,
+                               "address",        address,
+#warning these numbers are made-up
+                               "bounds",         200, 300,
+                               "increment",      1,
+                               "representation", Py_None,
+                               "unit",           Py_None);
+        if(result == NULL)
+        {
+            BARF("Couldn't build %s() result", __func__);
+            goto done;
+        }
+
+        goto done;
+    }
+
 
     device = arv_camera_get_device(ARV_CAMERA(self->ctx.camera));
     if(device == NULL)
@@ -1001,13 +1049,20 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
     PyObject* feature      = NULL;
     PyObject* value        = NULL;
     void*     feature_node = NULL;
+    bool      is_node      = true;
     GError*   error        = NULL;
 
     mrcam_t* ctx = &self->ctx; // for the try_arv...() macros
-
     char* keywords[] = {"feature",
                         "value",
                         NULL};
+
+    ArvDevice* device = arv_camera_get_device(ARV_CAMERA(self->ctx.camera));
+    if(device == NULL)
+    {
+        BARF("Couldn't arv_camera_get_device()");
+        goto done;
+    }
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
                                      "O|O:mrcam.feature_value", keywords,
@@ -1024,12 +1079,22 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
                       "'integer','float','boolean','command','enumeration'"))
         goto done;
 
-    feature_node = feature_GetNode(feature);
+    feature_node = feature_GetNodeOrAddress(feature, &is_node);
     if(feature_node == NULL) goto done;
 
     if(value == NULL)
     {
         // getter
+        if(!is_node)
+        {
+            guint32 value;
+            try_arv(arv_device_read_register(device, (guint64)feature_node, &value, &error));
+            result = Py_BuildValue("(l{sO})",
+                                   (long)value,
+                                   "locked", Py_False);
+            goto done;
+        }
+
 
         bool is_locked;
         try_arv(is_locked = arv_gc_feature_node_is_locked(ARV_GC_FEATURE_NODE(feature_node), &error));
@@ -1087,6 +1152,30 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
     else
     {
         // setter
+
+        if(!is_node)
+        {
+            gint64 value_here;
+            if(     PyLong_Check(value))  value_here = PyLong_AsLong(value);
+            else if(PyFloat_Check(value)) value_here = (gint64)round(PyFloat_AsDouble(value));
+            else
+            {
+                BARF("Given value not interpretable as an integer or a float");
+                goto done;
+            }
+            if(PyErr_Occurred())
+            {
+                BARF("Given value not interpretable");
+                goto done;
+            }
+
+            try_arv( arv_device_write_register(device, (guint64)feature_node, (guint32)value_here, &error) );
+
+            Py_INCREF(Py_None);
+            result = Py_None;
+            goto done;
+        }
+
 
         // Check enumeration before integer. enumerations provide the integer
         // interface also, but I want the special enum one

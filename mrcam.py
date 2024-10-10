@@ -348,35 +348,44 @@ class Fl_Image_View_Group(Fl_Group):
 
             for f in features_selected:
 
-                m = re.match(r"(.*?)" +
-                             r"(?:" +
-                               r"\[" +
-                                 r"([^\[]*)" +
-                               r"\]" +
-                               r")?$", f) # should never fail
+                if not f.startswith('R['):
+                    m = re.match(r"(.*?)" +
+                                 r"(?:" +
+                                   r"\[" +
+                                     r"([^\[]*)" +
+                                   r"\]" +
+                                   r")?$", f) # should never fail
 
-                name = m.group(1).strip()
-                flags = m.group(2)
-                if flags and len(flags):
-                    flags = set( [s.strip() for s in flags.split(',')] )
-                else:
-                    flags = set()
+                    name = m.group(1).strip()
+                    flags = m.group(2)
+                    if flags and len(flags):
+                        flags = set( [s.strip() for s in flags.split(',')] )
+                    else:
+                        flags = set()
 
-                if name in feature_set:
-                    yield dict(name  = name,
-                               flags = flags)
-                    continue
-
-                # name not found exactly; try regex
-                matched_any = False
-                for name_exists in feature_set:
-                    if re.search(name, name_exists):
-                        matched_any = True
-                        yield dict(name  = name_exists,
+                    if name in feature_set:
+                        yield dict(name  = name,
                                    flags = flags)
-                if not matched_any:
-                    raise Exception(f"Feature '{name}' doesn't exist or isn't implemented; tried both exact searching and a regex")
+                        continue
 
+                    # name not found exactly; try regex
+                    matched_any = False
+                    for name_exists in feature_set:
+
+                        # might get re.error
+                        if re.search(name, name_exists):
+                            matched_any = True
+                            yield dict(name  = name_exists,
+                                       flags = flags)
+                    if not matched_any:
+                        raise Exception(f"Feature '{name}' doesn't exist or isn't implemented; tried both exact searching and a regex")
+
+                elif re.match(r'^R\[(0x[0-9a-fA-F]+)|[0-9]+\]$', f):
+                    # is "R[....]". Treat it like a direct register access. Like arv-tool does
+                    yield dict(name  = f,
+                               flags = set())
+                else:
+                    raise Exception(f"Feature '{name}' doesn't exist or isn't implemented; it starts with R[ but doesn't have the expected R[ADDRESS] format")
 
         self.features = list(expand_features(features))
         self.feature_dict_from_widget = dict()
