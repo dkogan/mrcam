@@ -186,6 +186,18 @@ class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
         self.handler               = handler
         self.locked_panzoom_groups = locked_panzoom_groups
 
+        # I want keyboard commands to work the same regardless of which widget
+        # is focused. Specifically, I want the arrow keys to always end up in
+        # the time slider. So Fl_Gl_Image_Widget shouldn't handle these
+        # keystrokes; but by default the navigation command logic WILL interpret
+        # those. A discussion describes two ways to handle this:
+        #   https://github.com/fltk/fltk/discussions/1048
+        # One is to prevent the widget from being focused, which will block ALL
+        # keyboard events. The other is to explicitly ignore the specific
+        # keyboard events in a parent class. I do the former here because that's
+        # simpler, and I don't need to process any keyboard events
+        self.visible_focus(0)
+
         return super().__init__(*args, **kwargs)
 
     def handle(self, event):
