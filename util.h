@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-#define MSG(fmt, ...) fprintf(stderr, "%s(%d): " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+#define MSG(fmt, ...) fprintf(stderr, "%s(%d) in %s(): " fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
 // ERR() macro reports the error. In C we just print it out. In Python we set
 // the Python error
