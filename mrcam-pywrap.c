@@ -87,6 +87,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
                         "pixfmt",
                         "acquisition_mode",
                         "trigger",
+                        "time_decimation_factor",
                         "width",
                         "height",
                         "recreate_stream_with_each_frame",
@@ -99,6 +100,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     const char* pixfmt_string           = "MONO_8";
     const char* acquisition_mode_string = "SINGLE_FRAME";
     const char* trigger_string          = "SOFTWARE";
+    int         time_decimation_factor  = 1;
     int width   = 0; // by default, auto-detect the dimensions
     int height  = 0;
     int recreate_stream_with_each_frame = 0;
@@ -109,11 +111,12 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     mrcam_trigger_t          trigger;
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "|z$sssiipp:mrcam.__init__", keywords,
+                                     "|z$sssiiipp:mrcam.__init__", keywords,
                                      &camera_name,
                                      &pixfmt_string,
                                      &acquisition_mode_string,
                                      &trigger_string,
+                                     &time_decimation_factor,
                                      &width, &height,
                                      &recreate_stream_with_each_frame,
                                      &verbose))
@@ -187,6 +190,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
             .pixfmt                          = pixfmt,
             .acquisition_mode                = acquisition_mode,
             .trigger                         = trigger,
+            .time_decimation_factor          = time_decimation_factor,
             .width                           = width,
             .height                          = height,
             .recreate_stream_with_each_frame = recreate_stream_with_each_frame,

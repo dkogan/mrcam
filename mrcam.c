@@ -903,8 +903,12 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
             // On error image is {0}, which indicates an error. We invoke the
             // callback regardless. I want to make sure that the caller can be
             // sure to expect ONE callback with each request
-            if(ctx->time_decimation_factor <= 1 ||
-               ++ctx->time_decimation_index == ctx->time_decimation_factor)
+            if(ctx->time_decimation_factor <= 1)
+            {
+                ctx->active_callback(image, timestamp_us, ctx->active_callback_cookie);
+                ctx->active_callback = NULL;
+            }
+            else if(++ctx->time_decimation_index == ctx->time_decimation_factor)
             {
                 MSG("decimated callback");
                 ctx->active_callback(image, timestamp_us, ctx->active_callback_cookie);
@@ -914,9 +918,10 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
             }
             else
             {
+                mrcam_callback_image_uint8_t* callback = ctx->active_callback;
                 ctx->active_callback = NULL;
                 request(ctx,
-                        ctx->active_callback,
+                        callback,
                         ctx->active_callback_cookie);
             }
         }

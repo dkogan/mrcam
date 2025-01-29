@@ -76,6 +76,13 @@ def _add_common_cmd_options(parser,
                         default = "SOFTWARE",
                         help='''The trigger mode. If omitted, we use "SOFTWARE". Pass any invalid mode (like
                         "") to get a list of valid values on stderr.''')
+    parser.add_argument('--time-decimation-factor',
+                        # should match the LIST_OPTIONS macro in mrcam-test.c
+                        # and camera_init() in mrcam-pywrap.c
+                        type    = int,
+                        default = 1,
+                        help='''The decimation factor. Report only every Nth
+                        frame. By default this is 1: report every frame''')
 
     if single_camera:
         parser.add_argument('camera',
