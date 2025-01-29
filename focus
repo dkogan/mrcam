@@ -212,9 +212,9 @@ if args.trigger is not None:
     kwargs['trigger'] = args.trigger
 if args.acquisition_mode is not None:
     kwargs['acquisition_mode'] = args.acquisition_mode
+kwargs['recreate_stream_with_each_frame'] = args.recreate_stream_with_each_frame
 c = mrcam.camera(args.camera,
                  verbose = args.verbose,
-                 recreate_stream_with_each_frame = args.recreate_stream_with_each_frame,
                  **kwargs)
 
 

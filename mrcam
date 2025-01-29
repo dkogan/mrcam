@@ -428,6 +428,7 @@ if args.trigger is not None:
     kwargs['trigger'] = args.trigger
 if args.acquisition_mode is not None:
     kwargs['acquisition_mode'] = args.acquisition_mode
+kwargs['recreate_stream_with_each_frame'] = args.recreate_stream_with_each_frame
 
 Ncameras = len(args.camera)
 cameras           = [None] * Ncameras
@@ -444,7 +445,6 @@ if args.replay is None:
         cameras[i] = \
             mrcam.camera(camera,
                          verbose = args.verbose,
-                         recreate_stream_with_each_frame = args.recreate_stream_with_each_frame,
                          **kwargs)
 
         if kwargs['trigger'] == 'TTYS0':
