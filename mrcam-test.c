@@ -255,6 +255,7 @@ int main(int argc, char **argv)
                 .trigger                         = options.trigger,
                 .acquisition_mode                = options.acquisition_mode,
                 .recreate_stream_with_each_frame = options.recreate_stream_with_each_frame,
+                .time_decimation_factor          = options.time_decimation_factor,
                 .verbose                         = options.verbose
             };
         if(!mrcam_init(&ctx[icam],
