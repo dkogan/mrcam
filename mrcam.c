@@ -626,13 +626,12 @@ static
 bool fill_image_uint8(// out
                       mrcal_image_uint8_t* image,
                       // in
+                      ArvBuffer* buffer,
                       mrcam_t* ctx)
 {
     if(ctx->verbose) MSG("%s()", __func__);
 
-    DEFINE_INTERNALS(ctx);
-
-    ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(*buffer);
+    ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(buffer);
 
     if(!is_pixfmt_matching(pixfmt, ctx->pixfmt))
         return false;
@@ -643,20 +642,19 @@ bool fill_image_uint8(// out
         return false;
     }
 
-    return fill_image_unpacked((mrcal_image_uint8_t*)image, *buffer, sizeof(uint8_t));
+    return fill_image_unpacked((mrcal_image_uint8_t*)image, buffer, sizeof(uint8_t));
 }
 
 static
 bool fill_image_uint16(// out
                        mrcal_image_uint16_t* image,
                        // in
+                       ArvBuffer* buffer,
                        mrcam_t* ctx)
 {
     if(ctx->verbose) MSG("%s()", __func__);
 
-    DEFINE_INTERNALS(ctx);
-
-    ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(*buffer);
+    ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(buffer);
 
     if(!is_pixfmt_matching(pixfmt, ctx->pixfmt))
         return false;
@@ -667,20 +665,19 @@ bool fill_image_uint16(// out
         return false;
     }
 
-    return fill_image_unpacked((mrcal_image_uint8_t*)image, *buffer, sizeof(uint16_t));
+    return fill_image_unpacked((mrcal_image_uint8_t*)image, buffer, sizeof(uint16_t));
 }
 
 static
 bool fill_image_bgr(// out
                     mrcal_image_bgr_t* image,
                     // in
+                    ArvBuffer* buffer,
                     mrcam_t* ctx)
 {
     if(ctx->verbose) MSG("%s()", __func__);
 
-    DEFINE_INTERNALS(ctx);
-
-    ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(*buffer);
+    ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(buffer);
 
     if(!is_pixfmt_matching(pixfmt, ctx->pixfmt))
         return false;
@@ -699,12 +696,12 @@ bool fill_image_bgr(// out
     // I have SOME color format. Today I don't actually support them all, and I
     // put what I have so far
     if(pixfmt == ARV_PIXEL_FORMAT_BGR_8_PACKED)
-        return fill_image_unpacked((mrcal_image_uint8_t*)image, *buffer, sizeof(mrcal_bgr_t));
+        return fill_image_unpacked((mrcal_image_uint8_t*)image, buffer, sizeof(mrcal_bgr_t));
 
     if(ctx->sws_context != NULL)
     {
         if(!fill_image_swscale((mrcal_image_uint8_t*)image,
-                               *buffer, ctx))
+                               buffer, ctx))
             goto done;
 
         result = true;
@@ -886,15 +883,15 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
                 switch(mrcam_output_type(ctx->pixfmt))
                 {
                 case MRCAM_uint8:
-                    if(!fill_image_uint8((mrcal_image_uint8_t*)&image, ctx))
+                    if(!fill_image_uint8((mrcal_image_uint8_t*)&image, buffer, ctx))
                         image = (mrcal_image_uint8_t){}; // indicate error
                     break;
                 case MRCAM_uint16:
-                    if(!fill_image_uint16((mrcal_image_uint16_t*)&image, ctx))
+                    if(!fill_image_uint16((mrcal_image_uint16_t*)&image, buffer, ctx))
                         image = (mrcal_image_uint8_t){}; // indicate error
                     break;
                 case MRCAM_bgr:
-                    if(!fill_image_bgr((mrcal_image_bgr_t*)&image, ctx))
+                    if(!fill_image_bgr((mrcal_image_bgr_t*)&image, buffer, ctx))
                         image = (mrcal_image_uint8_t){}; // indicate error
                     break;
                 default:
@@ -1069,7 +1066,7 @@ bool mrcam_pull_uint8(// out
     if(ctx->verbose) MSG("%s()", __func__);
     if(!pull_common(timestamp_us,timeout_us,ctx)) return false;
     return
-        fill_image_uint8(image, ctx);
+        fill_image_uint8(image, (ArvBuffer*)ctx->buffer, ctx);
 }
 bool mrcam_pull_uint16(// out
                        mrcal_image_uint16_t* image,
@@ -1081,7 +1078,7 @@ bool mrcam_pull_uint16(// out
     if(ctx->verbose) MSG("%s()", __func__);
     if(!pull_common(timestamp_us,timeout_us,ctx)) return false;
     return
-        fill_image_uint16(image, ctx);
+        fill_image_uint16(image, (ArvBuffer*)ctx->buffer, ctx);
 }
 bool mrcam_pull_bgr(// out
                     mrcal_image_bgr_t* image,
@@ -1093,7 +1090,7 @@ bool mrcam_pull_bgr(// out
     if(ctx->verbose) MSG("%s()", __func__);
     if(!pull_common(timestamp_us,timeout_us,ctx)) return false;
     return
-        fill_image_bgr(image, ctx);
+        fill_image_bgr(image, (ArvBuffer*)ctx->buffer, ctx);
 }
 
 
