@@ -510,6 +510,7 @@ static uint64_t gettimeofday_uint64()
 }
 
 // Fill in the image. Assumes that the buffer has valid data
+// On error returns false and sets *image = {}
 static
 bool fill_image_unpacked(// out
                          mrcal_image_uint8_t* image, // type doesn't matter in this function
@@ -542,9 +543,12 @@ bool fill_image_unpacked(// out
     result = true;
 
  done:
+    if(!result)
+        *image = (mrcal_image_uint8_t){}; // indicate error
     return result;
 }
 
+// On error returns false and sets *image = {}
 static
 bool fill_image_swscale(// out
                         mrcal_image_uint8_t* image, // any type
@@ -607,7 +611,8 @@ bool fill_image_swscale(// out
     result = true;
 
  done:
-
+    if(!result)
+        *image = (mrcal_image_uint8_t){}; // indicate error
     return result;
 }
 
@@ -622,98 +627,44 @@ static bool is_pixfmt_matching(ArvPixelFormat pixfmt,
     return false;
 }
 
+// On error returns false and sets *image = {}
 static
-bool fill_image_uint8(// out
-                      mrcal_image_uint8_t* image,
-                      // in
-                      ArvBuffer* buffer,
-                      mrcam_t* ctx)
+bool fill_image(// out
+                mrcal_image_uint8_t* image, // type may not be 100% right; layout is the same
+                // in
+                ArvBuffer* buffer,
+                mrcam_t* ctx)
 {
     if(ctx->verbose) MSG("");
 
     ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(buffer);
-
     if(!is_pixfmt_matching(pixfmt, ctx->pixfmt))
         return false;
 
-    if(mrcam_output_type(ctx->pixfmt) != MRCAM_uint8)
+    if(mrcam_output_type(ctx->pixfmt) == MRCAM_uint8)
+        return fill_image_unpacked(image, buffer, sizeof(uint8_t));
+    if(mrcam_output_type(ctx->pixfmt) == MRCAM_uint16)
+        return fill_image_unpacked(image, buffer, sizeof(uint16_t));
+    if(mrcam_output_type(ctx->pixfmt) == MRCAM_bgr)
     {
-        MSG("unexpected image type");
+        // I have SOME color format. Today I don't actually support them all, and I
+        // put what I have so far
+        if(pixfmt == ARV_PIXEL_FORMAT_BGR_8_PACKED)
+            return fill_image_unpacked(image, buffer, sizeof(mrcal_bgr_t));
+
+        if(ctx->sws_context != NULL)
+            return fill_image_swscale((mrcal_image_uint8_t*)image,
+                                      buffer, ctx);
+
+        MSG("doesn't yet know how to handle pixfmt '%s'",
+            pixfmt__name_from_ArvPixelFormat(pixfmt));
+        *image = (mrcal_image_uint8_t){}; // indicate error
         return false;
     }
 
-    return fill_image_unpacked((mrcal_image_uint8_t*)image, buffer, sizeof(uint8_t));
-}
-
-static
-bool fill_image_uint16(// out
-                       mrcal_image_uint16_t* image,
-                       // in
-                       ArvBuffer* buffer,
-                       mrcam_t* ctx)
-{
-    if(ctx->verbose) MSG("");
-
-    ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(buffer);
-
-    if(!is_pixfmt_matching(pixfmt, ctx->pixfmt))
-        return false;
-
-    if(mrcam_output_type(ctx->pixfmt) != MRCAM_uint16)
-    {
-        MSG("unexpected image type");
-        return false;
-    }
-
-    return fill_image_unpacked((mrcal_image_uint8_t*)image, buffer, sizeof(uint16_t));
-}
-
-static
-bool fill_image_bgr(// out
-                    mrcal_image_bgr_t* image,
-                    // in
-                    ArvBuffer* buffer,
-                    mrcam_t* ctx)
-{
-    if(ctx->verbose) MSG("");
-
-    ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(buffer);
-
-    if(!is_pixfmt_matching(pixfmt, ctx->pixfmt))
-        return false;
-
-    if(mrcam_output_type(ctx->pixfmt) != MRCAM_bgr)
-    {
-        MSG("unexpected image type");
-        return false;
-    }
-
-
-    const size_t sizeof_pixel = 3;
-
-    bool result = false;
-
-    // I have SOME color format. Today I don't actually support them all, and I
-    // put what I have so far
-    if(pixfmt == ARV_PIXEL_FORMAT_BGR_8_PACKED)
-        return fill_image_unpacked((mrcal_image_uint8_t*)image, buffer, sizeof(mrcal_bgr_t));
-
-    if(ctx->sws_context != NULL)
-    {
-        if(!fill_image_swscale((mrcal_image_uint8_t*)image,
-                               buffer, ctx))
-            goto done;
-
-        result = true;
-        goto done;
-    }
-
-    MSG("doesn't yet know how to handle pixfmt '%s'",
-        pixfmt__name_from_ArvPixelFormat(pixfmt));
-    goto done;
-
- done:
-    return result;
+    MSG("Unknown pixfmt. This is a bug");
+    *image = (mrcal_image_uint8_t){}; // indicate error
+    return false;
 }
 
 // meant to be called after request()
@@ -874,28 +825,12 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
                 MSG("ARV_STREAM_CALLBACK_TYPE_BUFFER_DONE");
 
             // type may not be right; it doesn't matter
-            mrcal_image_uint8_t image = (mrcal_image_uint8_t){};
+            mrcal_image_uint8_t image;
             uint64_t timestamp_us = 0;
             if( receive_image(&timestamp_us,
                               0, ctx) )
             {
-                switch(mrcam_output_type(ctx->pixfmt))
-                {
-                case MRCAM_uint8:
-                    if(!fill_image_uint8((mrcal_image_uint8_t*)&image, buffer, ctx))
-                        image = (mrcal_image_uint8_t){}; // indicate error
-                    break;
-                case MRCAM_uint16:
-                    if(!fill_image_uint16((mrcal_image_uint16_t*)&image, buffer, ctx))
-                        image = (mrcal_image_uint8_t){}; // indicate error
-                    break;
-                case MRCAM_bgr:
-                    if(!fill_image_bgr((mrcal_image_bgr_t*)&image, buffer, ctx))
-                        image = (mrcal_image_uint8_t){}; // indicate error
-                    break;
-                default:
-                    MSG("Unknown pixfmt. This is a bug");
-                }
+                fill_image(&image, buffer, ctx); // on error, image={}
             }
             // On error image is {0}, which indicates an error. We invoke the
             // callback regardless. I want to make sure that the caller can be
@@ -1064,28 +999,38 @@ static bool pull_common(// out
             return false;
     return true;
 }
-#define DEFINE_mrcal_pull_TYPE(TYPE)                                    \
-/* timeout_us=0 means "wait forever" */                                 \
-    bool mrcam_pull_ ## TYPE(/* out */                                  \
-                      mrcal_image_ ## TYPE ## _t* image,                \
-                      uint64_t* timestamp_us,                           \
-                      /* in */                                          \
-                      const uint64_t timeout_us,                        \
-                      mrcam_t* ctx)                                     \
-{                                                                       \
-    if(ctx->verbose) MSG("%s()", __func__);                             \
-    if(!pull_common(timestamp_us,timeout_us,ctx)) return false;         \
-    return                                                              \
-        fill_image_ ## TYPE(image, (ArvBuffer*)ctx->buffer, ctx);       \
+
+/* timeout_us=0 means "wait forever" */
+bool mrcam_pull_uint8(/* out */
+                      mrcal_image_uint8_t* image,
+                      uint64_t* timestamp_us,
+                      /* in */
+                      const uint64_t timeout_us,
+                      mrcam_t* ctx)
+{
+    if(ctx->verbose) MSG("%s()", __func__);
+    return
+        pull_common(timestamp_us,timeout_us,ctx) &&
+        fill_image(image, (ArvBuffer*)ctx->buffer, ctx);
 }
-
-DEFINE_mrcal_pull_TYPE(uint8)
-DEFINE_mrcal_pull_TYPE(uint16)
-DEFINE_mrcal_pull_TYPE(bgr)
-
-
-
-
+bool mrcam_pull_uint16(/* out */
+                      mrcal_image_uint16_t* image,
+                      uint64_t* timestamp_us,
+                      /* in */
+                      const uint64_t timeout_us,
+                      mrcam_t* ctx)
+{
+    return mrcam_pull_uint8((mrcal_image_uint8_t*)image, timestamp_us, timeout_us, ctx);
+}
+bool mrcam_pull_bgr(/* out */
+                      mrcal_image_bgr_t* image,
+                      uint64_t* timestamp_us,
+                      /* in */
+                      const uint64_t timeout_us,
+                      mrcam_t* ctx)
+{
+    return mrcam_pull_uint8((mrcal_image_uint8_t*)image, timestamp_us, timeout_us, ctx);
+}
 
 bool mrcam_request_uint8( // in
                           mrcam_callback_image_uint8_t* cb,
