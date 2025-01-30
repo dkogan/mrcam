@@ -827,25 +827,27 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
             // type may not be right; it doesn't matter
             mrcal_image_uint8_t image;
             uint64_t timestamp_us = 0;
-            if( receive_image(&timestamp_us,
-                              0, ctx) )
+
+            const bool on_decimation =
+                (ctx->time_decimation_factor <= 1) ||
+                (++ctx->time_decimation_index == ctx->time_decimation_factor);
+
+            const bool result =
+                receive_image(&timestamp_us,
+                              0, ctx);
+            if(result && on_decimation)
             {
                 fill_image(&image, buffer, ctx); // on error, image={}
             }
+
             // On error image is {0}, which indicates an error. We invoke the
             // callback regardless. I want to make sure that the caller can be
             // sure to expect ONE callback with each request
-            if(ctx->time_decimation_factor <= 1)
-            {
-                ctx->active_callback(image, timestamp_us, ctx->active_callback_cookie);
-                ctx->active_callback = NULL;
-            }
-            else if(++ctx->time_decimation_index == ctx->time_decimation_factor)
+            if(on_decimation)
             {
                 MSG("decimated callback");
                 ctx->active_callback(image, timestamp_us, ctx->active_callback_cookie);
                 ctx->active_callback = NULL;
-
                 ctx->time_decimation_index = 0;
             }
             else
