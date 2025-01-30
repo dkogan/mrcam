@@ -912,7 +912,7 @@ bool request(mrcam_t* ctx,
         arv_stream_get_n_buffers (*stream,
                                   &n_input_buffers,
                                   &n_output_buffers);
-        MSG("n_input_buffers=%d n_output_buffers=%d",
+        MSG("n_input_buffers,n_output_buffers = %d,%d",
             n_input_buffers,n_output_buffers);
     }
 
