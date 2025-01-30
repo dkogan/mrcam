@@ -760,6 +760,38 @@ features(camera* self, PyObject* args, PyObject* kwargs)
 }
 
 
+static PyObject*
+stream_stats(camera* self, PyObject* args, PyObject* kwargs)
+{
+    // error by default
+    PyObject* result = NULL;
+    gint      n_input_buffers;
+    gint      n_output_buffers;
+
+    if(self->ctx.stream == NULL)
+    {
+        BARF("The stream is NULL. Is the camera initialized?");
+        goto done;
+    }
+
+    arv_stream_get_n_buffers ((ArvStream*)self->ctx.stream,
+                              &n_input_buffers,
+                              &n_output_buffers);
+
+    result = Py_BuildValue("{sisi}",
+                           "n_input_buffers",  n_input_buffers,
+                           "n_output_buffers", n_output_buffers);
+    if(result == NULL)
+    {
+        BARF("Couldn't build %s() result", __func__);
+        goto done;
+    }
+
+ done:
+    return result;
+}
+
+
 // The feature must be of any of the types in what[]. The list is ended with a
 // NULL. what_all_string is for error reporting
 static bool feature_Check(PyObject* feature,
@@ -1328,6 +1360,9 @@ static const char feature_value_docstring[] =
 static const char features_docstring[] =
 #include "features.docstring.h"
     ;
+static const char stream_stats_docstring[] =
+#include "stream_stats.docstring.h"
+    ;
 
 
 static PyMethodDef camera_methods[] =
@@ -1339,6 +1374,8 @@ static PyMethodDef camera_methods[] =
         PYMETHODDEF_ENTRY(, feature_descriptor, METH_VARARGS | METH_KEYWORDS),
         PYMETHODDEF_ENTRY(, feature_value,      METH_VARARGS | METH_KEYWORDS),
         PYMETHODDEF_ENTRY(, features,           METH_VARARGS | METH_KEYWORDS),
+
+        PYMETHODDEF_ENTRY(, stream_stats,       METH_VARARGS | METH_KEYWORDS),
         {}
     };
 
