@@ -1055,43 +1055,27 @@ static bool pull_common(// out
             return false;
     return true;
 }
-// timeout_us=0 means "wait forever"
-bool mrcam_pull_uint8(// out
-                      mrcal_image_uint8_t* image,
-                      uint64_t* timestamp_us,
-                      // in
-                      const uint64_t timeout_us,
-                      mrcam_t* ctx)
-{
-    if(ctx->verbose) MSG("%s()", __func__);
-    if(!pull_common(timestamp_us,timeout_us,ctx)) return false;
-    return
-        fill_image_uint8(image, (ArvBuffer*)ctx->buffer, ctx);
+#define DEFINE_mrcal_pull_TYPE(TYPE)                                    \
+/* timeout_us=0 means "wait forever" */                                 \
+    bool mrcam_pull_ ## TYPE(/* out */                                  \
+                      mrcal_image_ ## TYPE ## _t* image,                \
+                      uint64_t* timestamp_us,                           \
+                      /* in */                                          \
+                      const uint64_t timeout_us,                        \
+                      mrcam_t* ctx)                                     \
+{                                                                       \
+    if(ctx->verbose) MSG("%s()", __func__);                             \
+    if(!pull_common(timestamp_us,timeout_us,ctx)) return false;         \
+    return                                                              \
+        fill_image_ ## TYPE(image, (ArvBuffer*)ctx->buffer, ctx);       \
 }
-bool mrcam_pull_uint16(// out
-                       mrcal_image_uint16_t* image,
-                       uint64_t* timestamp_us,
-                       // in
-                       const uint64_t timeout_us,
-                       mrcam_t* ctx)
-{
-    if(ctx->verbose) MSG("%s()", __func__);
-    if(!pull_common(timestamp_us,timeout_us,ctx)) return false;
-    return
-        fill_image_uint16(image, (ArvBuffer*)ctx->buffer, ctx);
-}
-bool mrcam_pull_bgr(// out
-                    mrcal_image_bgr_t* image,
-                    uint64_t* timestamp_us,
-                    // in
-                    const uint64_t timeout_us,
-                    mrcam_t* ctx)
-{
-    if(ctx->verbose) MSG("%s()", __func__);
-    if(!pull_common(timestamp_us,timeout_us,ctx)) return false;
-    return
-        fill_image_bgr(image, (ArvBuffer*)ctx->buffer, ctx);
-}
+
+DEFINE_mrcal_pull_TYPE(uint8)
+DEFINE_mrcal_pull_TYPE(uint16)
+DEFINE_mrcal_pull_TYPE(bgr)
+
+
+
 
 
 bool mrcam_request_uint8( // in
