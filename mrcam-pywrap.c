@@ -471,6 +471,25 @@ callback_generic(mrcal_image_uint8_t mrcal_image, // type might not be exact
     }
 }
 
+#warning "finish off-decimation stuff"
+#if 0
+static
+void
+callback_off_decimation_generic(void* cookie)
+{
+    camera* self = (camera*)cookie;
+
+    image_ready_t s = {.mrcal_image  = mrcal_image,
+                       .timestamp_us = timestamp_us};
+
+    if(sizeof(s) != write_persistent(self->fd_write, (uint8_t*)&s, sizeof(s)))
+    {
+        MSG("Couldn't write image metadata to pipe!");
+        return;
+    }
+}
+#endif
+
 static PyObject*
 request(camera* self, PyObject* args)
 {
@@ -482,8 +501,10 @@ request(camera* self, PyObject* args)
 
     switch(mrcam_output_type(self->ctx.pixfmt))
     {
+#warning "off-decimation callback in python"
     case MRCAM_uint8:
         if(!mrcam_request_uint8( (mrcam_callback_image_uint8_t* )&callback_generic,
+                                 NULL, //callback_off_decimation_generic,
                                  self,
                                  &self->ctx))
         {
@@ -494,6 +515,7 @@ request(camera* self, PyObject* args)
 
     case MRCAM_uint16:
         if(!mrcam_request_uint16((mrcam_callback_image_uint16_t*)&callback_generic,
+                                 NULL, //callback_off_decimation_generic,
                                  self,
                                  &self->ctx))
         {
@@ -504,6 +526,7 @@ request(camera* self, PyObject* args)
 
     case MRCAM_bgr:
         if(!mrcam_request_bgr(   (mrcam_callback_image_bgr_t*   )&callback_generic,
+                                 NULL, //callback_off_decimation_generic,
                                  self,
                                  &self->ctx))
         {

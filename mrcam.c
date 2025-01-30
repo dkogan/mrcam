@@ -184,10 +184,11 @@ static bool open_serial_device(mrcam_t* ctx)
 
 static void
 callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer);
-static bool
-request(mrcam_t* ctx,
-        mrcam_callback_image_uint8_t* callback,
-        void* cookie);
+static
+bool request(mrcam_t* ctx,
+             mrcam_callback_image_uint8_t* callback,
+             mrcam_callback_t*             callback_off_decimation,
+             void* cookie);
 
 static void report_available_pixel_formats(ArvCamera* camera,
                                            mrcam_t* ctx)
@@ -918,11 +919,17 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
             }
             else
             {
+                MSG("off-decimation callback");
                 mrcam_callback_image_uint8_t* callback = ctx->active_callback;
                 ctx->active_callback = NULL;
                 request(ctx,
                         callback,
+                        ctx->active_callback_off_decimation,
                         ctx->active_callback_cookie);
+
+                // external triggering or whatever else
+                if(ctx->active_callback_off_decimation != NULL)
+                    ctx->active_callback_off_decimation(ctx->active_callback_cookie);
             }
         }
 
@@ -937,6 +944,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
 static
 bool request(mrcam_t* ctx,
              mrcam_callback_image_uint8_t* callback,
+             mrcam_callback_t*             callback_off_decimation,
              void* cookie)
 {
     if(ctx->verbose) MSG("%s()", __func__);
@@ -956,8 +964,9 @@ bool request(mrcam_t* ctx,
         if(!init_stream(ctx))
             goto done;
 
-    ctx->active_callback        = callback;
-    ctx->active_callback_cookie = cookie;
+    ctx->active_callback                = callback;
+    ctx->active_callback_off_decimation = callback_off_decimation;
+    ctx->active_callback_cookie         = cookie;
 
     if(ctx->verbose)
         MSG("arv_stream_push_buffer()");
@@ -1039,8 +1048,9 @@ static bool pull_common(// out
     int N = ctx->time_decimation_factor;
     if(N < 1) N = 1;
 
+#warning "make pull work. needs off-decimation callback"
     for(; N > 0; N--)
-        if(! (request(ctx, NULL, NULL) &&
+        if(! (request(ctx, NULL, NULL, NULL) &&
               // may block
               receive_image(timestamp_us,
                             timeout_us, ctx)) )
@@ -1088,35 +1098,38 @@ bool mrcam_pull_bgr(// out
 
 bool mrcam_request_uint8( // in
                           mrcam_callback_image_uint8_t* cb,
+                          mrcam_callback_t*             cb_off_decimation,
                           void* cookie,
                           mrcam_t* ctx)
 {
     if(ctx->verbose) MSG("%s()", __func__);
 
     return
-        request(ctx, (mrcam_callback_image_uint8_t*)cb, cookie);
+        request(ctx, (mrcam_callback_image_uint8_t*)cb, cb_off_decimation, cookie);
 }
 
 bool mrcam_request_uint16(// in
                           mrcam_callback_image_uint16_t* cb,
+                          mrcam_callback_t*              cb_off_decimation,
                           void* cookie,
                           mrcam_t* ctx)
 {
     if(ctx->verbose) MSG("%s()", __func__);
 
     return
-        request(ctx, (mrcam_callback_image_uint8_t*)cb, cookie);
+        request(ctx, (mrcam_callback_image_uint8_t*)cb, cb_off_decimation, cookie);
 }
 
 bool mrcam_request_bgr(   // in
                           mrcam_callback_image_bgr_t* cb,
+                          mrcam_callback_t*           cb_off_decimation,
                           void* cookie,
                           mrcam_t* ctx)
 {
     if(ctx->verbose) MSG("%s()", __func__);
 
     return
-        request(ctx, (mrcam_callback_image_uint8_t*)cb, cookie);
+        request(ctx, (mrcam_callback_image_uint8_t*)cb, cb_off_decimation, cookie);
 }
 bool mrcam_cancel_request(mrcam_t* ctx)
 {

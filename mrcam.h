@@ -122,6 +122,7 @@ typedef void (mrcam_callback_image_uint16_t)(mrcal_image_uint16_t image,
 typedef void (mrcam_callback_image_bgr_t)(   mrcal_image_bgr_t image,
                                              uint64_t timestamp_us,
                                              void* cookie);
+typedef void (mrcam_callback_t )(void* cookie);
 
 
 
@@ -149,6 +150,11 @@ typedef struct
     // current active callback. Type may not be 100% right (may be uint8 or
     // uint16, or bgr, ...), but the data layout is the same
     mrcam_callback_image_uint8_t* active_callback;
+    // Callback used if time_decimation_factor > 1. Called after each frame
+    // capture that was NOT aligned with the decimation cycle. Can be NULL.
+    // Useful for things like external triggering, which must happen with EVERY
+    // captured frame, not just the decimated ones
+    mrcam_callback_t*             active_callback_off_decimation;
     void*                         active_callback_cookie;
                                                 \
     // used if MRCAM_TRIGGER_HARDWARE_TTYS0
@@ -276,14 +282,17 @@ bool mrcam_pull_bgr(   // out
 // Requesting an image before the previous one was processed is an error
 bool mrcam_request_uint8( // in
                           mrcam_callback_image_uint8_t* cb,
+                          mrcam_callback_t*             cb_off_decimation,
                           void* cookie,
                           mrcam_t* ctx);
 bool mrcam_request_uint16(// in
                           mrcam_callback_image_uint16_t* cb,
+                          mrcam_callback_t*              cb_off_decimation,
                           void* cookie,
                           mrcam_t* ctx);
 bool mrcam_request_bgr(   // in
                           mrcam_callback_image_bgr_t* cb,
+                          mrcam_callback_t*           cb_off_decimation,
                           void* cookie,
                           mrcam_t* ctx);
 bool mrcam_cancel_request(mrcam_t* ctx);
