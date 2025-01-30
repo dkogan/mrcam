@@ -973,14 +973,15 @@ bool request(mrcam_t* ctx,
     arv_stream_push_buffer(*stream, *buffer);
 
 
-    if(ctx->acquisition_mode != MRCAM_ACQUISITION_MODE_CONTINUOUS ||
-       !ctx->acquiring_continuous)
+    if(ctx->acquisition_mode == MRCAM_ACQUISITION_MODE_CONTINUOUS)
     {
-        try_arv( arv_camera_start_acquisition(*camera, &error));
-        ctx->acquiring = true;
-        if(ctx->acquisition_mode == MRCAM_ACQUISITION_MODE_CONTINUOUS)
-            ctx->acquiring_continuous = true;
+        if(!ctx->acquiring_continuous)
+            try_arv( arv_camera_start_acquisition(*camera, &error));
+        ctx->acquiring_continuous = true;
     }
+    else
+        try_arv( arv_camera_start_acquisition(*camera, &error));
+    ctx->acquiring = true;
 
     if(ctx->trigger == MRCAM_TRIGGER_SOFTWARE)
     {
