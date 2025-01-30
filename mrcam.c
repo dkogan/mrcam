@@ -693,11 +693,18 @@ bool fill_image(// out
 
 // meant to be called after request()
 // *buffer_popped may contain the just-popped buffer even if this function
-// *failed, and returned false
+// failed, and returned false
+// *buffer_popped may return NULL if no buffer was popped
 static
 bool receive_image(// out
                    uint64_t* timestamp_us,
                    ArvBuffer** buffer_popped,
+
+                   // fill this image with the data, on success. On failure set to {}
+                   // May be NULL
+                   // specific image type may not be right; it doesn't matter
+                   mrcal_image_uint8_t* image,
+
                    // in
                    const uint64_t timeout_us,
                    mrcam_t* ctx)
@@ -800,6 +807,14 @@ bool receive_image(// out
 
  done:
 
+    if(image != NULL)
+    {
+        if(result)
+            result = fill_image(image, *buffer_popped, ctx);
+
+        if(!result)
+            *image = (mrcal_image_uint8_t){}; // error
+    }
     // I want to make sure that arv_camera_stop_acquisition() was called by this
     // function. That happened on top. If it failed, there isn't anything I can
     // do about it.
@@ -857,8 +872,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
             if(ctx->verbose)
                 MSG("ARV_STREAM_CALLBACK_TYPE_BUFFER_DONE");
 
-            // type may not be right; it doesn't matter
-            mrcal_image_uint8_t image;
+            mrcal_image_uint8_t image; // specific image type may not be right; it doesn't matter
             uint64_t timestamp_us = 0;
 
             const bool on_decimation =
@@ -866,13 +880,9 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
                 (++ctx->time_decimation_index == ctx->time_decimation_factor);
 
             ArvBuffer* buffer_popped;
-            const bool result =
-                receive_image(&timestamp_us, &buffer_popped,
-                              0, ctx);
-            if(result && on_decimation)
-            {
-                fill_image(&image, buffer_popped, ctx); // on error, image={}
-            }
+            receive_image(&timestamp_us, &buffer_popped,
+                          on_decimation ? &image : NULL,
+                          0, ctx);
             push_popped_buffer(&buffer_popped, ctx);
 
             // On error image is {0}, which indicates an error. We invoke the
@@ -1030,29 +1040,32 @@ bool mrcam_pull_uint8(/* out */
 #warning "make pull work. needs off-decimation callback"
 
     ArvBuffer* buffer_popped = NULL;
-    for(; N > 0; N--)
+
+    // N-1 cycles. These are ignored due to decimation
+    for(; N > 1; N--)
     {
         if(! (request(ctx, NULL, NULL, NULL) &&
               // may block
               receive_image(timestamp_us,
                             &buffer_popped,
+                            NULL,
                             timeout_us, ctx)) )
         {
-            if(buffer_popped != NULL)
-                push_popped_buffer(&buffer_popped, ctx);
+            push_popped_buffer(&buffer_popped, ctx);
             return false;
         }
-
-        if(N>0)
-        {
-            // Not the last iteration; we're about to keep going, so I push the
-            // buffer back to reuse it
-            push_popped_buffer(&buffer_popped, ctx);
-        }
+        push_popped_buffer(&buffer_popped, ctx);
     }
 
-    bool result = fill_image(image, buffer_popped, ctx);
-    push_popped_buffer(&buffer_popped,ctx);
+    // And now the last cycle. Keep this one
+    bool result =
+        request(ctx, NULL, NULL, NULL) &&
+        // may block
+        receive_image(timestamp_us,
+                      &buffer_popped,
+                      image,
+                      timeout_us, ctx);
+    push_popped_buffer(&buffer_popped, ctx);
     return result;
 }
 bool mrcam_pull_uint16(/* out */
