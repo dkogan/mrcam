@@ -130,7 +130,7 @@ typedef struct
 {
     // arv stuff; void to not require including arv.h
     void* camera;
-    void* buffer;
+    void* buffers[5];
     void* stream;
 
     // Details about the requested pixel format, that I'm using to talk to the

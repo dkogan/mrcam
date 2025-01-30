@@ -18,10 +18,10 @@
 
 
 #define DEFINE_INTERNALS(ctx)                                           \
-    ArvCamera** camera __attribute__((unused)) = (ArvCamera**)(&(ctx)->camera); \
-    ArvBuffer** buffer __attribute__((unused)) = (ArvBuffer**)(&(ctx)->buffer); \
-    ArvStream** stream __attribute__((unused)) = (ArvStream**)(&(ctx)->stream)
-
+    ArvCamera** camera  __attribute__((unused)) = (ArvCamera**)(&(ctx)->camera); \
+    ArvStream** stream  __attribute__((unused)) = (ArvStream**)(&(ctx)->stream); \
+    ArvBuffer** buffers __attribute__((unused)) = (ArvBuffer**)((ctx)->buffers); \
+    const int Nbuffers = sizeof((ctx)->buffers)/sizeof((ctx)->buffers[0])
 
 
 
@@ -208,6 +208,19 @@ static void report_available_pixel_formats(ArvCamera* camera,
     g_free(available_pixel_formats);
 }
 
+static void
+push_popped_buffer(ArvBuffer** buffer,
+                   const mrcam_t* ctx)
+{
+    if(*buffer != NULL)
+    {
+        if(ctx->verbose)
+            MSG("arv_stream_push_buffer(the buffer just popped: %p)", *buffer);
+        arv_stream_push_buffer((ArvStream*)(ctx->stream), *buffer);
+        *buffer = NULL;
+    }
+}
+
 static bool
 init_stream(mrcam_t* ctx)
 {
@@ -292,6 +305,15 @@ init_stream(mrcam_t* ctx)
 
     result = true;
 
+    if(ctx->verbose)
+        MSG("arv_stream_push_buffer() ALL %d buffers:", Nbuffers);
+    for(int i=0; i<Nbuffers; i++)
+    {
+        arv_stream_push_buffer(*stream, buffers[i]);
+        if(ctx->verbose)
+            MSG("  %p", buffers[i]);
+    }
+
  done:
     if(!result)
         g_clear_object(stream);
@@ -372,7 +394,8 @@ bool mrcam_init(// out
 
     gint payload_size;
     try_arv(payload_size = arv_camera_get_payload(*camera, &error));
-    try(*buffer = arv_buffer_new(payload_size, NULL));
+    for(int i=0; i<Nbuffers; i++)
+        try(buffers[i] = arv_buffer_new(payload_size, NULL));
 
     enum AVPixelFormat av_pixfmt_input, av_pixfmt_output;
     try(pixfmt__av_pixfmt(&av_pixfmt_input, &av_pixfmt_output,
@@ -476,7 +499,8 @@ void mrcam_free(mrcam_t* ctx)
     DEFINE_INTERNALS(ctx);
 
     g_clear_object(stream);
-    g_clear_object(buffer);
+    for(int i=0; i<Nbuffers; i++)
+        g_clear_object(&buffers[i]);
     g_clear_object(camera);
 
     if(ctx->sws_context)
@@ -668,9 +692,12 @@ bool fill_image(// out
 }
 
 // meant to be called after request()
+// *buffer_popped may contain the just-popped buffer even if this function
+// *failed, and returned false
 static
 bool receive_image(// out
                    uint64_t* timestamp_us,
+                   ArvBuffer** buffer_popped,
                    // in
                    const uint64_t timeout_us,
                    mrcam_t* ctx)
@@ -680,7 +707,8 @@ bool receive_image(// out
     DEFINE_INTERNALS(ctx);
     bool        result      = false;
     GError*     error       = NULL;
-    ArvBuffer*  buffer_here = NULL;
+
+    *buffer_popped = NULL;
 
     if(!ctx->acquiring)
     {
@@ -688,16 +716,23 @@ bool receive_image(// out
         goto done;
     }
 
-    if(ctx->verbose)
     {
-        if (timeout_us > 0) MSG("Evaluating   arv_stream_timeout_pop_buffer(timeout_us = %"PRIu64")", timeout_us);
-        else                MSG("Evaluating   arv_stream_pop_buffer()");
-    }
-
     // May block. If we don't want to block, it's our job to make sure to have
     // called receive_image() when an output image has already been buffered
-    if (timeout_us > 0) buffer_here = arv_stream_timeout_pop_buffer(*stream, timeout_us);
-    else                buffer_here = arv_stream_pop_buffer        (*stream);
+    if (timeout_us > 0)
+    {
+        if(ctx->verbose)
+            MSG("Calling   arv_stream_timeout_pop_buffer(timeout_us = %"PRIu64") ...", timeout_us);
+        *buffer_popped = arv_stream_timeout_pop_buffer(*stream, timeout_us);
+    }
+    else
+    {
+        if(ctx->verbose)
+            MSG("Calling   arv_stream_pop_buffer() ...");
+        *buffer_popped = arv_stream_pop_buffer(*stream);
+    }
+    if(ctx->verbose)
+        MSG("... received buffer %p", *buffer_popped);
 
     // This MUST have been done by this function, regardless of things failing
     if(ctx->acquisition_mode != MRCAM_ACQUISITION_MODE_CONTINUOUS)
@@ -709,10 +744,8 @@ bool receive_image(// out
         ctx->acquiring = false;
     }
 
-    try(buffer_here == *buffer);
-    try(ARV_IS_BUFFER(*buffer));
+    ArvBufferStatus status = arv_buffer_get_status(*buffer_popped);
 
-    ArvBufferStatus status = arv_buffer_get_status(*buffer);
     // All the statuses from arvbuffer.h, as of aravis 0.8.29
 #define LIST_STATUS(_)                          \
   _(ARV_BUFFER_STATUS_UNKNOWN)                  \
@@ -736,7 +769,7 @@ bool receive_image(// out
 #undef CHECK
 
 
-    ArvBufferPayloadType payload_type = arv_buffer_get_payload_type(*buffer);
+    ArvBufferPayloadType payload_type = arv_buffer_get_payload_type(*buffer_popped);
     // All the payload_types from arvbuffer.h, as of aravis 0.8.30
 #define LIST_PAYLOAD_TYPE(_)                            \
   _(ARV_BUFFER_PAYLOAD_TYPE_UNKNOWN)                    \
@@ -832,13 +865,15 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
                 (ctx->time_decimation_factor <= 1) ||
                 (++ctx->time_decimation_index == ctx->time_decimation_factor);
 
+            ArvBuffer* buffer_popped;
             const bool result =
-                receive_image(&timestamp_us,
+                receive_image(&timestamp_us, &buffer_popped,
                               0, ctx);
             if(result && on_decimation)
             {
-                fill_image(&image, buffer, ctx); // on error, image={}
+                fill_image(&image, buffer_popped, ctx); // on error, image={}
             }
+            push_popped_buffer(&buffer_popped, ctx);
 
             // On error image is {0}, which indicates an error. We invoke the
             // callback regardless. I want to make sure that the caller can be
@@ -900,10 +935,6 @@ bool request(mrcam_t* ctx,
     ctx->active_callback                = callback;
     ctx->active_callback_off_decimation = callback_off_decimation;
     ctx->active_callback_cookie         = cookie;
-
-    if(ctx->verbose)
-        MSG("arv_stream_push_buffer()");
-    arv_stream_push_buffer(*stream, *buffer);
 
     if(ctx->verbose)
     {
@@ -997,16 +1028,32 @@ bool mrcam_pull_uint8(/* out */
     if(N < 1) N = 1;
 
 #warning "make pull work. needs off-decimation callback"
+
+    ArvBuffer* buffer_popped = NULL;
     for(; N > 0; N--)
     {
         if(! (request(ctx, NULL, NULL, NULL) &&
               // may block
               receive_image(timestamp_us,
+                            &buffer_popped,
                             timeout_us, ctx)) )
+        {
+            if(buffer_popped != NULL)
+                push_popped_buffer(&buffer_popped, ctx);
             return false;
+        }
+
+        if(N>0)
+        {
+            // Not the last iteration; we're about to keep going, so I push the
+            // buffer back to reuse it
+            push_popped_buffer(&buffer_popped, ctx);
+        }
     }
 
-    return fill_image(image, ctx);
+    bool result = fill_image(image, buffer_popped, ctx);
+    push_popped_buffer(&buffer_popped,ctx);
+    return result;
 }
 bool mrcam_pull_uint16(/* out */
                       mrcal_image_uint16_t* image,
