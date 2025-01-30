@@ -629,7 +629,7 @@ bool fill_image_uint8(// out
                       ArvBuffer* buffer,
                       mrcam_t* ctx)
 {
-    if(ctx->verbose) MSG("%s()", __func__);
+    if(ctx->verbose) MSG("");
 
     ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(buffer);
 
@@ -638,7 +638,7 @@ bool fill_image_uint8(// out
 
     if(mrcam_output_type(ctx->pixfmt) != MRCAM_uint8)
     {
-        MSG("%s() unexpected image type", __func__);
+        MSG("unexpected image type");
         return false;
     }
 
@@ -652,7 +652,7 @@ bool fill_image_uint16(// out
                        ArvBuffer* buffer,
                        mrcam_t* ctx)
 {
-    if(ctx->verbose) MSG("%s()", __func__);
+    if(ctx->verbose) MSG("");
 
     ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(buffer);
 
@@ -661,7 +661,7 @@ bool fill_image_uint16(// out
 
     if(mrcam_output_type(ctx->pixfmt) != MRCAM_uint16)
     {
-        MSG("%s() unexpected image type", __func__);
+        MSG("unexpected image type");
         return false;
     }
 
@@ -675,7 +675,7 @@ bool fill_image_bgr(// out
                     ArvBuffer* buffer,
                     mrcam_t* ctx)
 {
-    if(ctx->verbose) MSG("%s()", __func__);
+    if(ctx->verbose) MSG("");
 
     ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(buffer);
 
@@ -684,7 +684,7 @@ bool fill_image_bgr(// out
 
     if(mrcam_output_type(ctx->pixfmt) != MRCAM_bgr)
     {
-        MSG("%s() unexpected image type", __func__);
+        MSG("unexpected image type");
         return false;
     }
 
@@ -708,8 +708,7 @@ bool fill_image_bgr(// out
         goto done;
     }
 
-    MSG("%s() doesn't yet know how to handle pixfmt '%s'",
-        __func__,
+    MSG("doesn't yet know how to handle pixfmt '%s'",
         pixfmt__name_from_ArvPixelFormat(pixfmt));
     goto done;
 
@@ -944,7 +943,7 @@ bool request(mrcam_t* ctx,
              mrcam_callback_t*             callback_off_decimation,
              void* cookie)
 {
-    if(ctx->verbose) MSG("%s()", __func__);
+    if(ctx->verbose) MSG("");
 
     DEFINE_INTERNALS(ctx);
     bool    result = false;
@@ -1084,7 +1083,7 @@ bool mrcam_request_uint8( // in
                           void* cookie,
                           mrcam_t* ctx)
 {
-    if(ctx->verbose) MSG("%s()", __func__);
+    if(ctx->verbose) MSG("");
 
     return
         request(ctx, (mrcam_callback_image_uint8_t*)cb, cb_off_decimation, cookie);
@@ -1096,7 +1095,7 @@ bool mrcam_request_uint16(// in
                           void* cookie,
                           mrcam_t* ctx)
 {
-    if(ctx->verbose) MSG("%s()", __func__);
+    if(ctx->verbose) MSG("");
 
     return
         request(ctx, (mrcam_callback_image_uint8_t*)cb, cb_off_decimation, cookie);
@@ -1108,14 +1107,14 @@ bool mrcam_request_bgr(   // in
                           void* cookie,
                           mrcam_t* ctx)
 {
-    if(ctx->verbose) MSG("%s()", __func__);
+    if(ctx->verbose) MSG("");
 
     return
         request(ctx, (mrcam_callback_image_uint8_t*)cb, cb_off_decimation, cookie);
 }
 bool mrcam_cancel_request(mrcam_t* ctx)
 {
-    if(ctx->verbose) MSG("%s()", __func__);
+    if(ctx->verbose) MSG("");
 
 #warning finish this
     return false;
