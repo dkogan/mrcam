@@ -968,6 +968,16 @@ bool request(mrcam_t* ctx,
         MSG("arv_stream_push_buffer()");
     arv_stream_push_buffer(*stream, *buffer);
 
+    if(ctx->verbose)
+    {
+        gint n_input_buffers;
+        gint n_output_buffers;
+        arv_stream_get_n_buffers (*stream,
+                                  &n_input_buffers,
+                                  &n_output_buffers);
+        MSG("n_input_buffers=%d n_output_buffers=%d",
+            n_input_buffers,n_output_buffers);
+    }
 
     if(ctx->acquisition_mode == MRCAM_ACQUISITION_MODE_CONTINUOUS)
     {
