@@ -983,25 +983,6 @@ bool request(mrcam_t* ctx,
 }
 
 
-static bool pull_common(// out
-                        uint64_t* timestamp_us,
-                        // in
-                        const uint64_t timeout_us,
-                        mrcam_t* ctx)
-{
-    int N = ctx->time_decimation_factor;
-    if(N < 1) N = 1;
-
-#warning "make pull work. needs off-decimation callback"
-    for(; N > 0; N--)
-        if(! (request(ctx, NULL, NULL, NULL) &&
-              // may block
-              receive_image(timestamp_us,
-                            timeout_us, ctx)) )
-            return false;
-    return true;
-}
-
 /* timeout_us=0 means "wait forever" */
 bool mrcam_pull_uint8(/* out */
                       mrcal_image_uint8_t* image,
@@ -1011,9 +992,21 @@ bool mrcam_pull_uint8(/* out */
                       mrcam_t* ctx)
 {
     if(ctx->verbose) MSG("%s()", __func__);
-    return
-        pull_common(timestamp_us,timeout_us,ctx) &&
-        fill_image(image, (ArvBuffer*)ctx->buffer, ctx);
+
+    int N = ctx->time_decimation_factor;
+    if(N < 1) N = 1;
+
+#warning "make pull work. needs off-decimation callback"
+    for(; N > 0; N--)
+    {
+        if(! (request(ctx, NULL, NULL, NULL) &&
+              // may block
+              receive_image(timestamp_us,
+                            timeout_us, ctx)) )
+            return false;
+    }
+
+    return fill_image(image, ctx);
 }
 bool mrcam_pull_uint16(/* out */
                       mrcal_image_uint16_t* image,
