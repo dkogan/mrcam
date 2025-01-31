@@ -253,8 +253,8 @@ bool mrcam_pull_bgr(   // out
 //
 // Asynchronous usage:
 //
-//   void cb(mrcal_image_uint8_t image,
-//           uint64_t timestamp_us)
+//   void callback(mrcal_image_uint8_t image,
+//                 uint64_t timestamp_us)
 //   {
 //       // no free(image.data); image structure valid until next
 //       // mrcam_request... call.
@@ -265,7 +265,7 @@ bool mrcam_pull_bgr(   // out
 //   some_other_function
 //   {
 //     ...
-//     mrcam_request_uint8(&cb, &ctx);
+//     mrcam_request_uint8(&callback, &ctx);
 //     // no free(image.data)
 //     // mrcam_request_uint8() returned immediately. we do other
 //     // unrelated stuff now. When the image comes in, the callback will
@@ -281,18 +281,18 @@ bool mrcam_pull_bgr(   // out
 // To give up waiting on a callback, call mrcam_cancel_request()
 // Requesting an image before the previous one was processed is an error
 bool mrcam_request_uint8( // in
-                          mrcam_callback_image_uint8_t* cb,
-                          mrcam_callback_t*             cb_off_decimation,
+                          mrcam_callback_image_uint8_t* callback,
+                          mrcam_callback_t*             callback_off_decimation,
                           void* cookie,
                           mrcam_t* ctx);
 bool mrcam_request_uint16(// in
-                          mrcam_callback_image_uint16_t* cb,
-                          mrcam_callback_t*              cb_off_decimation,
+                          mrcam_callback_image_uint16_t* callback,
+                          mrcam_callback_t*              callback_off_decimation,
                           void* cookie,
                           mrcam_t* ctx);
 bool mrcam_request_bgr(   // in
-                          mrcam_callback_image_bgr_t* cb,
-                          mrcam_callback_t*           cb_off_decimation,
+                          mrcam_callback_image_bgr_t* callback,
+                          mrcam_callback_t*           callback_off_decimation,
                           void* cookie,
                           mrcam_t* ctx);
 bool mrcam_cancel_request(mrcam_t* ctx);

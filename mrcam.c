@@ -1095,39 +1095,39 @@ bool mrcam_pull_bgr(/* out */
 }
 
 bool mrcam_request_uint8( // in
-                          mrcam_callback_image_uint8_t* cb,
-                          mrcam_callback_t*             cb_off_decimation,
+                          mrcam_callback_image_uint8_t* callback,
+                          mrcam_callback_t*             callback_off_decimation,
                           void* cookie,
                           mrcam_t* ctx)
 {
     if(ctx->verbose) MSG("");
 
     return
-        request(ctx, (mrcam_callback_image_uint8_t*)cb, cb_off_decimation, cookie);
+        request(ctx, (mrcam_callback_image_uint8_t*)callback, callback_off_decimation, cookie);
 }
 
 bool mrcam_request_uint16(// in
-                          mrcam_callback_image_uint16_t* cb,
-                          mrcam_callback_t*              cb_off_decimation,
+                          mrcam_callback_image_uint16_t* callback,
+                          mrcam_callback_t*              callback_off_decimation,
                           void* cookie,
                           mrcam_t* ctx)
 {
     if(ctx->verbose) MSG("");
 
     return
-        request(ctx, (mrcam_callback_image_uint8_t*)cb, cb_off_decimation, cookie);
+        request(ctx, (mrcam_callback_image_uint8_t*)callback, callback_off_decimation, cookie);
 }
 
 bool mrcam_request_bgr(   // in
-                          mrcam_callback_image_bgr_t* cb,
-                          mrcam_callback_t*           cb_off_decimation,
+                          mrcam_callback_image_bgr_t* callback,
+                          mrcam_callback_t*           callback_off_decimation,
                           void* cookie,
                           mrcam_t* ctx)
 {
     if(ctx->verbose) MSG("");
 
     return
-        request(ctx, (mrcam_callback_image_uint8_t*)cb, cb_off_decimation, cookie);
+        request(ctx, (mrcam_callback_image_uint8_t*)callback, callback_off_decimation, cookie);
 }
 bool mrcam_cancel_request(mrcam_t* ctx)
 {
