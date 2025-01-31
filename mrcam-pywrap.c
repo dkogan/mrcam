@@ -75,6 +75,7 @@ typedef struct
     mrcal_image_uint8_t mrcal_image; // type might not be exact
     uint64_t            timestamp_us;
     mrcam_buffer_t      buffer;
+    bool                off_decimation;
 } image_ready_t;
 
 
@@ -474,16 +475,13 @@ callback_generic(mrcal_image_uint8_t mrcal_image, // type might not be exact
     }
 }
 
-#warning "finish off-decimation stuff"
-#if 0
 static
 void
 callback_off_decimation_generic(void* cookie)
 {
     camera* self = (camera*)cookie;
 
-    image_ready_t s = {.mrcal_image  = mrcal_image,
-                       .timestamp_us = timestamp_us};
+    image_ready_t s = {.off_decimation = true};
 
     if(sizeof(s) != write_persistent(self->fd_write, (uint8_t*)&s, sizeof(s)))
     {
@@ -491,7 +489,7 @@ callback_off_decimation_generic(void* cookie)
         return;
     }
 }
-#endif
+
 
 static PyObject*
 request(camera* self, PyObject* args)
@@ -507,7 +505,7 @@ request(camera* self, PyObject* args)
 #warning "off-decimation callback in python"
     case MRCAM_uint8:
         if(!mrcam_request_uint8( (mrcam_callback_image_uint8_t* )&callback_generic,
-                                 NULL, //callback_off_decimation_generic,
+                                 callback_off_decimation_generic,
                                  self,
                                  &self->ctx))
         {
@@ -518,7 +516,7 @@ request(camera* self, PyObject* args)
 
     case MRCAM_uint16:
         if(!mrcam_request_uint16((mrcam_callback_image_uint16_t*)&callback_generic,
-                                 NULL, //callback_off_decimation_generic,
+                                 callback_off_decimation_generic,
                                  self,
                                  &self->ctx))
         {
@@ -529,7 +527,7 @@ request(camera* self, PyObject* args)
 
     case MRCAM_bgr:
         if(!mrcam_request_bgr(   (mrcam_callback_image_bgr_t*   )&callback_generic,
-                                 NULL, //callback_off_decimation_generic,
+                                 callback_off_decimation_generic,
                                  self,
                                  &self->ctx))
         {
@@ -583,24 +581,34 @@ requested_image(camera* self, PyObject* args, PyObject* kwargs)
         goto done;
     }
 
-    if(s.mrcal_image.data != NULL)
+    if(!s.off_decimation)
     {
-        image = numpy_image_from_mrcal_image(&s.mrcal_image, mrcam_output_type(self->ctx.pixfmt));
-        if(image == NULL)
-            // BARF() already called
-            goto done;
+        if(s.mrcal_image.data != NULL)
+        {
+            image = numpy_image_from_mrcal_image(&s.mrcal_image, mrcam_output_type(self->ctx.pixfmt));
+            if(image == NULL)
+                // BARF() already called
+                goto done;
+        }
+        else
+        {
+            // Error occurred. I return None as the image
+            image = Py_None;
+            Py_INCREF(image);
+        }
+
+        result = Py_BuildValue("{sOsdsKsi}",
+                               "image",          image,
+                               "timestamp",      (double)s.timestamp_us / 1e6,
+                               "buffer",         (unsigned long long)s.buffer.buffer,
+                               "off_decimation", 0);
     }
     else
-    {
-        // Error occurred. I return None as the image
-        image = Py_None;
-        Py_INCREF(image);
-    }
-
-    result = Py_BuildValue("{sOsdsK}",
-                           "image",     image,
-                           "timestamp", (double)s.timestamp_us / 1e6,
-                           "buffer",    (unsigned long long)s.buffer.buffer);
+        result = Py_BuildValue("{sOsOsOsi}",
+                               "image",          Py_None,
+                               "timestamp",      Py_None,
+                               "buffer",         Py_None,
+                               "off_decimation", 1);
     if(result == NULL)
     {
         BARF("Couldn't build %s() result", __func__);

@@ -578,6 +578,9 @@ class Fl_Image_View_Group(Fl_Group):
         def callback_mrcam(fd):
             frame = self.camera.requested_image()
 
+            if frame['off_decimation']:
+                return
+
             if auto_update_image_widget:
                 if frame['image'] is None:
                     print("Error capturing the image. I will try again",
