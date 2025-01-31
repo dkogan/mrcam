@@ -7,13 +7,13 @@ SYNOPSIS
 
     camera = mrcam.camera()
 
-    def callback_image_ready(fd):
+    def callback_mrcam(fd):
         frame = camera.requested_image()
         image_widget.update_image(image_data = frame['image'])
         Fl.add_timeout(1., camera.request)
 
     Fl.add_fd( camera.fd_image_ready,
-               callback_image_ready )
+               callback_mrcam )
     camera.request()
 
     window       = Fl_Window(800,600, "mrcam")
@@ -45,9 +45,9 @@ The image capture sequence is:
   be read, the application wakes up and does the necessary work. In the example
   above we add this camera file descriptor to the set that the FLTK GUI waits
   for by calling Fl.add_fd(...). When the requested image is ready, Fl.run()
-  wakes up and calls callback_image_ready()
+  wakes up and calls callback_mrcam()
 
-- In callback_image_ready() we call camera.requested_image() to retrieve the
+- In callback_mrcam() we call camera.requested_image() to retrieve the
   incoming image
 
 This function normally cannot fail. Any image capture errors will be indicated

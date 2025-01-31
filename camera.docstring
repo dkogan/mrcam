@@ -7,13 +7,13 @@ SYNOPSIS
 
     camera = mrcam.camera()
 
-    def callback_image_ready(fd):
+    def callback_mrcam(fd):
         frame = camera.requested_image()
         image_widget.update_image(image_data = frame['image'])
         Fl.add_timeout(1., camera.request)
 
     Fl.add_fd( camera.fd_image_ready,
-               callback_image_ready )
+               callback_mrcam )
     camera.request()
 
     window       = Fl_Window(800,600, "mrcam")

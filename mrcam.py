@@ -575,7 +575,7 @@ class Fl_Image_View_Group(Fl_Group):
         if self.camera is None:
             return
 
-        def callback_image_ready(fd):
+        def callback_mrcam(fd):
             frame = self.camera.requested_image()
 
             if auto_update_image_widget:
@@ -602,9 +602,9 @@ class Fl_Image_View_Group(Fl_Group):
                 schedule_next_frame(self.camera.request, period)
 
 
-        # Tell FLTK to callback_image_ready() when data is available
+        # Tell FLTK to callback_mrcam() when data is available
         Fl.add_fd( self.camera.fd_image_ready,
-                   callback_image_ready )
+                   callback_mrcam )
 
         if period is not None:
             # Ask for some data
