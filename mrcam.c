@@ -209,8 +209,8 @@ static void report_available_pixel_formats(ArvCamera* camera,
 }
 
 static void
-push_popped_buffer(ArvBuffer** buffer,
-                   const mrcam_t* ctx)
+push_buffer(ArvBuffer** buffer,
+            const mrcam_t* ctx)
 {
     if(*buffer != NULL)
     {
@@ -885,7 +885,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
             receive_image(&timestamp_us, &buffer_popped,
                           on_decimation ? &image : NULL,
                           0, ctx);
-            push_popped_buffer(&buffer_popped, ctx);
+            push_buffer(&buffer_popped, ctx);
 
             // On error image is {0}, which indicates an error. We invoke the
             // callback regardless. I want to make sure that the caller can be
@@ -1058,10 +1058,10 @@ bool mrcam_pull_uint8(/* out */
                             NULL,
                             timeout_us, ctx)) )
         {
-            push_popped_buffer(&buffer_popped, ctx);
+            push_buffer(&buffer_popped, ctx);
             return false;
         }
-        push_popped_buffer(&buffer_popped, ctx);
+        push_buffer(&buffer_popped, ctx);
     }
 
     // And now the last cycle. Keep this one
@@ -1072,7 +1072,7 @@ bool mrcam_pull_uint8(/* out */
                       &buffer_popped,
                       image,
                       timeout_us, ctx);
-    push_popped_buffer(&buffer_popped, ctx);
+    push_buffer(&buffer_popped, ctx);
     return result;
 }
 bool mrcam_pull_uint16(/* out */
