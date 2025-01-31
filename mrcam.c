@@ -723,7 +723,6 @@ bool receive_image(// out
         goto done;
     }
 
-    {
     // May block. If we don't want to block, it's our job to make sure to have
     // called receive_image() when an output image has already been buffered
     if (timeout_us > 0)
@@ -894,6 +893,11 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
                 ctx->active_callback(image, timestamp_us, ctx->active_callback_cookie);
                 ctx->active_callback = NULL;
                 ctx->time_decimation_index = 0;
+
+                // I disable the callback ONLY if I'm not in continuous mode. In
+                // continuous mode I ingest the frames as they come
+                if(!ctx->acquiring_continuous)
+                    ctx->active_callback = NULL;
             }
             else
             {
@@ -931,10 +935,10 @@ bool request(mrcam_t* ctx,
     bool    result = false;
     GError* error  = NULL;
 
-    if((ctx->acquiring && !ctx->acquiring_continuous) || ctx->active_callback != NULL)
+    if(ctx->acquiring && !ctx->acquiring_continuous && ctx->active_callback != NULL)
     {
-        MSG("Acquisition already in progress: acquiring=%d, active_callback_exists=%d. If mrcam_request_...() was called, wait for the callback or call mrcam_cancel_request()",
-            ctx->acquiring, !!ctx->active_callback);
+        MSG("Acquisition already in progress: acquiring=%d, acquiring_continuous=%d, active_callback_exists=%d. If mrcam_request_...() was called, wait for the callback or call mrcam_cancel_request()",
+            ctx->acquiring, ctx->acquiring_continuous, !!ctx->active_callback);
         goto done;
     }
 
