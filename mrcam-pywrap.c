@@ -1416,7 +1416,7 @@ static PyMethodDef camera_methods[] =
         PYMETHODDEF_ENTRY(, feature_value,      METH_VARARGS | METH_KEYWORDS),
         PYMETHODDEF_ENTRY(, features,           METH_VARARGS | METH_KEYWORDS),
 
-        PYMETHODDEF_ENTRY(, stream_stats,       METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(, stream_stats,       METH_NOARGS),
         PYMETHODDEF_ENTRY(, callback_done_with_buffer, METH_VARARGS | METH_KEYWORDS),
         {}
     };
