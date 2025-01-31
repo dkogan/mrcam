@@ -108,27 +108,35 @@ typedef enum {
 #undef ENUM
 } mrcam_acquisition_mode_t;
 
+typedef struct
+{
+    void* ctx;    // mrcam_t
+    void* buffer; // This is ArvBuffer*, but without requiring #including arv.h
+} mrcam_buffer_t;
+
+
 
 typedef enum {MRCAM_UNKNOWN = -1,
               MRCAM_uint8, MRCAM_uint16, MRCAM_bgr } mrcam_output_type_t;
 mrcam_output_type_t mrcam_output_type(mrcam_pixfmt_t pixfmt);
 
 typedef void (mrcam_callback_image_uint8_t )(mrcal_image_uint8_t image,
+                                             mrcam_buffer_t* buffer,
                                              uint64_t timestamp_us,
                                              void* cookie);
 typedef void (mrcam_callback_image_uint16_t)(mrcal_image_uint16_t image,
+                                             mrcam_buffer_t* buffer,
                                              uint64_t timestamp_us,
                                              void* cookie);
 typedef void (mrcam_callback_image_bgr_t)(   mrcal_image_bgr_t image,
+                                             mrcam_buffer_t* buffer,
                                              uint64_t timestamp_us,
                                              void* cookie);
 typedef void (mrcam_callback_t )(void* cookie);
 
-
-
 typedef struct
 {
-    // arv stuff; void to not require including arv.h
+    // arv stuff; void to not require #including arv.h
     void* camera;
     void* buffers[5];
     void* stream;
@@ -254,20 +262,25 @@ bool mrcam_pull_bgr(   // out
 // Asynchronous usage:
 //
 //   void callback(mrcal_image_uint8_t image,
-//                 uint64_t timestamp_us)
+//                 mrcam_buffer_t* buffer,
+//                 uint64_t timestamp_us,
+//                 void* cookie)
 //   {
-//       // no free(image.data); image structure valid until next
-//       // mrcam_request... call.
 //       // we may or may not be in the same thread where the image
 //       // was requested
+//
+//       // Do stuff with image. When we are done using the image, you must
+//       // call:
+//       mrcam_callback_done_with_buffer(buffer);
+//
+//       // The data inside the image is now no-longer usable
 //   }
 //   ....
 //   some_other_function
 //   {
 //     ...
 //     mrcam_request_uint8(&callback, &ctx);
-//     // no free(image.data)
-//     // mrcam_request_uint8() returned immediately. we do other
+//     // mrcam_request_uint8() returns immediately. we do other
 //     // unrelated stuff now. When the image comes in, the callback will
 //     // be called
 //     ...
@@ -296,3 +309,5 @@ bool mrcam_request_bgr(   // in
                           void* cookie,
                           mrcam_t* ctx);
 bool mrcam_cancel_request(mrcam_t* ctx);
+
+void mrcam_callback_done_with_buffer(mrcam_buffer_t* buffer);

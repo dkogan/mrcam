@@ -74,6 +74,7 @@ typedef struct
 {
     mrcal_image_uint8_t mrcal_image; // type might not be exact
     uint64_t            timestamp_us;
+    mrcam_buffer_t      buffer;
 } image_ready_t;
 
 
@@ -456,13 +457,15 @@ ssize_t write_persistent(int fd, const uint8_t* buf, size_t count)
 static
 void
 callback_generic(mrcal_image_uint8_t mrcal_image, // type might not be exact
+                 mrcam_buffer_t* buffer,
                  uint64_t timestamp_us,
                  void* cookie)
 {
     camera* self = (camera*)cookie;
 
     image_ready_t s = {.mrcal_image  = mrcal_image,
-                       .timestamp_us = timestamp_us};
+                       .timestamp_us = timestamp_us,
+                       .buffer       = *buffer};
 
     if(sizeof(s) != write_persistent(self->fd_write, (uint8_t*)&s, sizeof(s)))
     {
@@ -594,9 +597,10 @@ requested_image(camera* self, PyObject* args, PyObject* kwargs)
         Py_INCREF(image);
     }
 
-    result = Py_BuildValue("{sOsd}",
+    result = Py_BuildValue("{sOsdsK}",
                            "image",     image,
-                           "timestamp", (double)s.timestamp_us / 1e6);
+                           "timestamp", (double)s.timestamp_us / 1e6,
+                           "buffer",    (unsigned long long)s.buffer.buffer);
     if(result == NULL)
     {
         BARF("Couldn't build %s() result", __func__);
@@ -786,6 +790,32 @@ stream_stats(camera* self, PyObject* args, PyObject* kwargs)
         BARF("Couldn't build %s() result", __func__);
         goto done;
     }
+
+ done:
+    return result;
+}
+
+
+static PyObject*
+callback_done_with_buffer(camera* self, PyObject* args, PyObject* kwargs)
+{
+    // error by default
+    PyObject* result = NULL;
+    unsigned long long buffer = 0;
+
+    char* keywords[] = {"buffer",
+                        NULL};
+
+    if( !PyArg_ParseTupleAndKeywords(args, kwargs,
+                                     "K:mrcam.callback_done_with_buffer", keywords,
+                                     &buffer))
+        goto done;
+
+    mrcam_callback_done_with_buffer( &(mrcam_buffer_t){.ctx    = &self->ctx,
+                                                       .buffer = (void*)buffer } );
+
+    result = Py_None;
+    Py_INCREF(result);
 
  done:
     return result;
@@ -1363,6 +1393,9 @@ static const char features_docstring[] =
 static const char stream_stats_docstring[] =
 #include "stream_stats.docstring.h"
     ;
+static const char callback_done_with_buffer_docstring[] =
+#include "callback_done_with_buffer.docstring.h"
+    ;
 
 
 static PyMethodDef camera_methods[] =
@@ -1376,6 +1409,7 @@ static PyMethodDef camera_methods[] =
         PYMETHODDEF_ENTRY(, features,           METH_VARARGS | METH_KEYWORDS),
 
         PYMETHODDEF_ENTRY(, stream_stats,       METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(, callback_done_with_buffer, METH_VARARGS | METH_KEYWORDS),
         {}
     };
 

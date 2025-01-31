@@ -215,7 +215,7 @@ push_buffer(ArvBuffer** buffer,
     if(*buffer != NULL)
     {
         if(ctx->verbose)
-            MSG("arv_stream_push_buffer(the buffer just popped: %p)", *buffer);
+            MSG("arv_stream_push_buffer(%p)", *buffer);
         arv_stream_push_buffer((ArvStream*)(ctx->stream), *buffer);
         *buffer = NULL;
     }
@@ -885,26 +885,40 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
             receive_image(&timestamp_us, &buffer_popped,
                           on_decimation ? &image : NULL,
                           0, ctx);
-            push_buffer(&buffer_popped, ctx);
 
             // On error image is {0}, which indicates an error. We invoke the
             // callback regardless. I want to make sure that the caller can be
             // sure to expect ONE callback with each request
             if(on_decimation)
             {
-                MSG("decimated callback");
-                ctx->active_callback(image, timestamp_us, ctx->active_callback_cookie);
-                ctx->active_callback = NULL;
+                // It's the callback's responsibility to push the buffer back
+                // when it's done. I don't arv_stream_push_buffer() right after
+                // the active_callback() here because active_callback() may want
+                // to do something with the buffer asynchronously, and the
+                // buffer may still be used then
+                if(ctx->verbose)
+                    MSG("calling the active_callback()");
+                ctx->active_callback(image,
+                                     &(mrcam_buffer_t){.ctx    = ctx,
+                                                       .buffer = buffer_popped},
+                                     timestamp_us,
+                                     ctx->active_callback_cookie);
                 ctx->time_decimation_index = 0;
 
                 // I disable the callback ONLY if I'm not in continuous mode. In
                 // continuous mode I ingest the frames as they come
                 if(!ctx->acquiring_continuous)
                     ctx->active_callback = NULL;
+
+                // the buffer remains popped until the active callback is done
+                // with it. The callback MUST push it back
             }
             else
             {
-                MSG("off-decimation callback");
+                if(ctx->verbose)
+                    MSG("off-decimation. NOT calling the active_callback()");
+                push_buffer(&buffer_popped, ctx);
+
                 mrcam_callback_image_uint8_t* callback = ctx->active_callback;
                 ctx->active_callback = NULL;
                 request(ctx,
@@ -1048,32 +1062,29 @@ bool mrcam_pull_uint8(/* out */
 
     ArvBuffer* buffer = NULL;
 
-    // N-1 cycles. These are ignored due to decimation
-    for(; N > 1; N--)
+    for(; N > 0; N--)
     {
-        if(! (request(ctx, NULL, NULL, NULL) &&
-              // may block
-              receive_image(timestamp_us,
-                            &buffer,
-                            NULL,
-                            timeout_us, ctx)) )
+        bool result =
+            request(ctx, NULL, NULL, NULL) &&
+            // may block
+            receive_image(timestamp_us,
+                          &buffer,
+                          N == 1 ? image : NULL, // fill in the image on the
+                                                 // last round, which will be
+                                                 // returned to the user
+                          timeout_us, ctx);
+        if(!result)
         {
             push_buffer(&buffer, ctx);
             return false;
         }
-        push_buffer(&buffer, ctx);
+        if(N > 1)
+            // Off-decimation. We ignore this image, and keep going
+            push_buffer(&buffer, ctx);
     }
 
-    // And now the last cycle. Keep this one
-    bool result =
-        request(ctx, NULL, NULL, NULL) &&
-        // may block
-        receive_image(timestamp_us,
-                      &buffer,
-                      image,
-                      timeout_us, ctx);
-    push_buffer(&buffer, ctx);
-    return result;
+    // The caller MUST re-push the buffer when done
+    return true;
 }
 bool mrcam_pull_uint16(/* out */
                       mrcal_image_uint16_t* image,
@@ -1135,4 +1146,14 @@ bool mrcam_cancel_request(mrcam_t* ctx)
 
 #warning finish this
     return false;
+}
+
+void mrcam_callback_done_with_buffer(mrcam_buffer_t* buffer)
+{
+    mrcam_t* ctx = (mrcam_t*)buffer->ctx;
+    DEFINE_INTERNALS(ctx);
+
+    if(ctx->verbose)
+        MSG("arv_stream_push_buffer(%p)", buffer->buffer);
+    arv_stream_push_buffer(*stream, (ArvBuffer*)buffer->buffer);
 }
