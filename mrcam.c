@@ -698,7 +698,7 @@ bool fill_image(// out
 static
 bool receive_image(// out
                    uint64_t* timestamp_us,
-                   ArvBuffer** buffer_popped,
+                   ArvBuffer** buffer,
 
                    // fill this image with the data, on success. On failure set to {}
                    // May be NULL
@@ -715,7 +715,7 @@ bool receive_image(// out
     bool        result      = false;
     GError*     error       = NULL;
 
-    *buffer_popped = NULL;
+    *buffer = NULL;
 
     if(!ctx->acquiring)
     {
@@ -729,16 +729,16 @@ bool receive_image(// out
     {
         if(ctx->verbose)
             MSG("Calling   arv_stream_timeout_pop_buffer(timeout_us = %"PRIu64") ...", timeout_us);
-        *buffer_popped = arv_stream_timeout_pop_buffer(*stream, timeout_us);
+        *buffer = arv_stream_timeout_pop_buffer(*stream, timeout_us);
     }
     else
     {
         if(ctx->verbose)
             MSG("Calling   arv_stream_pop_buffer() ...");
-        *buffer_popped = arv_stream_pop_buffer(*stream);
+        *buffer = arv_stream_pop_buffer(*stream);
     }
     if(ctx->verbose)
-        MSG("... received buffer %p", *buffer_popped);
+        MSG("... received buffer %p", *buffer);
 
     // This MUST have been done by this function, regardless of things failing
     if(ctx->acquisition_mode != MRCAM_ACQUISITION_MODE_CONTINUOUS)
@@ -750,7 +750,7 @@ bool receive_image(// out
         ctx->acquiring = false;
     }
 
-    ArvBufferStatus status = arv_buffer_get_status(*buffer_popped);
+    ArvBufferStatus status = arv_buffer_get_status(*buffer);
 
     // All the statuses from arvbuffer.h, as of aravis 0.8.29
 #define LIST_STATUS(_)                          \
@@ -775,7 +775,7 @@ bool receive_image(// out
 #undef CHECK
 
 
-    ArvBufferPayloadType payload_type = arv_buffer_get_payload_type(*buffer_popped);
+    ArvBufferPayloadType payload_type = arv_buffer_get_payload_type(*buffer);
     // All the payload_types from arvbuffer.h, as of aravis 0.8.30
 #define LIST_PAYLOAD_TYPE(_)                            \
   _(ARV_BUFFER_PAYLOAD_TYPE_UNKNOWN)                    \
@@ -809,7 +809,7 @@ bool receive_image(// out
     if(image != NULL)
     {
         if(result)
-            result = fill_image(image, *buffer_popped, ctx);
+            result = fill_image(image, *buffer, ctx);
 
         if(!result)
             *image = (mrcal_image_uint8_t){}; // error
@@ -1046,7 +1046,7 @@ bool mrcam_pull_uint8(/* out */
 
 #warning "make pull work. needs off-decimation callback"
 
-    ArvBuffer* buffer_popped = NULL;
+    ArvBuffer* buffer = NULL;
 
     // N-1 cycles. These are ignored due to decimation
     for(; N > 1; N--)
@@ -1054,14 +1054,14 @@ bool mrcam_pull_uint8(/* out */
         if(! (request(ctx, NULL, NULL, NULL) &&
               // may block
               receive_image(timestamp_us,
-                            &buffer_popped,
+                            &buffer,
                             NULL,
                             timeout_us, ctx)) )
         {
-            push_buffer(&buffer_popped, ctx);
+            push_buffer(&buffer, ctx);
             return false;
         }
-        push_buffer(&buffer_popped, ctx);
+        push_buffer(&buffer, ctx);
     }
 
     // And now the last cycle. Keep this one
@@ -1069,10 +1069,10 @@ bool mrcam_pull_uint8(/* out */
         request(ctx, NULL, NULL, NULL) &&
         // may block
         receive_image(timestamp_us,
-                      &buffer_popped,
+                      &buffer,
                       image,
                       timeout_us, ctx);
-    push_buffer(&buffer_popped, ctx);
+    push_buffer(&buffer, ctx);
     return result;
 }
 bool mrcam_pull_uint16(/* out */
