@@ -203,9 +203,9 @@ class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
         # keyboard events. The other is to explicitly ignore the specific
         # keyboard events in a parent class. I do the former here because that's
         # simpler, and I don't need to process any keyboard events
+        x = super().__init__(*args, **kwargs)
         self.visible_focus(0)
-
-        return super().__init__(*args, **kwargs)
+        return x
 
     def handle(self, event):
         res = self.handler(self,event)
