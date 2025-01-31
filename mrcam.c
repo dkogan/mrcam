@@ -843,7 +843,10 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
     // We'll see if that happens also
 
     if(ctx->active_callback == NULL)
+    {
+        MSG("Nothing to do: user active_callback==NULL");
         return;
+    }
 
 
     switch (type)
