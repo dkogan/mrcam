@@ -82,11 +82,19 @@ ARGUMENTS
 
   The SINGLE_FRAME and MULTI_FRAME modes are frame-by-frame modes: we request
   and capture one frame, then we request and capture the next one, and so on.
-  The MULTI_FRAME mode also asks for ONE frame. These start and stop the
-  acquisition for each frame.
+  The MULTI_FRAME mode also asks for ONE frame. These usually should start and
+  stop the acquisition for each frame, and should set
+  acquisition_persistent=False. Some cameras require the opposite, however
 
-  By contrast, the CONTINUOUS mode starts the acquisition at the beginning of
-  the capture, and keeps it going for all the subsequent frames
+  By contrast, the CONTINUOUS mode usually should start the acquisition at the
+  beginning of the capture, and keeps it going for all the subsequent frames,
+  and should set acquisition_persistent=True. Some cameras require the
+  opposite, however
+
+- acquisition_persistent: optional boolean, defaulting to False. if given, we
+  start the acquisition once, and keep it active as the process runs. Usually
+  you want this in the CONTINUOUS acquisition_mode, but different cameras may
+  demand different things
 
 - width, height: optional integers defaulting to 0. If given, we use these as
   the given image dimensions. Otherwise, we take the highest-resolution image
