@@ -907,7 +907,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
 
                 // I disable the callback ONLY if I'm not in continuous mode. In
                 // continuous mode I ingest the frames as they come
-                if(!ctx->acquiring_continuous)
+                if(!ctx->acquisition_persistent)
                     ctx->active_callback = NULL;
 
                 // the buffer remains popped until the active callback is done
@@ -952,10 +952,10 @@ bool request(mrcam_t* ctx,
     bool    result = false;
     GError* error  = NULL;
 
-    if(ctx->acquiring && !ctx->acquiring_continuous && ctx->active_callback != NULL)
+    if(ctx->acquiring && !ctx->acquisition_persistent && ctx->active_callback != NULL)
     {
-        MSG("Acquisition already in progress: acquiring=%d, acquiring_continuous=%d, active_callback_exists=%d. If mrcam_request_...() was called, wait for the callback or call mrcam_cancel_request()",
-            ctx->acquiring, ctx->acquiring_continuous, !!ctx->active_callback);
+        MSG("Acquisition already in progress: acquiring=%d, acquisition_persistent=%d, active_callback_exists=%d. If mrcam_request_...() was called, wait for the callback or call mrcam_cancel_request()",
+            ctx->acquiring, ctx->acquisition_persistent, !!ctx->active_callback);
         goto done;
     }
 
@@ -980,9 +980,9 @@ bool request(mrcam_t* ctx,
 
     if(ctx->acquisition_mode == MRCAM_ACQUISITION_MODE_CONTINUOUS)
     {
-        if(!ctx->acquiring_continuous)
+        if(!ctx->acquisition_persistent)
             try_arv( arv_camera_start_acquisition(*camera, &error));
-        ctx->acquiring_continuous = true;
+        ctx->acquisition_persistent = true;
     }
     else
         try_arv( arv_camera_start_acquisition(*camera, &error));

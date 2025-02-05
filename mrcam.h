@@ -178,7 +178,7 @@ typedef struct
     bool acquiring                       : 1;
     bool recreate_stream_with_each_frame : 1;
     bool verbose                         : 1;
-    bool acquiring_continuous            : 1;
+    bool acquisition_persistent            : 1;
 } mrcam_t;
 
 typedef struct
