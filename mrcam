@@ -449,7 +449,7 @@ if args.replay is None:
                          verbose = args.verbose,
                          **kwargs)
 
-        if kwargs['trigger'] == 'TTYS0':
+        if kwargs['trigger'] == 'HARDWARE_TTYS0':
             # As noted above, if we're generating a trigger signal, the LAST
             # camera only should do that. So here the non-last cameras are set
             # to expect a trigger signal, but not to produce it
