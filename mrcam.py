@@ -188,6 +188,21 @@ def schedule_next_frame(f, period):
         _time_last_request_image_set = time_now + time_sleep
 
 
+def displayed_image(image):
+    if image.itemsize == 1:
+        # 8-bit image. Display as is
+        return image
+
+    # Deep image. Display as a heat map
+    if image.ndim > 2:
+        raise Exception("high-depth color images not supported yet")
+    q = 5
+    a_min = np.percentile(image, q = q)
+    a_max = np.percentile(image, q = 100-q)
+    return mrcal.apply_color_map(image,
+                                 a_min = a_min,
+                                 a_max = a_max)
+
 
 class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
     def __init__(self,
@@ -540,32 +555,19 @@ class Fl_Image_View_Group(Fl_Group):
 
         self.image_widget.image = image
 
-        if image is not None:
-
-            # Update the image preview; deep images are shown as a heat map
-            if image.itemsize > 1:
-                if image.ndim > 2:
-                    raise Exception("high-depth color images not supported yet")
-                q = 5
-                a_min = np.percentile(image, q = q)
-                a_max = np.percentile(image, q = 100-q)
-                heatmap = mrcal.apply_color_map(image,
-                                                a_min = a_min,
-                                                a_max = a_max)
-                self.image_widget.update_image(image_data = heatmap,
-                                               flip_x     = flip_x,
-                                               flip_y     = flip_y)
-            else:
-                self.image_widget.update_image(image_data = image,
-                                               flip_x     = flip_x,
-                                               flip_y     = flip_y)
-
-            self.sync_feature_widgets()
-        else:
+        if image is None:
             # black image
             self.image_widget.update_image(image_data = None,
                                            flip_x     = flip_x,
                                            flip_y     = flip_y)
+            return
+
+        self.image_widget.update_image(image_data = displayed_image(image),
+                                       flip_x     = flip_x,
+                                       flip_y     = flip_y)
+
+        self.sync_feature_widgets()
+
 
     def set_up_image_capture(self,
                              *,
