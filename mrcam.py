@@ -571,7 +571,10 @@ class Fl_Image_View_Group(Fl_Group):
 
     def set_up_image_capture(self,
                              *,
-                             period                   = None, # if given, we automatically recur
+                             # if given, we automatically recur. Otherwise it is
+                             # expected that the image_callback will request the
+                             # next set of frames, if needed
+                             period                   = None,
                              flip_x                   = False,
                              flip_y                   = False,
                              auto_update_image_widget = True,
