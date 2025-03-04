@@ -494,12 +494,6 @@ callback_off_decimation_generic(void* cookie)
 static PyObject*
 request(camera* self, PyObject* args)
 {
-    if(currently_processing_image(self))
-    {
-        BARF("An image is already being processed...");
-        goto done;
-    }
-
     switch(mrcam_output_type(self->ctx.pixfmt))
     {
 #warning "off-decimation callback in python"
