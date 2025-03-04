@@ -196,7 +196,8 @@ def image_callback(image,
     global Ncameras_seen_this_frame
     global iframe_this
 
-    if iframe_this != iframe:
+    newframe = iframe_this != iframe
+    if newframe:
         iframe_this = iframe
         Ncameras_seen_this_frame = 0
 
