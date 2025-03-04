@@ -16,6 +16,13 @@
 #include "mrcam.h"
 #include "util.h"
 
+// debugging code; disabled by default
+#if 1
+  #define TIMESTAMP() do { } while(0)
+#else
+  #define TIMESTAMP() do { printf("TIME %d %lld\n", __LINE__, (long long)gettimeofday_uint64()); } while(0)
+#endif
+
 
 #define DEFINE_INTERNALS(ctx)                                           \
     ArvCamera** camera  __attribute__((unused)) = (ArvCamera**)(&(ctx)->camera); \
@@ -853,16 +860,19 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
     switch (type)
     {
     case ARV_STREAM_CALLBACK_TYPE_INIT:
+        TIMESTAMP();
         if(ctx->verbose)
             MSG("ARV_STREAM_CALLBACK_TYPE_INIT: Stream thread started");
         /* Here you may want to change the thread priority arv_make_thread_realtime() or
          * arv_make_thread_high_priority() */
         break;
     case ARV_STREAM_CALLBACK_TYPE_START_BUFFER:
+        TIMESTAMP();
         if(ctx->verbose)
             MSG("ARV_STREAM_CALLBACK_TYPE_START_BUFFER: The first packet of a new frame was received");
         break;
     case ARV_STREAM_CALLBACK_TYPE_BUFFER_DONE:
+        TIMESTAMP();
         /* The buffer is received, successfully or not. It is already pushed in
          * the output FIFO.
          *
@@ -998,6 +1008,7 @@ bool request(mrcam_t* ctx,
     {
         // If the previous trigger pulse is still high for some reason, wait for
         // it to drop
+        TIMESTAMP();
         try(0 == tcdrain(ctx->fd_tty_trigger));
         try(1 == write(ctx->fd_tty_trigger, &((char){'\xff'}), 1));
     }
