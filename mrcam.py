@@ -544,6 +544,7 @@ class Fl_Image_View_Group(Fl_Group):
     def update_image_widget(self,
                             image,
                             *,
+                            _displayed_image = None,
                             flip_x,
                             flip_y):
 
@@ -556,7 +557,8 @@ class Fl_Image_View_Group(Fl_Group):
                                            flip_y     = flip_y)
             return
 
-        self.image_widget.update_image(image_data = displayed_image(image),
+        if _displayed_image is None: _displayed_image = displayed_image(image)
+        self.image_widget.update_image(image_data = _displayed_image,
                                        flip_x     = flip_x,
                                        flip_y     = flip_y)
 
