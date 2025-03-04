@@ -962,6 +962,22 @@ bool request(mrcam_t* ctx,
     bool    result = false;
     GError* error  = NULL;
 
+    if( (ctx->trigger == MRCAM_TRIGGER_NONE ||
+         ctx->trigger == MRCAM_TRIGGER_HARDWARE_EXTERNAL) &&
+        ctx->acquiring &&
+        ctx->acquisition_persistent)
+
+    {
+        // Nothing to do. We're not triggering, so we will get frames as they
+        // come, not as we ask for them. I thus don't check for requesting an
+        // already-requested frame
+        ctx->active_callback                = callback;
+        ctx->active_callback_off_decimation = callback_off_decimation;
+        ctx->active_callback_cookie         = cookie;
+
+        return true;
+    }
+
     if( !ctx->acquisition_persistent &&
         (ctx->acquiring || ctx->active_callback != NULL))
     {
