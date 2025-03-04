@@ -1030,7 +1030,8 @@ bool request(mrcam_t* ctx,
  done:
     if(!result)
     {
-        if(ctx->acquiring)
+        if(!ctx->acquisition_persistent &&
+           ctx->acquiring)
         {
             // if still acquiring for some reason, stop that, with limited error checking
             arv_camera_stop_acquisition(*camera, &error);
