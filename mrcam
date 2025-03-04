@@ -156,9 +156,10 @@ import mrcal
 import datetime
 
 
-file_log           = None
-log_replay         = []
-time_slider_widget = None
+file_log                     = None
+log_replay                   = []
+log_replay_entry_from_iframe = dict()
+time_slider_widget           = None
 
 if args.utcoffset_hours is not None:
     utcoffset_sec = args.utcoffset_hours*3600
@@ -182,8 +183,7 @@ def request_image_set():
     for image_view_group in image_view_groups:
         image_view_group.camera.request()
 
-Ncameras_seen_this_frame = 0
-iframe_this              = -1
+Ncameras_seen_iframe = dict()
 def image_callback(image,
                    *,
                    timestamp,
@@ -194,17 +194,10 @@ def image_callback(image,
                    logdir,
                    extension):
 
-    global Ncameras_seen_this_frame
-    global iframe_this
+    global Ncameras_seen_iframe
 
-    newframe = None
+
     if not off_decimation:
-        newframe = iframe_this != iframe
-        if newframe:
-            iframe_this = iframe
-            if Ncameras_seen_this_frame != 0:
-                print(f"WARNING: images out-of-sync; got a new frame index {iframe=}, but I think I already have {Ncameras_seen_this_frame=} from it. Trying to continue...", file=sys.stderr)
-
         if image is None:
             print("Error capturing the image. I will try again",
                   file=sys.stderr)
@@ -219,12 +212,13 @@ def image_callback(image,
                                                          flip_x = args.flip_x,
                                                          flip_y = args.flip_y )
         else:
-            if newframe:
+            if not iframe in log_replay_entry_from_iframe:
                 # Started this set of cameras. Add empty record; fill it in as I get
                 # frames
-                log_replay.append( dict(time      = [None] * Ncameras,
-                                        imagepath = [None] * Ncameras,
-                                        iframe    = [None] * Ncameras) )
+                log_replay_entry_from_iframe[iframe] = dict(time      = [None] * Ncameras,
+                                                            imagepath = [None] * Ncameras,
+                                                            iframe    = [None] * Ncameras)
+                log_replay.append( log_replay_entry_from_iframe[iframe] )
 
             # write image to disk
             filename = f"frame{iframe:05d}-cam{icam}.{extension}"
@@ -245,30 +239,40 @@ def image_callback(image,
                 image_view_groups[icam].update_image_widget( image  = image,
                                                              flip_x = args.flip_x,
                                                              flip_y = args.flip_y )
-            log_replay[-1]['time'     ][icam] = timestamp
-            log_replay[-1]['iframe'   ][icam] = iframe
+
+            log_replay_entry_from_iframe[iframe]['time'     ][icam] = timestamp
+            log_replay_entry_from_iframe[iframe]['iframe'   ][icam] = iframe
             if image is not None:
-                log_replay[-1]['imagepath'][icam] = path
+                log_replay_entry_from_iframe[iframe]['imagepath'][icam] = path
                 # Otherwise, leave at None
 
     # schedule the next set of images; do this even if off_decimation
-    Ncameras_seen_this_frame += 1
-    if Ncameras_seen_this_frame == Ncameras:
-        # Every camera reported back. Finish up and ask for another frame
-        Ncameras_seen_this_frame = 0
+    if not iframe in Ncameras_seen_iframe:
+        Ncameras_seen_iframe[iframe] = 0
+    else:
+        Ncameras_seen_iframe[iframe] += 1
 
-        if not off_decimation and time_slider_widget is not None:
-            time_slider_widget.maximum(iframe)
+        # I need a Ncameras_seen_iframe to be a dict instead of a count for the
+        # last frame, because in a free-runnning mode, I may get frames out of
+        # the usual expected order
+        if Ncameras_seen_iframe[iframe] >= Ncameras:
+            # Every camera reported back. Finish up and ask for another frame
+            del Ncameras_seen_iframe[iframe]
 
-            if time_slider_at_max:
-                time_slider_widget.value(iframe)
-                time_slider_update_label(iframe, timestamp)
-            else:
-                time_slider_update_label(time_slider_now, log_replay[time_slider_now]['time'][0])
-                # The bounds changed, so the handle should be redrawn
-                time_slider_widget.redraw()
+            if not off_decimation and time_slider_widget is not None:
+                time_slider_widget.maximum(iframe)
 
-        mrcam.schedule_next_frame(request_image_set, args.period)
+                if time_slider_at_max:
+                    # We were at the end of the time slider. Update us so that we're
+                    # still at the end
+                    time_slider_widget.value(iframe)
+                    time_slider_update_label(iframe, timestamp)
+                else:
+                    time_slider_update_label(time_slider_now, log_replay[time_slider_now]['time'][0])
+                    # The bounds changed, so the handle should be redrawn
+                    time_slider_widget.redraw()
+
+            mrcam.schedule_next_frame(request_image_set, args.period)
 
 
 
