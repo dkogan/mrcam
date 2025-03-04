@@ -154,6 +154,7 @@ from fltk import *
 import math
 import mrcal
 import datetime
+import multiprocess
 
 
 file_log                     = None
@@ -169,6 +170,15 @@ else:
     t = time.localtime()
     utcoffset_sec = t.tm_gmtoff
     tzname        = t.tm_zone
+
+
+smp_pool = None
+
+
+if args.logdir is not None and \
+   args.replay is None:
+    # we are logging camera data
+    smp_pool = multiprocess.Pool()
 
 def write_logline(l):
     global file_log
@@ -195,6 +205,8 @@ def image_callback(image,
                    extension):
 
     global Ncameras_seen_iframe
+    global smp_pool
+
 
 
     if not off_decimation:
@@ -229,7 +241,11 @@ def image_callback(image,
             else:
                 write_logline(f"{timestamp:.3f} {iframe} {icam} {filename}");
 
-                mrcal.save_image(path, image)
+                if smp_pool is None:
+                    # Serial path. Used most of the time
+                    mrcal.save_image(path, image)
+                else:
+                    smp_pool.apply_async(mrcal.save_image, (path, image))
 
             time_slider_now = int(time_slider_widget.value())
             time_slider_at_max = \
