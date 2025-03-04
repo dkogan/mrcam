@@ -581,12 +581,10 @@ class Fl_Image_View_Group(Fl_Group):
             return
 
         def callback_mrcam(fd):
+
             frame = self.camera.requested_image()
 
-            if frame['off_decimation']:
-                return
-
-            if auto_update_image_widget:
+            if auto_update_image_widget and not frame['off_decimation']:
                 if frame['image'] is None:
                     print("Error capturing the image. I will try again",
                           file=sys.stderr)
@@ -597,13 +595,14 @@ class Fl_Image_View_Group(Fl_Group):
 
             if image_callback is not None:
                 image_callback(frame['image'],
-                               timestamp = frame['timestamp'],
-                               iframe    = self.iframe,
+                               timestamp      = frame['timestamp'],
+                               iframe         = self.iframe,
+                               off_decimation = frame['off_decimation'],
                                **image_callback_cookie)
 
-            self.camera.callback_done_with_buffer(frame['buffer'])
-
-            self.iframe += 1
+            if not frame['off_decimation']:
+                self.camera.callback_done_with_buffer(frame['buffer'])
+                self.iframe += 1
 
             if period is not None:
                 # Ask for some data in the future

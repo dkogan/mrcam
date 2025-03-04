@@ -188,6 +188,7 @@ def image_callback(image,
                    *,
                    timestamp,
                    iframe,
+                   off_decimation,
                    # All these are the cookie given to set_up_image_capture()
                    icam,
                    logdir,
@@ -196,61 +197,67 @@ def image_callback(image,
     global Ncameras_seen_this_frame
     global iframe_this
 
-    newframe = iframe_this != iframe
-    if newframe:
-        iframe_this = iframe
-        Ncameras_seen_this_frame = 0
-
-
-    if image is None:
-        print("Error capturing the image. I will try again",
-              file=sys.stderr)
-
-    if logdir is None:
-
-        image_view_groups[icam].update_image_widget( image  = image,
-                                                     flip_x = args.flip_x,
-                                                     flip_y = args.flip_y )
-    else:
-
-        if Ncameras_seen_this_frame == 0:
-            # Started this set of cameras. Add empty record; fill it in as I get
-            # frames
-            log_replay.append( dict(time      = [None] * Ncameras,
-                                    imagepath = [None] * Ncameras,
-                                    iframe    = [None] * Ncameras) )
-
-        # write image to disk
-        filename = f"frame{iframe:05d}-cam{icam}.{extension}"
-        path = f"{logdir}/{filename}"
+    newframe = None
+    if not off_decimation:
+        newframe = iframe_this != iframe
+        if newframe:
+            iframe_this = iframe
+            if Ncameras_seen_this_frame != 0:
+                print(f"WARNING: images out-of-sync; got a new frame index {iframe=}, but I think I already have {Ncameras_seen_this_frame=} from it. Trying to continue...", file=sys.stderr)
 
         if image is None:
-            write_logline(f"{timestamp:.3f} {iframe} {icam} -");
-        else:
-            mrcal.save_image(path, image)
-            write_logline(f"{timestamp:.3f} {iframe} {icam} {filename}");
+            print("Error capturing the image. I will try again",
+                  file=sys.stderr)
 
-        time_slider_now = int(time_slider_widget.value())
-        time_slider_at_max = \
-            time_slider_now == int(time_slider_widget.maximum())
 
-        if time_slider_at_max:
+
+
+
+
+        if logdir is None:
             image_view_groups[icam].update_image_widget( image  = image,
                                                          flip_x = args.flip_x,
                                                          flip_y = args.flip_y )
+        else:
+            if newframe:
+                # Started this set of cameras. Add empty record; fill it in as I get
+                # frames
+                log_replay.append( dict(time      = [None] * Ncameras,
+                                        imagepath = [None] * Ncameras,
+                                        iframe    = [None] * Ncameras) )
 
-        log_replay[-1]['time'     ][icam] = timestamp
-        log_replay[-1]['iframe'   ][icam] = iframe
-        if image is not None:
-            log_replay[-1]['imagepath'][icam] = path
-            # Otherwise, leave at None
+            # write image to disk
+            filename = f"frame{iframe:05d}-cam{icam}.{extension}"
+            path = f"{logdir}/{filename}"
 
-    # schedule the next set of images
+            if image is None:
+                write_logline(f"{timestamp:.3f} {iframe} {icam} -");
+            else:
+                write_logline(f"{timestamp:.3f} {iframe} {icam} {filename}");
+
+                mrcal.save_image(path, image)
+
+            time_slider_now = int(time_slider_widget.value())
+            time_slider_at_max = \
+                time_slider_now == int(time_slider_widget.maximum())
+
+            if time_slider_at_max:
+                image_view_groups[icam].update_image_widget( image  = image,
+                                                             flip_x = args.flip_x,
+                                                             flip_y = args.flip_y )
+            log_replay[-1]['time'     ][icam] = timestamp
+            log_replay[-1]['iframe'   ][icam] = iframe
+            if image is not None:
+                log_replay[-1]['imagepath'][icam] = path
+                # Otherwise, leave at None
+
+    # schedule the next set of images; do this even if off_decimation
     Ncameras_seen_this_frame += 1
     if Ncameras_seen_this_frame == Ncameras:
         # Every camera reported back. Finish up and ask for another frame
+        Ncameras_seen_this_frame = 0
 
-        if time_slider_widget is not None:
+        if not off_decimation and time_slider_widget is not None:
             time_slider_widget.maximum(iframe)
 
             if time_slider_at_max:
