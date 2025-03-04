@@ -92,7 +92,6 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
                         "time_decimation_factor",
                         "width",
                         "height",
-                        "recreate_stream_with_each_frame",
                         "acquisition_persistent",
                         "verbose",
                         NULL};
@@ -106,7 +105,6 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     int         time_decimation_factor  = 1;
     int width   = 0; // by default, auto-detect the dimensions
     int height  = 0;
-    int recreate_stream_with_each_frame = 0;
     int acquisition_persistent          = 0;
     int verbose = 0;
 
@@ -115,14 +113,13 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     mrcam_trigger_t          trigger;
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "|z$sssiiippp:mrcam.__init__", keywords,
+                                     "|z$sssiiipp:mrcam.__init__", keywords,
                                      &camera_name,
                                      &pixfmt_string,
                                      &acquisition_mode_string,
                                      &trigger_string,
                                      &time_decimation_factor,
                                      &width, &height,
-                                     &recreate_stream_with_each_frame,
                                      &acquisition_persistent,
                                      &verbose))
         goto done;
@@ -198,7 +195,6 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
             .time_decimation_factor          = time_decimation_factor,
             .width                           = width,
             .height                          = height,
-            .recreate_stream_with_each_frame = recreate_stream_with_each_frame,
             .acquisition_persistent          = acquisition_persistent,
             .verbose                         = verbose
         };

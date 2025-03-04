@@ -182,7 +182,6 @@ typedef struct
 
     // Options. These don't change after init
     bool acquisition_persistent          : 1; // never stop the acquisition
-    bool recreate_stream_with_each_frame : 1;
     bool verbose                         : 1;
 } mrcam_t;
 
@@ -203,9 +202,6 @@ typedef struct
     // If time_decimation_factor > 1, we report every Nth frame to the user.
     int time_decimation_factor;
     bool acquisition_persistent; // never stop the acquisition
-    // Shouldn't be needed, but I can't get data from some cameras
-    // without it
-    bool recreate_stream_with_each_frame;
     bool verbose;
 } mrcam_options_t;
 

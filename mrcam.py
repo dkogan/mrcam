@@ -42,12 +42,6 @@ def _add_common_cmd_options(parser,
                         don't work right in this mode, so --single-buffered is
                         available to disable double-buffering to work around
                         those bugs''')
-    parser.add_argument('--recreate-stream-with-each-frame',
-                        action='store_true',
-                        help='''If given, we create a new stream with each frame. This shouldn't be needed,
-                        but the Emergent HR-20000 cameras don't work without
-                        it''')
-
 
     parser.add_argument('--display-flip',
                         help='''Flip the image horizontally and/or vertically

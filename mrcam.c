@@ -337,8 +337,7 @@ bool mrcam_init(// out
 {
     bool result = false;
     GError* error  = NULL;
-    *ctx = (mrcam_t){ .recreate_stream_with_each_frame = options->recreate_stream_with_each_frame,
-                      .pixfmt                          = options->pixfmt,
+    *ctx = (mrcam_t){ .pixfmt                          = options->pixfmt,
                       .trigger                         = options->trigger,
                       .acquisition_mode                = options->acquisition_mode,
                       .acquisition_persistent          = options->acquisition_persistent,
@@ -486,9 +485,8 @@ bool mrcam_init(// out
     if(error != NULL)
         g_clear_error(&error);
 
-    if(!ctx->recreate_stream_with_each_frame)
-        if(!init_stream(ctx))
-            goto done;
+    if(!init_stream(ctx))
+        goto done;
 
     result = true;
 
@@ -971,10 +969,6 @@ bool request(mrcam_t* ctx,
             ctx->acquisition_persistent, ctx->acquiring, !!ctx->active_callback);
         goto done;
     }
-
-    if(ctx->recreate_stream_with_each_frame)
-        if(!init_stream(ctx))
-            goto done;
 
     ctx->active_callback                = callback;
     ctx->active_callback_off_decimation = callback_off_decimation;
