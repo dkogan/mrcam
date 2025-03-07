@@ -264,31 +264,31 @@ def image_callback(image,
 
     # schedule the next set of images; do this even if off_decimation
     if not iframe in Ncameras_seen_iframe:
-        Ncameras_seen_iframe[iframe] = 0
+        Ncameras_seen_iframe[iframe] = 1
     else:
         Ncameras_seen_iframe[iframe] += 1
 
-        # I need a Ncameras_seen_iframe to be a dict instead of a count for the
-        # last frame, because in a free-runnning mode, I may get frames out of
-        # the usual expected order
-        if Ncameras_seen_iframe[iframe] >= Ncameras:
-            # Every camera reported back. Finish up and ask for another frame
-            del Ncameras_seen_iframe[iframe]
+    # I need a Ncameras_seen_iframe to be a dict instead of a count for the
+    # last frame, because in a free-runnning mode, I may get frames out of
+    # the usual expected order
+    if Ncameras_seen_iframe[iframe] >= Ncameras:
+        # Every camera reported back. Finish up and ask for another frame
+        del Ncameras_seen_iframe[iframe]
 
-            if not off_decimation and time_slider_widget is not None:
-                time_slider_widget.maximum(iframe)
+        if not off_decimation and time_slider_widget is not None:
+            time_slider_widget.maximum(iframe)
 
-                if time_slider_at_max:
-                    # We were at the end of the time slider. Update us so that we're
-                    # still at the end
-                    time_slider_widget.value(iframe)
-                    time_slider_update_label(iframe, timestamp)
-                else:
-                    time_slider_update_label(time_slider_now, log_replay[time_slider_now]['time'][0])
-                    # The bounds changed, so the handle should be redrawn
-                    time_slider_widget.redraw()
+            if time_slider_at_max:
+                # We were at the end of the time slider. Update us so that we're
+                # still at the end
+                time_slider_widget.value(iframe)
+                time_slider_update_label(iframe, timestamp)
+            else:
+                time_slider_update_label(time_slider_now, log_replay[time_slider_now]['time'][0])
+                # The bounds changed, so the handle should be redrawn
+                time_slider_widget.redraw()
 
-            mrcam.schedule_next_frame(request_image_set, args.period)
+        mrcam.schedule_next_frame(request_image_set, args.period)
 
 
 
