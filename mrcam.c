@@ -850,7 +850,11 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
 
     if(ctx->active_callback == NULL)
     {
-        MSG("Nothing to do: user active_callback==NULL");
+        // Nothing to do. This CAN happen if we're capturing continuously: the
+        // frames are coming in without us explicitly asking for each one, so we
+        // might not be ready to do anything with the frame yet
+        if(ctx->verbose)
+            MSG("Nothing to do: user active_callback==NULL");
         return;
     }
 
