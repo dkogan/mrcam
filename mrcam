@@ -193,6 +193,14 @@ def request_image_set():
     for image_view_group in image_view_groups:
         image_view_group.camera.request()
 
+def save_image_safe(path, image):
+    try:
+        return mrcal.save_image(path,image)
+    except:
+        print(f"## ERROR: couldn't save image to {path=}",
+              file = sys.stderr)
+        return None
+
 Ncameras_seen_iframe = dict()
 def image_callback(image,
                    *,
@@ -243,9 +251,9 @@ def image_callback(image,
 
                 if smp_pool is None:
                     # Serial path. Used most of the time
-                    mrcal.save_image(path, image)
+                    save_image_safe(path, image)
                 else:
-                    smp_pool.apply_async(mrcal.save_image, (path, image))
+                    smp_pool.apply_async(save_image_safe, (path, image))
 
             time_slider_now = int(time_slider_widget.value())
             time_slider_at_max = \
@@ -470,19 +478,6 @@ image_view_groups = [None] * Ncameras
 # actually send the trigger; otherwise when the first camera sends the trigger,
 # the last camera might still be initializing
 if args.replay is None:
-    for i,camera in reversed(list(enumerate(args.camera))):
-        cameras[i] = \
-            mrcam.camera(camera,
-                         verbose = args.verbose,
-                         **kwargs)
-
-        if kwargs['trigger'] == 'HARDWARE_TTYS0':
-            # As noted above, if we're generating a trigger signal, the LAST
-            # camera only should do that. So here the non-last cameras are set
-            # to expect a trigger signal, but not to produce it
-            kwargs['trigger'] = 'HARDWARE_EXTERNAL'
-
-
     if args.logdir is not None:
         path = f"{args.logdir}/images.vnl"
         try:
@@ -496,6 +491,18 @@ if args.replay is None:
             if c is not None:
                 print(f"## Camera {i}: {c}", file=file_log)
         write_logline("# time iframe icam imagepath");
+
+    for i,camera in reversed(list(enumerate(args.camera))):
+        cameras[i] = \
+            mrcam.camera(camera,
+                         verbose = args.verbose,
+                         **kwargs)
+
+        if kwargs['trigger'] == 'HARDWARE_TTYS0':
+            # As noted above, if we're generating a trigger signal, the LAST
+            # camera only should do that. So here the non-last cameras are set
+            # to expect a trigger signal, but not to produce it
+            kwargs['trigger'] = 'HARDWARE_EXTERNAL'
 
 else:
     # We're replaying a log
