@@ -85,6 +85,8 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     // error by default
     int result = -1;
 
+    SET_SIGINT();
+
     char* keywords[] = {"name",
                         "pixfmt",
                         "acquisition_mode",
@@ -209,6 +211,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     result = 0;
 
  done:
+    RESET_SIGINT();
     return result;
 }
 
