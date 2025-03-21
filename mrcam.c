@@ -703,7 +703,7 @@ bool fill_image(// out
 // *buffer_popped may return NULL if no buffer was popped
 static
 bool receive_image(// out
-                   uint64_t* timestamp_us,
+                   uint64_t* timestamp_us, // may be NULL
                    ArvBuffer** buffer,
 
                    // fill this image with the data, on success. On failure set to {}
@@ -807,7 +807,8 @@ bool receive_image(// out
 #undef LIST_PAYLOAD_TYPE
 #undef CHECK
 
-    *timestamp_us = gettimeofday_uint64();
+    if(timeout_us != NULL)
+        *timestamp_us = gettimeofday_uint64();
     result = true;
 
  done:
@@ -872,6 +873,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
         TIMESTAMP();
         if(ctx->verbose)
             MSG("ARV_STREAM_CALLBACK_TYPE_START_BUFFER: The first packet of a new frame was received");
+        ctx->timestamp_start_buffer_us = gettimeofday_uint64();
         break;
     case ARV_STREAM_CALLBACK_TYPE_BUFFER_DONE:
         TIMESTAMP();
@@ -888,14 +890,13 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
                 MSG("ARV_STREAM_CALLBACK_TYPE_BUFFER_DONE");
 
             mrcal_image_uint8_t image; // specific image type may not be right; it doesn't matter
-            uint64_t timestamp_us = 0;
 
             const bool on_decimation =
                 (ctx->time_decimation_factor <= 1) ||
                 (++ctx->time_decimation_index == ctx->time_decimation_factor);
 
             ArvBuffer* buffer_popped;
-            receive_image(&timestamp_us, &buffer_popped,
+            receive_image(NULL, &buffer_popped,
                           on_decimation ? &image : NULL,
                           0, ctx);
 
@@ -914,7 +915,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
                 ctx->active_callback(image,
                                      &(mrcam_buffer_t){.ctx    = ctx,
                                                        .buffer = buffer_popped},
-                                     timestamp_us,
+                                     ctx->timestamp_start_buffer_us,
                                      ctx->active_callback_cookie);
                 ctx->time_decimation_index = 0;
 

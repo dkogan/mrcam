@@ -178,6 +178,8 @@ typedef struct
     int time_decimation_factor;
     int time_decimation_index;
 
+    uint64_t timestamp_start_buffer_us;
+
     bool acquiring                       : 1; // we're acquiring RIGHT NOW
 
     // Options. These don't change after init
