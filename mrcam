@@ -326,7 +326,7 @@ def update_image_from_path(icam, path):
             image = mrcal.load_image(path)
         except:
             print(f"Couldn't read image at '{path}'", file=sys.stderr)
-            sys.exit(1)
+            image = None
 
     image_view_groups[icam].update_image_widget( image,
                                                  flip_x = args.flip_x,
