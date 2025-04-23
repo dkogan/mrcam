@@ -334,6 +334,22 @@ def time_slider_update_label(iframe,time):
     t = datetime.datetime.fromtimestamp(t, datetime.UTC)
     time_slider_widget.label(f"iframe={iframe}/{int(time_slider_widget.maximum())} timestamp={time:.03f} {t.strftime('%Y-%m-%d %H:%M:%S')} {tzname}")
 
+
+def update_all_images_from_replay():
+    global log_replay
+
+    i_iframe = round(time_slider_widget.value())
+
+    try:
+        record = log_replay[i_iframe]
+    except IndexError:
+        print(f"WARNING: {i_iframe=} is out-of-bounds in log_replay: {len(log_replay)=}. This is a bug")
+        return
+
+    for icam in range(Ncameras):
+        update_image_from_path(icam, complete_path(record['imagepath'][icam]))
+
+
 def time_slider_select():
     global image_view_groups
     global log_replay
@@ -348,13 +364,11 @@ def time_slider_select():
 
     # shape (Ncameras,); all of these
     times   = record['time']
-    paths   = record['imagepath']
     iframes = record['iframe']
 
     time_slider_update_label(iframes[0], times[0])
 
-    for icam in range(Ncameras):
-        update_image_from_path(icam, complete_path(paths[icam]))
+    update_all_images_from_replay()
 
     # if live-updating we color the slider green
     if args.logdir is not None:
