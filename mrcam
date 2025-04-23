@@ -219,11 +219,8 @@ def image_callback(image,
 
 
 
-        if logdir is None:
-            image_view_groups[icam].update_image_widget( image  = image,
-                                                         flip_x = args.flip_x,
-                                                         flip_y = args.flip_y )
-        else:
+        time_slider_at_max = False
+        if logdir is not None:
             if not iframe in log_replay_entry_from_iframe:
                 # Started this set of cameras. Add empty record; fill it in as I get
                 # frames
@@ -251,16 +248,16 @@ def image_callback(image,
             time_slider_at_max = \
                 time_slider_now == int(time_slider_widget.maximum())
 
-            if time_slider_at_max:
-                image_view_groups[icam].update_image_widget( image  = image,
-                                                             flip_x = args.flip_x,
-                                                             flip_y = args.flip_y )
-
             log_replay_entry_from_iframe[iframe]['time'     ][icam] = timestamp
             log_replay_entry_from_iframe[iframe]['iframe'   ][icam] = iframe
             if image is not None:
                 log_replay_entry_from_iframe[iframe]['imagepath'][icam] = path
                 # Otherwise, leave at None
+
+        if logdir is None or time_slider_at_max:
+            image_view_groups[icam].update_image_widget( image  = image,
+                                                         flip_x = args.flip_x,
+                                                         flip_y = args.flip_y)
 
     # schedule the next set of images; do this even if off_decimation
     if not iframe in Ncameras_seen_iframe:
