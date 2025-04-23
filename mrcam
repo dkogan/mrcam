@@ -334,9 +334,11 @@ def time_slider_update_label(iframe,time):
     t = datetime.datetime.fromtimestamp(t, datetime.UTC)
     time_slider_widget.label(f"iframe={iframe}/{int(time_slider_widget.maximum())} timestamp={time:.03f} {t.strftime('%Y-%m-%d %H:%M:%S')} {tzname}")
 
-def time_slider_select(i_iframe):
+def time_slider_select():
     global image_view_groups
     global log_replay
+
+    i_iframe = round(time_slider_widget.value())
 
     try:
         record = log_replay[i_iframe]
@@ -545,7 +547,7 @@ if have_time_slider:
     # if live-updating we color the slider green
     if args.logdir is not None:
         time_slider_widget.color(FL_GREEN)
-    time_slider_widget.callback( lambda *args: time_slider_select(round(time_slider_widget.value())) )
+    time_slider_widget.callback( lambda *args: time_slider_select() )
 
 
 status_widget = Fl_Output(0, H-H_status,
@@ -617,6 +619,6 @@ if args.replay is None:
     # request the initial frame; will recur in image_callback
     request_image_set()
 else:
-    time_slider_select(round(time_slider_widget.value()))
+    time_slider_select()
 
 Fl.run()
