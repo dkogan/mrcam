@@ -385,8 +385,6 @@ def open_log(logdir,
     # See
     #   https://notes.secretsauce.net/notes/2024/07/02_vnlogslurp-with-non-numerical-data.html
     import vnlog
-    import numpy as np
-    import numpysane as nps
 
     path = f"{logdir}/images.vnl"
     max_len_imagepath = 128
