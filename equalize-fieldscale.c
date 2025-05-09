@@ -7,6 +7,9 @@
 #define MSG(fmt, ...) fprintf(stderr, "%s(%d) in %s(): " fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
 
+#define WRITE_INTERMEDIATE 0
+
+
 /////// settings
 static const int gridH = 8;
 static const int gridW = 8;
@@ -377,29 +380,33 @@ bool equalize(// out
                         image_in->data, W,H))
         return false;
 
+#if defined WRITE_INTERMEDIATE && WRITE_INTERMEDIATE
     FILE*fp;
-
     fp = fopen("/tmp/minmax0.dat","wb");
     fwrite(min_grid, sizeof(min_grid[0]), gridH*gridW, fp);
     fwrite(max_grid, sizeof(max_grid[0]), gridH*gridW, fp);
     fclose(fp);
-
+#endif
 
     // apply max and min suppression ONLY to the max grid
     local_extrema_suppression(max_grid);
 
+#if defined WRITE_INTERMEDIATE && WRITE_INTERMEDIATE
     fp = fopen("/tmp/minmax1.dat","wb");
     fwrite(min_grid, sizeof(min_grid[0]), gridH*gridW, fp);
     fwrite(max_grid, sizeof(max_grid[0]), gridH*gridW, fp);
     fclose(fp);
+#endif
 
     message_passing(max_grid, false);
     message_passing(min_grid, true);
 
+#if defined WRITE_INTERMEDIATE && WRITE_INTERMEDIATE
     fp = fopen("/tmp/minmax2.dat","wb");
     fwrite(min_grid, sizeof(min_grid[0]), gridH*gridW, fp);
     fwrite(max_grid, sizeof(max_grid[0]), gridH*gridW, fp);
     fclose(fp);
+#endif
 
     apply_minmax(image_out->data,
                  image_in->data,
