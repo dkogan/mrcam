@@ -2,8 +2,10 @@
 #include <stdlib.h>
 #include <limits.h>
 
-#include <mrcal/mrcal-image.h>
-#include "util.h"
+#include "equalize.h"
+
+#define MSG(fmt, ...) fprintf(stderr, "%s(%d) in %s(): " fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__)
+
 
 /////// settings
 static const int gridH = 8;
@@ -342,10 +344,10 @@ void apply_minmax(// out
 }
 
 
-bool mrcam_equalize(// out
-                    mrcal_image_uint8_t*        image_out,
-                    // in
-                    const mrcal_image_uint16_t* image_in)
+bool equalize(// out
+              mrcal_image_uint8_t*        image_out,
+              // in
+              const mrcal_image_uint16_t* image_in)
 {
     const int W = image_in->width;
     const int H = image_in->height;
@@ -374,6 +376,30 @@ bool mrcam_equalize(// out
     if(!gridwise_minmax(min_grid, max_grid,
                         image_in->data, W,H))
         return false;
+
+    FILE*fp;
+
+    fp = fopen("/tmp/minmax0.dat","wb");
+    fwrite(min_grid, sizeof(min_grid[0]), gridH*gridW, fp);
+    fwrite(max_grid, sizeof(max_grid[0]), gridH*gridW, fp);
+    fclose(fp);
+
+
+    // apply max and min suppression ONLY to the max grid
+    local_extrema_suppression(max_grid);
+
+    fp = fopen("/tmp/minmax1.dat","wb");
+    fwrite(min_grid, sizeof(min_grid[0]), gridH*gridW, fp);
+    fwrite(max_grid, sizeof(max_grid[0]), gridH*gridW, fp);
+    fclose(fp);
+
+    message_passing(max_grid, false);
+    message_passing(min_grid, true);
+
+    fp = fopen("/tmp/minmax2.dat","wb");
+    fwrite(min_grid, sizeof(min_grid[0]), gridH*gridW, fp);
+    fwrite(max_grid, sizeof(max_grid[0]), gridH*gridW, fp);
+    fclose(fp);
 
     apply_minmax(image_out->data,
                  image_in->data,
