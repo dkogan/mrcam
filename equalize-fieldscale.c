@@ -1,8 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <math.h>
 
 #include "equalize.h"
+#include "clahe.h"
+
 
 #define MSG(fmt, ...) fprintf(stderr, "%s(%d) in %s(): " fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
@@ -22,7 +25,7 @@ static const int      local_distance = 2;
 // for message_passing()
 static const int Niterations = 7;
 
-static const double gamma = 1.5;
+static const double _gamma = 1.5;
 
 static
 bool gridwise_minmax(// out
@@ -414,9 +417,20 @@ bool equalize(// out
                  min_grid, max_grid);
 
 
-    // image1 = (255 * np.power(image1.astype(np.float64) / 255, gamma)).astype(np.uint8);
-    // clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8));
-    // image1 = clahe.apply(image1);
+
+    for(int i=0; i<W*H; i++)
+    {
+        const double x =
+            pow((double)(image_out->data[i]) / 255.,
+                _gamma) * 255.;
+        if(     x <= 0)   image_out->data[i] = 0;
+        else if(x >= 255) image_out->data[i] = 255;
+        else              image_out->data[i] = (uint8_t)(x + 0.5);
+    }
+
+    const double clipLimit = 2.0;
+    clahe( image_out->data, W,H,
+           clipLimit );
 
     return true;
 }
