@@ -15,8 +15,8 @@ static const int gridH = 8;
 static const int gridW = 8;
 
 // for local_extrema_suppression()
-static const uint16_t max_diff       = 400;
-static const uint16_t min_diff       = 400;
+static const uint16_t max_diff       = 600;
+static const uint16_t min_diff       = 600;
 static const int      local_distance = 2;
 
 // for message_passing()
