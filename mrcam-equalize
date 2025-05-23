@@ -110,6 +110,8 @@ filenames_inout = zip(filenames_in, filenames_out)
 
 
 if args.jobs > 1:
+    filenames_inout = list(filenames_inout)
+
     # Normal parallelized path. I process one image serially to initialize any
     # state needed for future conversions
     for i,f in enumerate(filenames_inout):
@@ -117,9 +119,11 @@ if args.jobs > 1:
             break
 
     # i is the just-processed index. I process the rest in parallel
+    filenames_inout = filenames_inout[i+1:]
+
     pool = multiprocessing.Pool(args.jobs)
     try:
-        mapresult = pool.map_async(_transform_this, filenames_inout[i+1:])
+        mapresult = pool.map_async(_transform_this, filenames_inout)
 
         # like wait(), but will barf if something goes wrong. I don't actually care
         # about the results
