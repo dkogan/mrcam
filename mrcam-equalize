@@ -27,6 +27,12 @@ def parse_args():
                         help='''By default existing files are not overwritten. Pass --force to overwrite them
                         without complaint''')
 
+    parser.add_argument('--color-map',
+                        action='store_true',
+                        default=False,
+                        help='''If given, we apply a color-map to the output
+                        grayscale image, for human consumption''')
+
     parser.add_argument('--jobs', '-j',
                         type=int,
                         required=False,
@@ -66,8 +72,14 @@ def _transform_this(inout):
               file=sys.stderr)
         return
 
-    image_transformed = maritime_aec.equalize(image)
-    mrcal.save_image(inout[1], image_transformed)
+    image = maritime_aec.equalize(image)
+
+    if args.color_map:
+        image = mrcal.apply_color_map(image,
+                                      a_min = 0,
+                                      a_max = 255)
+
+    mrcal.save_image(inout[1], image)
     print(f"Wrote {inout[1]}", file=sys.stderr)
     return True
 
