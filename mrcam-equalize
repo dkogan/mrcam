@@ -57,6 +57,7 @@ args = parse_args()
 
 import glob
 import os.path
+import multiprocessing
 import mrcal
 import maritime_aec
 
