@@ -108,8 +108,6 @@ filenames_out = [target_image_filename(f) for f in filenames_in]
 filenames_inout = zip(filenames_in, filenames_out)
 
 
-global mapxy
-
 if args.jobs > 1:
     # Normal parallelized path. I process one image serially to initialize any
     # state needed for future conversions
