@@ -24,7 +24,7 @@ typedef struct { int width,height; } dimensions_t;
     _(dimensions_t,   dims,    dims,    {},                  required_argument, " WIDTH,HEIGHT",'D', ""  ) \
     _(mrcam_trigger_t,trigger, trigger, MRCAM_TRIGGER_SOFTWARE,required_argument, " TRIGGER",     't', ""  ) \
     _(mrcam_acquisition_mode_t,acquisition_mode, acquisition-mode, MRCAM_ACQUISITION_MODE_SINGLE_FRAME,required_argument, " ACQUISITION-MODE",     'a', ""  ) \
-    _(int,            time_decimation_factor,time-decimation-factor, 1, required_argument, ,'f', "") \
+    _(int,            time_decimation_factor,time-decimation-factor, 1, required_argument, " DECIMATION_FACTOR" ,'f', "") \
     _(bool,           acquisition_persistent,acquisition-persistent, false, no_argument, ,'p', "") \
     _(bool,           verbose, verbose, false,               no_argument,       ,               'v', "v")
 
