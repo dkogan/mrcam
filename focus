@@ -203,16 +203,14 @@ def handle_event_image_widget(widget, event):
 
 
 kwargs = dict()
-if args.dims is not None:
-    kwargs['dims' ] = args.dims
-if args.pixfmt is not None:
-    kwargs['pixfmt'] = args.pixfmt
-if args.trigger is not None:
-    kwargs['trigger'] = args.trigger
-if args.acquisition_mode is not None:
-    kwargs['acquisition_mode'] = args.acquisition_mode
+
+kwargs['dims' ]                  = args.dims
+kwargs['pixfmt']                 = args.pixfmt
+kwargs['trigger']                = args.trigger
+kwargs['acquisition_mode']       = args.acquisition_mode
 kwargs['acquisition_persistent'] = args.acquisition_persistent
-kwargs['time_decimation_factor']          = args.time_decimation_factor
+kwargs['time_decimation_factor'] = args.time_decimation_factor
+
 c = mrcam.camera(args.camera,
                  verbose = args.verbose,
                  **kwargs)

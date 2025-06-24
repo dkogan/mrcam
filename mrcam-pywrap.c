@@ -103,6 +103,26 @@ static bool int_from_sequence_element(// out
     return result;
 }
 
+static bool string_from_pystring__leave_if_null_or_none(// out
+                                                        const char** string,
+                                                        // in
+                                                        PyObject* py_string)
+{
+    if(IS_NULL(py_string))
+        return true;
+
+    if(!PyUnicode_Check(py_string))
+        return false;
+
+    *string = PyUnicode_AsUTF8(py_string);
+    if(string == NULL)
+    {
+        // error is set
+        return false;
+    }
+    return true;
+}
+
 static int
 camera_init(camera* self, PyObject* args, PyObject* kwargs)
 {
@@ -127,6 +147,10 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     const char* pixfmt_string           = "MONO_8";
     const char* acquisition_mode_string = "SINGLE_FRAME";
     const char* trigger_string          = "SOFTWARE";
+    PyObject* py_pixfmt_string           = NULL;
+    PyObject* py_acquisition_mode_string = NULL;
+    PyObject* py_trigger_string          = NULL;
+
     int         time_decimation_factor  = 1;
     PyObject* py_width_height = NULL;
     int width   = 0; // by default, auto-detect the dimensions
@@ -139,11 +163,11 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     mrcam_trigger_t          trigger;
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "|z$sssiOpp:mrcam.__init__", keywords,
+                                     "|z$OOOiOpp:mrcam.__init__", keywords,
                                      &camera_name,
-                                     &pixfmt_string,
-                                     &acquisition_mode_string,
-                                     &trigger_string,
+                                     &py_pixfmt_string,
+                                     &py_acquisition_mode_string,
+                                     &py_trigger_string,
                                      &time_decimation_factor,
                                      &py_width_height,
                                      &acquisition_persistent,
@@ -156,7 +180,21 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
         goto done;
     }
 
-
+    if(!string_from_pystring__leave_if_null_or_none(&pixfmt_string, py_pixfmt_string))
+    {
+        BARF("if pixfmt is given and non-None, it must be a string");
+        goto done;
+    }
+    if(!string_from_pystring__leave_if_null_or_none(&acquisition_mode_string, py_acquisition_mode_string))
+    {
+        BARF("if acquisition_mode is given and non-None, it must be a string");
+        goto done;
+    }
+    if(!string_from_pystring__leave_if_null_or_none(&trigger_string, py_trigger_string))
+    {
+        BARF("if trigger is given and non-None, it must be a string");
+        goto done;
+    }
 
     if(0) ;
 #define PARSE(name, name_genicam, ...)           \

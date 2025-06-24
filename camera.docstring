@@ -44,13 +44,14 @@ ARGUMENTS
 
   The name may be omitted or None to select the first available camera
 
-- pixfmt: optional string for the requested pixel format. If omitted, we select
-  "MONO_8". mrcam supports many common pixel formats, but not everything
+- pixfmt: optional string for the requested pixel format. If omitted or None, we
+  select "MONO_8". mrcam supports many common pixel formats, but not everything
   supported by aravis. To get a list of formats supported by mrcam, pass an
   invalid string here (such as '', for instance). To get a list of formats
   supported by the hardware, run 'arv-tool-0.8 features PixelFormat'
 
-- trigger: optional string, defaulting to 'SOFTWARE'. Currently we support:
+- trigger: optional string, defaulting to 'SOFTWARE' if omitted or None.
+  Currently we support:
 
   - "NONE": no triggering at all. The camera will decide to send us frames all by
     itself.
@@ -73,8 +74,8 @@ ARGUMENTS
     (usually through some level shifters and/or buffers) to the trigger pin in
     the camera
 
-- acquisition_mode: optional string, defaulting to 'SINGLE_FRAME'. Currently we
-  support:
+- acquisition_mode: optional string, defaulting to 'SINGLE_FRAME' if omitted or
+  None. Currently we support:
 
   - SINGLE_FRAME
   - MULTI_FRAME
