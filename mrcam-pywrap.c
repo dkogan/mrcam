@@ -308,7 +308,7 @@ static void camera_dealloc(camera* self)
 
 static PyObject*
 numpy_image_from_mrcal_image(// type not exact
-                             const mrcal_image_uint8_t* mrcal_image,
+                             const mrcal_image_uint8_t* mrcal_image, // type might not be exact,
                              mrcam_output_type_t type)
 {
     switch(type)
@@ -318,7 +318,7 @@ numpy_image_from_mrcal_image(// type not exact
             const int bytes_per_pixel__output = 1;
             if(mrcal_image->stride != mrcal_image->width * bytes_per_pixel__output)
             {
-                BARF("Image returned by mrcam_pull_...() is not contiguous");
+                BARF("Image returned by mrcam_pull() is not contiguous");
                 return NULL;
             }
             return
@@ -335,7 +335,7 @@ numpy_image_from_mrcal_image(// type not exact
             const int bytes_per_pixel__output = 2;
             if(mrcal_image->stride != mrcal_image->width * bytes_per_pixel__output)
             {
-                BARF("Image returned by mrcam_pull_...() is not contiguous");
+                BARF("Image returned by mrcam_pull() is not contiguous");
                 return NULL;
             }
             return
@@ -352,7 +352,7 @@ numpy_image_from_mrcal_image(// type not exact
             const int bytes_per_pixel__output = 3;
             if(mrcal_image->stride != mrcal_image->width * bytes_per_pixel__output)
             {
-                BARF("Image returned by mrcam_pull_...() is not contiguous");
+                BARF("Image returned by mrcam_pull() is not contiguous");
                 return NULL;
             }
             return
@@ -425,48 +425,12 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
     mrcal_image_uint8_t mrcal_image;
     uint64_t timestamp_us;
 
-    switch(mrcam_output_type(self->ctx.pixfmt))
+    if(!mrcam_pull( &mrcal_image,
+                    &timestamp_us,
+                    (uint64_t)(timeout_sec * 1e6),
+                    &self->ctx))
     {
-    case MRCAM_uint8:
-        {
-            if(!mrcam_pull_uint8( (mrcal_image_uint8_t*)&mrcal_image,
-                                  &timestamp_us,
-                                  (uint64_t)(timeout_sec * 1e6),
-                                  &self->ctx))
-            {
-                BARF("mrcam_pull...() failed");
-                goto done;
-            }
-        }
-        break;
-
-    case MRCAM_uint16:
-        {
-            if(!mrcam_pull_uint16( (mrcal_image_uint16_t*)&mrcal_image,
-                                   &timestamp_us,
-                                   (uint64_t)(timeout_sec * 1e6),
-                                   &self->ctx))
-            {
-                BARF("mrcam_pull...() failed");
-                goto done;
-            }
-        }
-        break;
-
-    case MRCAM_bgr:
-        {
-            if(!mrcam_pull_bgr( (mrcal_image_bgr_t*)&mrcal_image,
-                                &timestamp_us,
-                                (uint64_t)(timeout_sec * 1e6),
-                                &self->ctx))
-            {
-                BARF("mrcam_pull...() failed");
-                goto done;
-            }
-        }
-        break;
-
-    default:
+        BARF("mrcam_pull() failed");
         goto done;
     }
 
@@ -541,10 +505,10 @@ ssize_t write_persistent(int fd, const uint8_t* buf, size_t count)
 
 static
 void
-callback_generic(mrcal_image_uint8_t mrcal_image, // type might not be exact
-                 mrcam_buffer_t* buffer,
-                 uint64_t timestamp_us,
-                 void* cookie)
+callback(mrcal_image_uint8_t mrcal_image, // type might not be exact
+         mrcam_buffer_t* buffer,
+         uint64_t timestamp_us,
+         void* cookie)
 {
     camera* self = (camera*)cookie;
 
@@ -561,7 +525,10 @@ callback_generic(mrcal_image_uint8_t mrcal_image, // type might not be exact
 
 static
 void
-callback_off_decimation_generic(void* cookie)
+callback_off_decimation(__attribute__((unused)) mrcal_image_uint8_t mrcal_image, // type might not be exact
+                        __attribute__((unused)) mrcam_buffer_t* buffer,
+                        __attribute__((unused)) uint64_t timestamp_us,
+                        void* cookie)
 {
     camera* self = (camera*)cookie;
 
@@ -578,43 +545,13 @@ callback_off_decimation_generic(void* cookie)
 static PyObject*
 request(camera* self, PyObject* args)
 {
-    switch(mrcam_output_type(self->ctx.pixfmt))
+    if(!mrcam_request( &callback,
+                       &callback_off_decimation,
+                       self,
+                       &self->ctx))
     {
 #warning "off-decimation callback in python"
-    case MRCAM_uint8:
-        if(!mrcam_request_uint8( (mrcam_callback_image_uint8_t* )&callback_generic,
-                                 callback_off_decimation_generic,
-                                 self,
-                                 &self->ctx))
-        {
-            BARF("mrcam_request...() failed");
-            goto done;
-        }
-        break;
-
-    case MRCAM_uint16:
-        if(!mrcam_request_uint16((mrcam_callback_image_uint16_t*)&callback_generic,
-                                 callback_off_decimation_generic,
-                                 self,
-                                 &self->ctx))
-        {
-            BARF("mrcam_request...() failed");
-            goto done;
-        }
-        break;
-
-    case MRCAM_bgr:
-        if(!mrcam_request_bgr(   (mrcam_callback_image_bgr_t*   )&callback_generic,
-                                 callback_off_decimation_generic,
-                                 self,
-                                 &self->ctx))
-        {
-            BARF("mrcam_request...() failed");
-            goto done;
-        }
-        break;
-
-    default:
+        BARF("mrcam_request() failed");
         goto done;
     }
 

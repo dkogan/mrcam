@@ -191,11 +191,6 @@ static bool open_serial_device(mrcam_t* ctx)
 
 static void
 callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer);
-static
-bool request(mrcam_t* ctx,
-             mrcam_callback_image_uint8_t* callback,
-             mrcam_callback_t*             callback_off_decimation,
-             void* cookie);
 
 static void report_available_pixel_formats(ArvCamera* camera,
                                            mrcam_t* ctx)
@@ -937,7 +932,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
                 // External triggering or whatever else. New frame requests
                 // happen here
                 if(ctx->active_callback_off_decimation != NULL)
-                    ctx->active_callback_off_decimation(ctx->active_callback_cookie);
+                    ctx->active_callback_off_decimation((mrcal_image_uint8_t){},NULL,0,ctx->active_callback_cookie);
             }
         }
 
@@ -949,11 +944,11 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
     }
 }
 
-static
-bool request(mrcam_t* ctx,
-             mrcam_callback_image_uint8_t* callback,
-             mrcam_callback_t*             callback_off_decimation,
-             void* cookie)
+bool mrcam_request( // in
+                    mrcam_callback_t* callback,
+                    mrcam_callback_t* callback_off_decimation,
+                    void* cookie,
+                    mrcam_t* ctx)
 {
     if(ctx->verbose) MSG("");
 
@@ -980,7 +975,7 @@ bool request(mrcam_t* ctx,
     if( !ctx->acquisition_persistent &&
         (ctx->acquiring || ctx->active_callback != NULL))
     {
-        MSG("Acquisition already in progress: acquisition_persistent=%d, acquiring=%d, active_callback_exists=%d. If mrcam_request_...() was called, wait for the callback or call mrcam_cancel_request()",
+        MSG("Acquisition already in progress: acquisition_persistent=%d, acquiring=%d, active_callback_exists=%d. If mrcam_request() was called, wait for the callback or call mrcam_cancel_request()",
             ctx->acquisition_persistent, ctx->acquiring, !!ctx->active_callback);
         goto done;
     }
@@ -1064,12 +1059,12 @@ bool request(mrcam_t* ctx,
 
 
 /* timeout_us=0 means "wait forever" */
-bool mrcam_pull_uint8(/* out */
-                      mrcal_image_uint8_t* image,
-                      uint64_t* timestamp_us,
-                      /* in */
-                      const uint64_t timeout_us,
-                      mrcam_t* ctx)
+bool mrcam_pull(/* out */
+                mrcal_image_uint8_t* image,
+                uint64_t* timestamp_us,
+                /* in */
+                const uint64_t timeout_us,
+                mrcam_t* ctx)
 {
     if(ctx->verbose) MSG("%s()", __func__);
 
@@ -1083,7 +1078,7 @@ bool mrcam_pull_uint8(/* out */
     for(; N > 0; N--)
     {
         bool result =
-            request(ctx, NULL, NULL, NULL) &&
+            mrcam_request(NULL, NULL, NULL, ctx) &&
             // may block
             receive_image(timestamp_us,
                           &buffer,
@@ -1104,60 +1099,7 @@ bool mrcam_pull_uint8(/* out */
     // The caller MUST re-push the buffer when done
     return true;
 }
-bool mrcam_pull_uint16(/* out */
-                      mrcal_image_uint16_t* image,
-                      uint64_t* timestamp_us,
-                      /* in */
-                      const uint64_t timeout_us,
-                      mrcam_t* ctx)
-{
-    return mrcam_pull_uint8((mrcal_image_uint8_t*)image, timestamp_us, timeout_us, ctx);
-}
-bool mrcam_pull_bgr(/* out */
-                      mrcal_image_bgr_t* image,
-                      uint64_t* timestamp_us,
-                      /* in */
-                      const uint64_t timeout_us,
-                      mrcam_t* ctx)
-{
-    return mrcam_pull_uint8((mrcal_image_uint8_t*)image, timestamp_us, timeout_us, ctx);
-}
 
-bool mrcam_request_uint8( // in
-                          mrcam_callback_image_uint8_t* callback,
-                          mrcam_callback_t*             callback_off_decimation,
-                          void* cookie,
-                          mrcam_t* ctx)
-{
-    if(ctx->verbose) MSG("");
-
-    return
-        request(ctx, (mrcam_callback_image_uint8_t*)callback, callback_off_decimation, cookie);
-}
-
-bool mrcam_request_uint16(// in
-                          mrcam_callback_image_uint16_t* callback,
-                          mrcam_callback_t*              callback_off_decimation,
-                          void* cookie,
-                          mrcam_t* ctx)
-{
-    if(ctx->verbose) MSG("");
-
-    return
-        request(ctx, (mrcam_callback_image_uint8_t*)callback, callback_off_decimation, cookie);
-}
-
-bool mrcam_request_bgr(   // in
-                          mrcam_callback_image_bgr_t* callback,
-                          mrcam_callback_t*           callback_off_decimation,
-                          void* cookie,
-                          mrcam_t* ctx)
-{
-    if(ctx->verbose) MSG("");
-
-    return
-        request(ctx, (mrcam_callback_image_uint8_t*)callback, callback_off_decimation, cookie);
-}
 bool mrcam_cancel_request(mrcam_t* ctx)
 {
     if(ctx->verbose) MSG("");

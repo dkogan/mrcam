@@ -281,34 +281,10 @@ int main(int argc, char **argv)
         int64_t t0 = gettimeofday_int64();
 
         for(int icam=0; icam<options.Ncameras; icam++)
-        {
-            switch(mrcam_output_type(ctx[icam].pixfmt))
-            {
-            case MRCAM_uint8:
-                if(!mrcam_pull_uint8( &images.image_uint8 [icam],
-                                      &timestamps_us[icam],
-                                      0, &ctx[icam]))
-                    goto done;
-                break;
-
-            case MRCAM_uint16:
-                if(!mrcam_pull_uint16(&images.image_uint16[icam],
-                                      &timestamps_us[icam],
-                                      0, &ctx[icam]))
-                    goto done;
-                break;
-
-            case MRCAM_bgr:
-                if(!mrcam_pull_bgr(   &images.image_bgr   [icam],
-                                      &timestamps_us[icam],
-                                      0, &ctx[icam]))
-                    goto done;
-                break;
-
-            default:
+            if(!mrcam_pull( &images.image_uint8 [icam],
+                            &timestamps_us[icam],
+                            0, &ctx[icam]))
                 goto done;
-            }
-        }
 
         int64_t t1 = gettimeofday_int64();
 
