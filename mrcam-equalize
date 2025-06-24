@@ -89,7 +89,7 @@ def target_image_filename(filename_in):
     d,f = os.path.split(filename_in)
     filename_out = f"{args.outdir}/{f}"
     if os.path.abspath(filename_in) == os.path.abspath(filename_out):
-        print("Image '{filename_in}' is set to be processed into the same path. Skipping",
+        print(f"Image '{filename_in}' is set to be processed into the same path. Skipping",
               file=sys.stderr)
         return None
 
