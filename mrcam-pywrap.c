@@ -17,6 +17,8 @@
                                                         args,           \
                                                         function_prefix ## name ## _docstring}
 
+#define IS_NULL(x) ((x) == NULL || (PyObject*)(x) == Py_None)
+
 #define BARF(fmt, ...) PyErr_Format(PyExc_RuntimeError, "%s:%d %s(): "fmt, __FILE__, __LINE__, __func__, ## __VA_ARGS__)
 
 // the try...() macros in util.h will produce Python errors
@@ -79,6 +81,28 @@ typedef struct
 } image_ready_t;
 
 
+
+static bool int_from_sequence_element(// out
+                                      int* x,
+                                      // in
+                                      PyObject* py_sequence,
+                                      int i)
+{
+    bool      result   = false;
+    PyObject* py_value = NULL;
+
+    py_value = PySequence_GetItem(py_sequence,i);
+    if(py_value == NULL || !PyLong_Check(py_value))
+        goto done;
+
+    *x = PyLong_AsInt(py_value);
+    result = true;
+
+ done:
+    Py_XDECREF(py_value);
+    return result;
+}
+
 static int
 camera_init(camera* self, PyObject* args, PyObject* kwargs)
 {
@@ -92,8 +116,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
                         "acquisition_mode",
                         "trigger",
                         "time_decimation_factor",
-                        "width",
-                        "height",
+                        "dims",
                         "acquisition_persistent",
                         "verbose",
                         NULL};
@@ -105,6 +128,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     const char* acquisition_mode_string = "SINGLE_FRAME";
     const char* trigger_string          = "SOFTWARE";
     int         time_decimation_factor  = 1;
+    PyObject* py_width_height = NULL;
     int width   = 0; // by default, auto-detect the dimensions
     int height  = 0;
     int acquisition_persistent          = 0;
@@ -115,13 +139,13 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     mrcam_trigger_t          trigger;
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "|z$sssiiipp:mrcam.__init__", keywords,
+                                     "|z$sssiOpp:mrcam.__init__", keywords,
                                      &camera_name,
                                      &pixfmt_string,
                                      &acquisition_mode_string,
                                      &trigger_string,
                                      &time_decimation_factor,
-                                     &width, &height,
+                                     &py_width_height,
                                      &acquisition_persistent,
                                      &verbose))
         goto done;
@@ -188,6 +212,25 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     }
 #undef PARSE
 
+    if(!IS_NULL(py_width_height))
+    {
+        if(!(PySequence_Check(py_width_height) &&
+             PySequence_Size (py_width_height) == 2))
+        {
+            BARF("'dims' is given; it must be an iterable with exactly 2 integers");
+            goto done;
+        }
+        if(!int_from_sequence_element(&width, py_width_height,0))
+        {
+            BARF("'dims' is given; it must be an iterable with exactly 2 integers; item 0 coulnd't be interpreted as an int");
+            goto done;
+        }
+        if(!int_from_sequence_element(&height, py_width_height,1))
+        {
+            BARF("'dims' is given; it must be an iterable with exactly 2 integers; item 0 coulnd't be interpreted as an int");
+            goto done;
+        }
+    }
 
     const mrcam_options_t mrcam_options =
         {

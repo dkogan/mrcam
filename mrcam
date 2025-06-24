@@ -459,8 +459,7 @@ def open_log(logdir,
 
 kwargs = dict()
 if args.dims is not None:
-    kwargs['width' ] = args.dims[0]
-    kwargs['height'] = args.dims[1]
+    kwargs['dims' ] = args.dims
 if args.pixfmt is not None:
     kwargs['pixfmt'] = args.pixfmt
 if args.trigger is not None:

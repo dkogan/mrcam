@@ -96,9 +96,9 @@ ARGUMENTS
   you want this in the CONTINUOUS acquisition_mode, but different cameras may
   demand different things
 
-- width, height: optional integers defaulting to 0. If given, we use these as
-  the given image dimensions. Otherwise, we take the highest-resolution image
-  shape available
+- dims: optional tuple of 2 integers: (width,height). If given, we use these as
+  the given image dimensions. If not given or if (0,0), we take the
+  highest-resolution image shape available
 
 - verbose: optional boolean, defaulting to False. If verbose: we output lots of
   diagnostics to the console. Every aravis call is traced. Note that this is
