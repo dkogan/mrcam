@@ -34,15 +34,6 @@ def _add_common_cmd_options(parser,
                         to pick multiple features at once. If the regex matches
                         any category, everything in that category will be
                         selected''')
-    parser.add_argument('--single-buffered',
-                        action='store_true',
-                        help='''By default the image display is double-buffered
-                        to avoid flickering. Some graphics hardare (in
-                        particular my old i915-based system) are buggy, and
-                        don't work right in this mode, so --single-buffered is
-                        available to disable double-buffering to work around
-                        those bugs''')
-
     parser.add_argument('--display-flip',
                         help='''Flip the image horizontally and/or vertically
                         for display. This changes the way the image is displayed
@@ -306,7 +297,6 @@ class Fl_Image_View_Group(Fl_Group):
                  # feature name that doesn't exist EXACTLY as given will be
                  # re-tried as a regex
                  features          = (),
-                 single_buffered   = False,
                  status_widget     = None,
                  handle_extra      = None,
                  image_view_groups = None):
@@ -358,7 +348,7 @@ class Fl_Image_View_Group(Fl_Group):
             Fl_Gl_Image_with_handle(x, y,
                                     w-w_controls, h-h_status_here,
                                     handler               = handle_image_widget,
-                                    double_buffered       = not single_buffered,
+                                    double_buffered       = True,
                                     locked_panzoom_groups = image_view_groups)
         if status_widget is None:
             self.status_widget = Fl_Output(x, y + h-h_status_here, w, h_status_here)

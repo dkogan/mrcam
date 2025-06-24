@@ -224,7 +224,6 @@ H        = 1024
 window        = Fl_Window(W, H, "mrcam focus tool")
 image_view_group = mrcam.Fl_Image_View_Group(0,0, W//2,H,
                                              camera          = c,
-                                             single_buffered = args.single_buffered,
                                              features        = args.features,
                                              handle_extra    = handle_event_image_widget)
 plot_widget   = Fl_Gnuplotlib_Window        (W//2, 0, W//2,H,
