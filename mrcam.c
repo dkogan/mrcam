@@ -802,7 +802,7 @@ bool receive_image(// out
 #undef LIST_PAYLOAD_TYPE
 #undef CHECK
 
-    if(timeout_us != NULL)
+    if(timestamp_us != NULL)
         *timestamp_us = gettimeofday_uint64();
     result = true;
 
