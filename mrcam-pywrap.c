@@ -136,8 +136,8 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 
     if(0) ;
 #define PARSE(name, name_genicam, ...)           \
-    else if(0 == strcmp(pixfmt_string, #name) || \
-            0 == strcmp(pixfmt_string, #name_genicam))  \
+    else if(0 == strcasecmp(pixfmt_string, #name) || \
+            0 == strcasecmp(pixfmt_string, #name_genicam))  \
         pixfmt = MRCAM_PIXFMT_ ## name;
     LIST_MRCAM_PIXFMT(PARSE)
     else
@@ -156,7 +156,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 
     if(0) ;
 #define PARSE(name, ...)                        \
-    else if(0 == strcmp(acquisition_mode_string, #name))  \
+    else if(0 == strcasecmp(acquisition_mode_string, #name))  \
         acquisition_mode = MRCAM_ACQUISITION_MODE_ ## name;
     LIST_MRCAM_ACQUISITION_MODE(PARSE)
     else
@@ -173,7 +173,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 
     if(0) ;
 #define PARSE(name, ...)                        \
-    else if(0 == strcmp(trigger_string, #name))  \
+    else if(0 == strcasecmp(trigger_string, #name))  \
         trigger = MRCAM_TRIGGER_ ## name;
     LIST_MRCAM_TRIGGER(PARSE)
     else

@@ -134,8 +134,8 @@ static bool parse_args(// out
             if(0) ;
 
 #define PARSE(name, name_genicam, ...)                          \
-            else if(0 == strcmp(optarg, #name) ||               \
-                    0 == strcmp(optarg, #name_genicam))         \
+            else if(0 == strcasecmp(optarg, #name) ||               \
+                    0 == strcasecmp(optarg, #name_genicam))         \
                 options->pixfmt = MRCAM_PIXFMT_ ## name;
 
             LIST_MRCAM_PIXFMT(PARSE)
@@ -173,7 +173,7 @@ static bool parse_args(// out
         case 't':
             if(0) ;
 #define PARSE(name, ...)                                        \
-            else if(0 == strcmp(optarg, #name))                 \
+            else if(0 == strcasecmp(optarg, #name))                 \
                 options->trigger = MRCAM_TRIGGER_ ## name;
             LIST_MRCAM_TRIGGER(PARSE)
             else
@@ -190,7 +190,7 @@ static bool parse_args(// out
         case 'a':
             if(0) ;
 #define PARSE(name, ...)                                        \
-            else if(0 == strcmp(optarg, #name))                 \
+            else if(0 == strcasecmp(optarg, #name))                 \
                 options->acquisition_mode = MRCAM_ACQUISITION_MODE_ ## name;
             LIST_MRCAM_ACQUISITION_MODE(PARSE)
             else
