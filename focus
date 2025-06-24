@@ -201,19 +201,8 @@ def handle_event_image_widget(widget, event):
 
     return 1
 
-
-kwargs = dict()
-
-kwargs['dims' ]                  = args.dims
-kwargs['pixfmt']                 = args.pixfmt
-kwargs['trigger']                = args.trigger
-kwargs['acquisition_mode']       = args.acquisition_mode
-kwargs['acquisition_persistent'] = args.acquisition_persistent
-kwargs['time_decimation_factor'] = args.time_decimation_factor
-
 c = mrcam.camera(args.camera,
-                 verbose = args.verbose,
-                 **kwargs)
+                 **args.camera_params
 
 
 W        = 1280

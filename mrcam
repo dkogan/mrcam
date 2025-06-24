@@ -456,16 +456,6 @@ def open_log(logdir,
 
 
 
-
-kwargs = dict()
-
-kwargs['dims' ]                  = args.dims
-kwargs['pixfmt']                 = args.pixfmt
-kwargs['trigger']                = args.trigger
-kwargs['acquisition_mode']       = args.acquisition_mode
-kwargs['acquisition_persistent'] = args.acquisition_persistent
-kwargs['time_decimation_factor'] = args.time_decimation_factor
-
 Ncameras = len(args.camera)
 cameras           = [None] * Ncameras
 image_view_groups = [None] * Ncameras
@@ -494,14 +484,13 @@ if args.replay is None:
     for i,camera in reversed(list(enumerate(args.camera))):
         cameras[i] = \
             mrcam.camera(camera,
-                         verbose = args.verbose,
-                         **kwargs)
+                         **args.camera_params)
 
-        if kwargs['trigger'] == 'HARDWARE_TTYS0':
+        if args.camera_params['trigger'] == 'HARDWARE_TTYS0':
             # As noted above, if we're generating a trigger signal, the LAST
             # camera only should do that. So here the non-last cameras are set
             # to expect a trigger signal, but not to produce it
-            kwargs['trigger'] = 'HARDWARE_EXTERNAL'
+            args.camera_params['trigger'] = 'HARDWARE_EXTERNAL'
 
 else:
     # We're replaying a log
