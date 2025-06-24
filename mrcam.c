@@ -479,7 +479,7 @@ bool mrcam_init(// out
     }
 
     // High-res cameras need BIG packets to maintain the signal integrity. Here
-    // I ask for packaets 9kB in size; that's about the bigger we can have
+    // I ask for packets 9kB in size; that's about the biggest we can have
     try_arv_or( arv_camera_set_integer(*camera, "GevSCPSPacketSize", 9000, &error),
                 error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
     if(error != NULL)
