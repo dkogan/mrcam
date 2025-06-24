@@ -483,14 +483,14 @@ if args.replay is None:
 
     for i,camera in reversed(list(enumerate(args.camera))):
         cameras[i] = \
-            mrcam.camera(camera,
-                         **args.camera_params)
+            mrcam.camera(name = camera,
+                         **args.camera_params_noname)
 
-        if args.camera_params['trigger'] == 'HARDWARE_TTYS0':
+        if args.camera_params_noname['trigger'] == 'HARDWARE_TTYS0':
             # As noted above, if we're generating a trigger signal, the LAST
             # camera only should do that. So here the non-last cameras are set
             # to expect a trigger signal, but not to produce it
-            args.camera_params['trigger'] = 'HARDWARE_EXTERNAL'
+            args.camera_params_noname['trigger'] = 'HARDWARE_EXTERNAL'
 
 else:
     # We're replaying a log

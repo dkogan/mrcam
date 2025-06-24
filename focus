@@ -201,8 +201,8 @@ def handle_event_image_widget(widget, event):
 
     return 1
 
-c = mrcam.camera(args.camera,
-                 **args.camera_params
+c = mrcam.camera(name = args.camera,
+                 **args.camera_params_noname
 
 
 W        = 1280

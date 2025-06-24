@@ -146,21 +146,21 @@ def _parse_args_postprocess(args):
     args.flip_x = 'x' in args.display_flip or 'xy' in args.display_flip
     args.flip_y = 'y' in args.display_flip or 'xy' in args.display_flip
 
-    ### args.camera_params is a subset of args.__dict__. That subset is camera
-    ### parameters passed directly to mrcam.camera()
-    # These must match keywords[] in camera_init() in mrcam-pywrap.c
-    camera_param_keys = \
-        ("name",
-         "pixfmt",
+    ### args.camera_params_noname is a subset of args.__dict__. That subset is
+    ### camera parameters passed directly to mrcam.camera()
+    # These must match keywords[] in camera_init() in mrcam-pywrap.c WITHOUT the
+    # "name" field
+    camera_param_noname_keys = \
+        ("pixfmt",
          "acquisition_mode",
          "trigger",
          "time_decimation_factor",
          "dims",
          "acquisition_persistent",
          "verbose")
-    args.camera_params = dict()
-    for k in camera_param_keys:
-        args.camera_params[k] = getattr(args, k, None)
+    args.camera_params_noname = dict()
+    for k in camera_param_noname_keys:
+        args.camera_params_noname[k] = getattr(args, k, None)
 
 
 
