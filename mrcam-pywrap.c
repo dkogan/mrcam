@@ -131,6 +131,8 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 
     SET_SIGINT();
 
+    // These must match camera_param_keys in _parse_args_postprocess() in
+    // mrcam.py
     char* keywords[] = {"name",
                         "pixfmt",
                         "acquisition_mode",
