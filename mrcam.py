@@ -443,14 +443,7 @@ class Fl_Image_View_Group(Fl_Group):
                 widget.align(FL_ALIGN_BOTTOM)
                 widget.type(FL_HORIZONTAL)
 
-                flags['log'] = False
-                try:
-                    if desc['representation'] == 'LOGARITHMIC':
-                        flags['log'] = True
-                except:
-                    pass
-
-                if flags['log']:
+                if desc.get('representation','') == 'LOGARITHMIC':
                     if any(x <= 0 for x in desc['bounds']):
                         raise Exception(f"Requested log-scale feature '{name}' has non-positive bounds: {desc['bounds']}. Log-scale features must have strictly positive bounds")
                     widget.bounds(*[np.log(x) for x in desc['bounds']])
@@ -501,7 +494,7 @@ class Fl_Image_View_Group(Fl_Group):
 
     def feature_callback_valuator(self, widget):
         feature_dict = self.feature_dict_from_widget[id(widget)]
-        value = np.exp(widget.value()) if feature_dict['flags']['log'] else widget.value()
+        value = np.exp(widget.value()) if 'log' in feature_dict['flags'] else widget.value()
         if feature_dict['descriptor']['type'] == 'integer':
             value = np.round(value)
         self.camera.feature_value(feature_dict['descriptor'],
@@ -541,7 +534,7 @@ class Fl_Image_View_Group(Fl_Group):
             if isinstance(value, bool):
                 widget.value(value)
             elif isinstance(value, int) or isinstance(value, float):
-                widget.value( np.log(value) if feature_dict['flags']['log'] else value )
+                widget.value( np.log(value) if 'log' in feature_dict['flags'] else value )
             elif isinstance(value, str):
                 widget.value( widget.find_index(value) )
 
