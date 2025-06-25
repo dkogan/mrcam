@@ -401,6 +401,7 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
     // error by default
     PyObject* result = NULL;
     PyObject* image  = NULL;
+    void*     buffer = NULL;
 
     char* keywords[] = {"timeout",
                         NULL};
@@ -425,9 +426,9 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
 
     // generic type
     mrcal_image_uint8_t mrcal_image;
-    uint64_t timestamp_us;
-
+    uint64_t            timestamp_us;
     if(!mrcam_pull( &mrcal_image,
+                    &buffer,
                     &timestamp_us,
                     (uint64_t)(timeout_sec * 1e6),
                     &self->ctx))
@@ -441,8 +442,9 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
         // BARF() already called
         goto done;
 
-    result = Py_BuildValue("{sOsd}",
+    result = Py_BuildValue("{sOsNsd}",
                            "image",     image,
+                           "buffer",    PyLong_FromVoidPtr(buffer),
                            "timestamp", (double)timestamp_us / 1e6);
     if(result == NULL)
     {
@@ -453,7 +455,8 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
  done:
 
     Py_XDECREF(image);
-
+    if(result == NULL)
+        mrcam_push_buffer(buffer, &self->ctx);
     RESET_SIGINT();
     return result;
 }

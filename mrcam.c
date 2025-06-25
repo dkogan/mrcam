@@ -1064,6 +1064,7 @@ bool mrcam_request( // in
 /* timeout_us=0 means "wait forever" */
 bool mrcam_pull(/* out */
                 mrcal_image_uint8_t* image,
+                void** buffer, // the buffer. Call mrcam_push_buffer(buffer) when done with the image
                 uint64_t* timestamp_us,
                 /* in */
                 const uint64_t timeout_us,
@@ -1076,7 +1077,7 @@ bool mrcam_pull(/* out */
 
 #warning "make pull work. needs off-decimation callback"
 
-    ArvBuffer* buffer = NULL;
+    *buffer = NULL;
 
     for(; N > 0; N--)
     {
@@ -1084,22 +1085,26 @@ bool mrcam_pull(/* out */
             mrcam_request(NULL, NULL, NULL, ctx) &&
             // may block
             receive_image(timestamp_us,
-                          &buffer,
+                          (ArvBuffer**)buffer,
                           N == 1 ? image : NULL, // fill in the image on the
                                                  // last round, which will be
                                                  // returned to the user
                           timeout_us, ctx);
         if(!result)
         {
-            mrcam_push_buffer(buffer, ctx);
+            mrcam_push_buffer(*buffer, ctx);
+            *buffer = NULL;
             return false;
         }
         if(N > 1)
+        {
             // Off-decimation. We ignore this image, and keep going
-            mrcam_push_buffer(buffer, ctx);
+            mrcam_push_buffer(*buffer, ctx);
+            *buffer = NULL;
+        }
     }
 
-    // The caller MUST re-push the buffer when done
+    // The caller MUST mrcal_push_buffer(buffer) when done
     return true;
 }
 

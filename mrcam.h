@@ -118,7 +118,7 @@ typedef enum {MRCAM_UNKNOWN = -1,
 mrcam_output_type_t mrcam_output_type(mrcam_pixfmt_t pixfmt);
 
 typedef void (mrcam_callback_t )(mrcal_image_uint8_t image, // type may not be exact
-                                 void* buffer, // ArvBuffer*, without requiring #include arv.h
+                                 void* buffer,              // ArvBuffer*, without requiring #include arv.h
                                  uint64_t timestamp_us,
                                  void* cookie);
 
@@ -219,15 +219,15 @@ bool mrcam_is_inited(mrcam_t* ctx);
 //   {
 //     ...
 //     mrcal_image_uint8_t image;
-//     mrcam_pull(&image, timeout_us, &ctx);
-//     // no free(image.data); image data is valid until next
-//     // mrcam_pull() call.
-//     //
+//     void* buffer;
+//     mrcam_pull(&image, &buffer, timeout_us, &ctx);
 //     // do stuff with image
+//     mrcam_push_buffer(buffer);
 //     ...
 //   }
 bool mrcam_pull( // out
                  mrcal_image_uint8_t* image, // type may not be exact
+                 void** buffer, // the buffer. Call mrcam_push_buffer(buffer) when done with the image
                  uint64_t* timestamp_us,
                  // in
                  const uint64_t timeout_us,
@@ -238,7 +238,7 @@ bool mrcam_pull( // out
 // Asynchronous usage:
 //
 //   void callback(mrcal_image_uint8_t image,
-//                 void* buffer, // ArvBuffer*, without requiring #include arv.h
+//                 void* buffer,
 //                 uint64_t timestamp_us,
 //                 void* cookie)
 //   {
@@ -276,5 +276,5 @@ bool mrcam_request( // in
                     mrcam_t* ctx);
 bool mrcam_cancel_request(mrcam_t* ctx);
 
-void mrcam_push_buffer(void*    buffer, // ArvBuffer*, without requiring #include arv.h
+void mrcam_push_buffer(void*    buffer, // the buffer, from mrcam_pull() or a mrcam_callback_t
                        mrcam_t* ctx);

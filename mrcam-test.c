@@ -276,12 +276,17 @@ int main(int argc, char **argv)
 
     printf("# iframe icam cameraname t_system imagepath\n");
 
+    void* buffers[options.Ncameras];
+    for(int i=0; i<options.Ncameras; i++)
+        buffers[i] = NULL;
+
     for(int iframe=0; iframe<options.Nframes; iframe++)
     {
         int64_t t0 = gettimeofday_int64();
 
         for(int icam=0; icam<options.Ncameras; icam++)
             if(!mrcam_pull( &images.image_uint8 [icam],
+                            &buffers[icam],
                             &timestamps_us[icam],
                             0, &ctx[icam]))
                 goto done;
@@ -349,6 +354,9 @@ int main(int argc, char **argv)
                 }
                 if(err) continue;
             }
+
+            mrcam_push_buffer(buffers[icam], &ctx[icam]);
+
             printf("%d %d %s %ld.%06ld %s\n",
                    iframe, icam,
                    options.camera_names[icam] == NULL ? "-" : options.camera_names[icam],
@@ -376,7 +384,10 @@ int main(int argc, char **argv)
 
  done:
     for(int icam=0; icam<options.Ncameras; icam++)
+    {
+        mrcam_push_buffer(buffers[icam], &ctx[icam]);
         mrcam_free(&ctx[icam]);
+    }
 
     return result;
 }
