@@ -424,7 +424,7 @@ bool mrcam_init(// out
 
                             // misc stuff
                             SWS_POINT, NULL, NULL, NULL)));
-        try(NULL != (ctx->output_image_buffer =
+        try(NULL != (ctx->sws_output_buffer =
                      malloc(pixfmt__output_bytes_per_pixel(ctx->pixfmt) *
                             width * height)));
     }
@@ -510,8 +510,8 @@ void mrcam_free(mrcam_t* ctx)
         ctx->sws_context = NULL;
     }
 
-    free(ctx->output_image_buffer);
-    ctx->output_image_buffer = NULL;
+    free(ctx->sws_output_buffer);
+    ctx->sws_output_buffer = NULL;
 
     if(ctx->fd_tty_trigger >= 0)
     {
@@ -625,12 +625,12 @@ bool fill_image_swscale(// out
               scale_stride_value,
               0, height,
               // destination buffer, stride
-              (uint8_t*const*)&ctx->output_image_buffer,
+              (uint8_t*const*)&ctx->sws_output_buffer,
               &output_stride);
 
     image->width  = width;
     image->height = height;
-    image->data   = (uint8_t*)ctx->output_image_buffer;
+    image->data   = (uint8_t*)ctx->sws_output_buffer;
     image->stride = output_stride;
 
     result = true;

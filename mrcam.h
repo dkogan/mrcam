@@ -146,7 +146,7 @@ typedef struct
     // to unpacked bits mrcam reports. Needed for bayered or packed formats.
     // Unused for all others
     struct SwsContext* sws_context;
-    uint8_t*           output_image_buffer;
+    uint8_t*           sws_output_buffer;
 
 
     // current active callback
