@@ -139,6 +139,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
                         "trigger",
                         "time_decimation_factor",
                         "dims",
+                        "Nbuffers",
                         "verbose",
                         NULL};
 
@@ -157,19 +158,21 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     int width   = 0; // by default, auto-detect the dimensions
     int height  = 0;
     int verbose = 0;
+    int Nbuffers = 10; // default buffer count
 
     mrcam_pixfmt_t           pixfmt;
     mrcam_acquisition_mode_t acquisition_mode;
     mrcam_trigger_t          trigger;
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "|z$OOOiOp:mrcam.__init__", keywords,
+                                     "|z$OOOiOip:mrcam.__init__", keywords,
                                      &camera_name,
                                      &py_pixfmt_string,
                                      &py_acquisition_mode_string,
                                      &py_trigger_string,
                                      &time_decimation_factor,
                                      &py_width_height,
+                                     &Nbuffers,
                                      &verbose))
         goto done;
 
@@ -277,6 +280,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
             .time_decimation_factor          = time_decimation_factor,
             .width                           = width,
             .height                          = height,
+            .Nbuffers                        = Nbuffers,
             .verbose                         = verbose
         };
     if(!mrcam_init(&self->ctx,

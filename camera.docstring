@@ -93,6 +93,14 @@ ARGUMENTS
   the given image dimensions. If not given or if (0,0), we take the
   highest-resolution image shape available
 
+- Nbuffers: optional integer defaulting to 10. How many buffers to allocate to
+  store received images. As the camera sends images, the driver writes them into
+  a buffer in memory. When the client program is ready to process the images, it
+  reads the buffer, and gives it back for the driver to use for future images.
+  If a camera is sending data very quickly and the client cannot process them
+  immediately, we need more buffers to store the data until the client can catch
+  up.
+  
 - verbose: optional boolean, defaulting to False. If verbose: we output lots of
   diagnostics to the console. Every aravis call is traced. Note that this is
   separate from the much-deeper aravis diagnostics documented here:

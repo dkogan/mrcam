@@ -42,6 +42,17 @@ def _add_common_cmd_options(parser,
     parser.add_argument('--dims',
                         help='''Imager dimensions given as WIDTH,HEIGHT. Required for cameras where this
                         cannot be auto-detected''')
+    parser.add_argument('--Nbuffers',
+                        type    = int,
+                        default = 10,
+                        help='''How many buffers to allocate to store received images. As the camera sends
+                        images, the driver writes them into a buffer in memory.
+                        When the client program is ready to process the images,
+                        it reads the buffer, and gives it back for the driver to
+                        use for future images. If a camera is sending data very
+                        quickly and the client cannot process them immediately,
+                        we need more buffers to store the data until the client
+                        can catch up.''')
     parser.add_argument('--pixfmt',
                         # should match the LIST_OPTIONS macro in mrcam-test.c
                         # and camera_init() in mrcam-pywrap.c
@@ -150,6 +161,7 @@ def _parse_args_postprocess(args):
          "trigger",
          "time_decimation_factor",
          "dims",
+         "Nbuffers",
          "verbose")
     args.camera_params_noname = dict()
     for k in camera_param_noname_keys:

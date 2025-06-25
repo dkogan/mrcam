@@ -2,8 +2,6 @@
 
 #include <mrcal/mrcal-image.h>
 
-#define MRCAM_NBUFFERS 10
-
 // I define this myself, in order to avoid requiring the user to #include
 // <arv.h>. This is a few common formats. The fields are:
 //
@@ -125,7 +123,7 @@ typedef struct
 {
     // arv stuff; void to not require #including arv.h
     void* camera;
-    void* buffers[MRCAM_NBUFFERS];
+    void** buffers;
     void* stream;
 
     // Details about the requested pixel format, that I'm using to talk to the
@@ -161,6 +159,8 @@ typedef struct
     int time_decimation_factor;
     int time_decimation_index;
 
+    int Nbuffers;
+
     uint64_t timestamp_start_buffer_us;
 
     bool acquiring                       : 1; // we're acquiring RIGHT NOW
@@ -182,6 +182,8 @@ typedef struct
     // dimensions
     int width;
     int height;
+
+    int Nbuffers;
 
     // If time_decimation_factor > 1, we report every Nth frame to the user.
     int time_decimation_factor;

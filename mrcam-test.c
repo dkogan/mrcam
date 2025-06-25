@@ -22,6 +22,7 @@ typedef struct { int width,height; } dimensions_t;
     /* The default pixel format is MONO_*. Should match the one in camera_init() in mrcam-pywrap.c */ \
     _(mrcam_pixfmt_t, pixfmt,  pixfmt,  MRCAM_PIXFMT_MONO_8, required_argument, " PIXELFORMAT", 'F', ""  ) \
     _(dimensions_t,   dims,    dims,    {},                  required_argument, " WIDTH,HEIGHT",'D', ""  ) \
+    _(int,            Nbuffers,Nbuffers,10,                  required_argument, " NBUFFERS",    'b', "b:"  ) \
     _(mrcam_trigger_t,trigger, trigger, MRCAM_TRIGGER_SOFTWARE,required_argument, " TRIGGER",     't', ""  ) \
     _(mrcam_acquisition_mode_t,acquisition_mode, acquisition-mode, MRCAM_ACQUISITION_MODE_SINGLE_FRAME,required_argument, " ACQUISITION-MODE",     'a', ""  ) \
     _(int,            time_decimation_factor,time-decimation-factor, 1, required_argument, " DECIMATION_FACTOR" ,'f', "") \
@@ -118,6 +119,16 @@ static bool parse_args(// out
             if(options->Nframes <= 0)
             {
                 MSG("I want Nframes > 0\n");
+                sayusage(true);
+                exit(1);
+            }
+            break;
+
+        case 'b':
+            options->Nbuffers = atoi(optarg);
+            if(options->Nbuffers <= 0)
+            {
+                MSG("I want Nbuffers > 0\n");
                 sayusage(true);
                 exit(1);
             }
@@ -253,6 +264,7 @@ int main(int argc, char **argv)
                 .trigger                         = options.trigger,
                 .acquisition_mode                = options.acquisition_mode,
                 .time_decimation_factor          = options.time_decimation_factor,
+                .Nbuffers                        = options.Nbuffers,
                 .verbose                         = options.verbose
             };
         if(!mrcam_init(&ctx[icam],

@@ -27,8 +27,7 @@
 #define DEFINE_INTERNALS(ctx)                                           \
     ArvCamera** camera  __attribute__((unused)) = (ArvCamera**)(&(ctx)->camera); \
     ArvStream** stream  __attribute__((unused)) = (ArvStream**)(&(ctx)->stream); \
-    ArvBuffer** buffers __attribute__((unused)) = (ArvBuffer**)((ctx)->buffers); \
-    const int Nbuffers = sizeof((ctx)->buffers)/sizeof((ctx)->buffers[0])
+    ArvBuffer** buffers __attribute__((unused)) = (ArvBuffer**)((ctx)->buffers);
 
 
 
@@ -307,8 +306,8 @@ init_stream(mrcam_t* ctx)
     result = true;
 
     if(ctx->verbose)
-        MSG("arv_stream_push_buffer() ALL %d buffers:", Nbuffers);
-    for(int i=0; i<Nbuffers; i++)
+        MSG("arv_stream_push_buffer() ALL %d buffers:", ctx->Nbuffers);
+    for(int i=0; i<ctx->Nbuffers; i++)
     {
         arv_stream_push_buffer(*stream, buffers[i]);
         if(ctx->verbose)
@@ -336,6 +335,7 @@ bool mrcam_init(// out
                       .acquisition_mode                = options->acquisition_mode,
                       .verbose                         = options->verbose,
                       .time_decimation_factor          = options->time_decimation_factor,
+                      .Nbuffers                        = options->Nbuffers,
                       .fd_tty_trigger                  = -1};
 
     DEFINE_INTERNALS(ctx);
@@ -392,10 +392,17 @@ bool mrcam_init(// out
         g_clear_error(&error);
     }
 
+    ctx->buffers = malloc(ctx->Nbuffers * sizeof(ctx->buffers[0]));
+    if(ctx->buffers == NULL)
+    {
+        MSG("Couldn't alloc %d buffer pointers'", ctx->Nbuffers);
+        goto done;
+    }
+
     gint payload_size;
     try_arv(payload_size = arv_camera_get_payload(*camera, &error));
-    for(int i=0; i<Nbuffers; i++)
-        try(buffers[i] = arv_buffer_new(payload_size, NULL));
+    for(int i=0; i<ctx->Nbuffers; i++)
+        try(ctx->buffers[i] = arv_buffer_new(payload_size, NULL));
 
     enum AVPixelFormat av_pixfmt_input, av_pixfmt_output;
     try(pixfmt__av_pixfmt(&av_pixfmt_input, &av_pixfmt_output,
@@ -500,7 +507,7 @@ void mrcam_free(mrcam_t* ctx)
     // I do not clear the buffers. It looks like g_clear_object(stream) does
     // that for me, and if I do it myself, there's a double-free
 
-    // for(int i=0; i<Nbuffers; i++)
+    // for(int i=0; i<ctx->Nbuffers; i++)
     //     g_clear_object(&buffers[i]);
 
     g_clear_object(stream);
@@ -520,6 +527,9 @@ void mrcam_free(mrcam_t* ctx)
         close(ctx->fd_tty_trigger);
         ctx->fd_tty_trigger = -1;
     }
+
+    free(ctx->buffers);
+    ctx->buffers = NULL;
 }
 
 bool mrcam_is_inited(mrcam_t* ctx)
