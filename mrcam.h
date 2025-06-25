@@ -2,6 +2,8 @@
 
 #include <mrcal/mrcal-image.h>
 
+#define MRCAM_NBUFFERS 10
+
 // I define this myself, in order to avoid requiring the user to #include
 // <arv.h>. This is a few common formats. The fields are:
 //
@@ -123,7 +125,7 @@ typedef struct
 {
     // arv stuff; void to not require #including arv.h
     void* camera;
-    void* buffers[10];
+    void* buffers[MRCAM_NBUFFERS];
     void* stream;
 
     // Details about the requested pixel format, that I'm using to talk to the
