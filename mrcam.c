@@ -210,15 +210,14 @@ static void report_available_pixel_formats(ArvCamera* camera,
     g_free(available_pixel_formats);
 }
 
-static void
-push_buffer(ArvBuffer* buffer,
-            const mrcam_t* ctx)
+void mrcam_push_buffer(void*    buffer, // ArvBuffer*, without requiring #include arv.h
+                       mrcam_t* ctx)
 {
     if(buffer != NULL)
     {
         if(ctx->verbose)
             MSG("arv_stream_push_buffer(%p)", buffer);
-        arv_stream_push_buffer((ArvStream*)(ctx->stream), buffer);
+        arv_stream_push_buffer((ArvStream*)(ctx->stream), (ArvBuffer*)buffer);
     }
 }
 
@@ -913,8 +912,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
                 if(ctx->verbose)
                     MSG("calling the active_callback()");
                 ctx->active_callback(image,
-                                     &(mrcam_buffer_t){.ctx    = ctx,
-                                                       .buffer = buffer_popped},
+                                     buffer_popped,
                                      ctx->timestamp_start_buffer_us,
                                      ctx->active_callback_cookie);
                 ctx->time_decimation_index = 0;
@@ -932,7 +930,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
             {
                 if(ctx->verbose)
                     MSG("off-decimation. NOT calling the active_callback()");
-                push_buffer(buffer_popped, ctx);
+                mrcam_push_buffer(buffer_popped, ctx);
 
                 // External triggering or whatever else. New frame requests
                 // happen here
@@ -1093,12 +1091,12 @@ bool mrcam_pull(/* out */
                           timeout_us, ctx);
         if(!result)
         {
-            push_buffer(buffer, ctx);
+            mrcam_push_buffer(buffer, ctx);
             return false;
         }
         if(N > 1)
             // Off-decimation. We ignore this image, and keep going
-            push_buffer(buffer, ctx);
+            mrcam_push_buffer(buffer, ctx);
     }
 
     // The caller MUST re-push the buffer when done
@@ -1113,10 +1111,4 @@ bool mrcam_cancel_request(mrcam_t* ctx)
     return false;
 }
 
-void mrcam_push_buffer(mrcam_buffer_t* buffer)
-{
-    mrcam_t* ctx = (mrcam_t*)buffer->ctx;
-    DEFINE_INTERNALS(ctx);
 
-    push_buffer((ArvBuffer*)(buffer->buffer), ctx);
-}

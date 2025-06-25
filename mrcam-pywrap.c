@@ -76,7 +76,7 @@ typedef struct
 {
     mrcal_image_uint8_t mrcal_image; // type might not be exact
     uint64_t            timestamp_us;
-    mrcam_buffer_t      buffer;
+    ArvBuffer*          buffer;
     bool                off_decimation;
 } image_ready_t;
 
@@ -508,7 +508,7 @@ ssize_t write_persistent(int fd, const uint8_t* buf, size_t count)
 static
 void
 callback(mrcal_image_uint8_t mrcal_image, // type might not be exact
-         mrcam_buffer_t* buffer,
+         void*    buffer, // ArvBuffer*, without requiring #include arv.h
          uint64_t timestamp_us,
          void* cookie)
 {
@@ -516,7 +516,7 @@ callback(mrcal_image_uint8_t mrcal_image, // type might not be exact
 
     image_ready_t s = {.mrcal_image  = mrcal_image,
                        .timestamp_us = timestamp_us,
-                       .buffer       = *buffer};
+                       .buffer       = buffer};
 
     if(sizeof(s) != write_persistent(self->fd_write, (uint8_t*)&s, sizeof(s)))
     {
@@ -528,7 +528,7 @@ callback(mrcal_image_uint8_t mrcal_image, // type might not be exact
 static
 void
 callback_off_decimation(__attribute__((unused)) mrcal_image_uint8_t mrcal_image, // type might not be exact
-                        __attribute__((unused)) mrcam_buffer_t* buffer,
+                        __attribute__((unused)) void*    buffer, // ArvBuffer*, without requiring #include arv.h
                         __attribute__((unused)) uint64_t timestamp_us,
                         void* cookie)
 {
@@ -617,7 +617,7 @@ requested_image(camera* self, PyObject* args, PyObject* kwargs)
         result = Py_BuildValue("{sOsdsNsi}",
                                "image",          image,
                                "timestamp",      (double)s.timestamp_us / 1e6,
-                               "buffer",         PyLong_FromVoidPtr(s.buffer.buffer),
+                               "buffer",         PyLong_FromVoidPtr(s.buffer),
                                "off_decimation", 0);
     }
     else
@@ -840,8 +840,7 @@ push_buffer(camera* self, PyObject* args, PyObject* kwargs)
     {
         void* buffer = PyLong_AsVoidPtr(py_buffer);
         if(buffer != NULL)
-            mrcam_push_buffer( &(mrcam_buffer_t){.ctx    = &self->ctx,
-                                                 .buffer = buffer } );
+            mrcam_push_buffer(buffer, &self->ctx);
     }
 
     result = Py_None;

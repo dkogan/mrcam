@@ -111,12 +111,6 @@ typedef enum {
 #undef ENUM
 } mrcam_acquisition_mode_t;
 
-typedef struct
-{
-    void* ctx;    // mrcam_t
-    void* buffer; // This is ArvBuffer*, but without requiring #including arv.h
-} mrcam_buffer_t;
-
 
 
 typedef enum {MRCAM_UNKNOWN = -1,
@@ -124,7 +118,7 @@ typedef enum {MRCAM_UNKNOWN = -1,
 mrcam_output_type_t mrcam_output_type(mrcam_pixfmt_t pixfmt);
 
 typedef void (mrcam_callback_t )(mrcal_image_uint8_t image, // type may not be exact
-                                 mrcam_buffer_t* buffer,
+                                 void* buffer, // ArvBuffer*, without requiring #include arv.h
                                  uint64_t timestamp_us,
                                  void* cookie);
 
@@ -244,7 +238,7 @@ bool mrcam_pull( // out
 // Asynchronous usage:
 //
 //   void callback(mrcal_image_uint8_t image,
-//                 mrcam_buffer_t* buffer,
+//                 void* buffer, // ArvBuffer*, without requiring #include arv.h
 //                 uint64_t timestamp_us,
 //                 void* cookie)
 //   {
@@ -282,4 +276,5 @@ bool mrcam_request( // in
                     mrcam_t* ctx);
 bool mrcam_cancel_request(mrcam_t* ctx);
 
-void mrcam_push_buffer(mrcam_buffer_t* buffer);
+void mrcam_push_buffer(void*    buffer, // ArvBuffer*, without requiring #include arv.h
+                       mrcam_t* ctx);
