@@ -697,7 +697,7 @@ bool fill_image(// out
 // if(*buffer != NULL) { *buffer contain the just-popped buffer, even if this function
 //                       failed. The image points to this buffer. When we're
 //                       done with the image, push the buffer back by calling
-//                       mrcam_callback_done_with_buffer(), to let aravis use it
+//                       mrcam_push_buffer(), to let aravis use it
 //                       for new incoming frames }
 //
 // else                { no buffer was popped }
@@ -1113,7 +1113,7 @@ bool mrcam_cancel_request(mrcam_t* ctx)
     return false;
 }
 
-void mrcam_callback_done_with_buffer(mrcam_buffer_t* buffer)
+void mrcam_push_buffer(mrcam_buffer_t* buffer)
 {
     mrcam_t* ctx = (mrcam_t*)buffer->ctx;
     DEFINE_INTERNALS(ctx);

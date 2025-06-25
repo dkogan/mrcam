@@ -253,7 +253,7 @@ bool mrcam_pull( // out
 //
 //       // Do stuff with image. When we are done using the image, you must
 //       // call:
-//       mrcam_callback_done_with_buffer(buffer);
+//       mrcam_push_buffer(buffer);
 //
 //       // The data inside the image is now no-longer usable
 //   }
@@ -282,4 +282,4 @@ bool mrcam_request( // in
                     mrcam_t* ctx);
 bool mrcam_cancel_request(mrcam_t* ctx);
 
-void mrcam_callback_done_with_buffer(mrcam_buffer_t* buffer);
+void mrcam_push_buffer(mrcam_buffer_t* buffer);

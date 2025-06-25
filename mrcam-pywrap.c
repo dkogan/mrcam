@@ -822,7 +822,7 @@ stream_stats(camera* self, PyObject* args, PyObject* kwargs)
 
 
 static PyObject*
-callback_done_with_buffer(camera* self, PyObject* args, PyObject* kwargs)
+push_buffer(camera* self, PyObject* args, PyObject* kwargs)
 {
     // error by default
     PyObject* result = NULL;
@@ -832,12 +832,12 @@ callback_done_with_buffer(camera* self, PyObject* args, PyObject* kwargs)
                         NULL};
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "K:mrcam.callback_done_with_buffer", keywords,
+                                     "K:mrcam.push_buffer", keywords,
                                      &buffer))
         goto done;
 
-    mrcam_callback_done_with_buffer( &(mrcam_buffer_t){.ctx    = &self->ctx,
-                                                       .buffer = (void*)buffer } );
+    mrcam_push_buffer( &(mrcam_buffer_t){.ctx    = &self->ctx,
+                                         .buffer = (void*)buffer } );
 
     result = Py_None;
     Py_INCREF(result);
@@ -1418,8 +1418,8 @@ static const char features_docstring[] =
 static const char stream_stats_docstring[] =
 #include "stream_stats.docstring.h"
     ;
-static const char callback_done_with_buffer_docstring[] =
-#include "callback_done_with_buffer.docstring.h"
+static const char push_buffer_docstring[] =
+#include "push_buffer.docstring.h"
     ;
 
 
@@ -1434,7 +1434,7 @@ static PyMethodDef camera_methods[] =
         PYMETHODDEF_ENTRY(, features,           METH_VARARGS | METH_KEYWORDS),
 
         PYMETHODDEF_ENTRY(, stream_stats,       METH_NOARGS),
-        PYMETHODDEF_ENTRY(, callback_done_with_buffer, METH_VARARGS | METH_KEYWORDS),
+        PYMETHODDEF_ENTRY(, push_buffer, METH_VARARGS | METH_KEYWORDS),
         {}
     };
 
