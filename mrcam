@@ -581,7 +581,6 @@ for i in range(Hgrid):
                                       camera          = cameras[icam],
                                       status_widget   = status_widget,
                                       features        = args.features,
-                                      handle_extra    = handle_event_image_widget,
                                       image_view_groups = \
                                       None if args.unlock_panzoom else image_view_groups)
         if image_view_groups[icam].camera is not None:
