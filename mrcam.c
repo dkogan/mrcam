@@ -496,9 +496,13 @@ void mrcam_free(mrcam_t* ctx)
 {
     DEFINE_INTERNALS(ctx);
 
+    // I do not clear the buffers. It looks like g_clear_object(stream) does
+    // that for me, and if I do it myself, there's a double-free
+
+    // for(int i=0; i<Nbuffers; i++)
+    //     g_clear_object(&buffers[i]);
+
     g_clear_object(stream);
-    for(int i=0; i<Nbuffers; i++)
-        g_clear_object(&buffers[i]);
     g_clear_object(camera);
 
     if(ctx->sws_context)
