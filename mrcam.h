@@ -221,11 +221,12 @@ bool mrcam_is_inited(mrcam_t* ctx);
 //
 // Usage:
 //
+//   capture()
 //   {
 //     ...
 //     mrcal_image_uint8_t image;
 //     mrcam_pull(&image, timeout_us, &ctx);
-//     // no free(image.data); image structure valid until next
+//     // no free(image.data); image data is valid until next
 //     // mrcam_pull() call.
 //     //
 //     // do stuff with image
@@ -257,10 +258,10 @@ bool mrcam_pull( // out
 //       // The data inside the image is now no-longer usable
 //   }
 //   ....
-//   some_other_function
+//   capture()
 //   {
 //     ...
-//     mrcam_request(&callback, &ctx);
+//     mrcam_request(&callback, callback_off_decimation, &ctx);
 //     // mrcam_request() returns immediately. we do other
 //     // unrelated stuff now. When the image comes in, the callback will
 //     // be called

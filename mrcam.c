@@ -692,9 +692,15 @@ bool fill_image(// out
 }
 
 // meant to be called after request()
-// *buffer_popped may contain the just-popped buffer even if this function
-// failed, and returned false
-// *buffer_popped may return NULL if no buffer was popped
+//
+// on exit:
+// if(*buffer != NULL) { *buffer contain the just-popped buffer, even if this function
+//                       failed. The image points to this buffer. When we're
+//                       done with the image, push the buffer back by calling
+//                       mrcam_callback_done_with_buffer(), to let aravis use it
+//                       for new incoming frames }
+//
+// else                { no buffer was popped }
 static
 bool receive_image(// out
                    uint64_t* timestamp_us, // may be NULL
