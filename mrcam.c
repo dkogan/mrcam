@@ -211,15 +211,14 @@ static void report_available_pixel_formats(ArvCamera* camera,
 }
 
 static void
-push_buffer(ArvBuffer** buffer,
+push_buffer(ArvBuffer* buffer,
             const mrcam_t* ctx)
 {
-    if(*buffer != NULL)
+    if(buffer != NULL)
     {
         if(ctx->verbose)
-            MSG("arv_stream_push_buffer(%p)", *buffer);
-        arv_stream_push_buffer((ArvStream*)(ctx->stream), *buffer);
-        *buffer = NULL;
+            MSG("arv_stream_push_buffer(%p)", buffer);
+        arv_stream_push_buffer((ArvStream*)(ctx->stream), buffer);
     }
 }
 
@@ -927,7 +926,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
             {
                 if(ctx->verbose)
                     MSG("off-decimation. NOT calling the active_callback()");
-                push_buffer(&buffer_popped, ctx);
+                push_buffer(buffer_popped, ctx);
 
                 // External triggering or whatever else. New frame requests
                 // happen here
@@ -1088,12 +1087,12 @@ bool mrcam_pull(/* out */
                           timeout_us, ctx);
         if(!result)
         {
-            push_buffer(&buffer, ctx);
+            push_buffer(buffer, ctx);
             return false;
         }
         if(N > 1)
             // Off-decimation. We ignore this image, and keep going
-            push_buffer(&buffer, ctx);
+            push_buffer(buffer, ctx);
     }
 
     // The caller MUST re-push the buffer when done
@@ -1113,7 +1112,5 @@ void mrcam_callback_done_with_buffer(mrcam_buffer_t* buffer)
     mrcam_t* ctx = (mrcam_t*)buffer->ctx;
     DEFINE_INTERNALS(ctx);
 
-    if(ctx->verbose)
-        MSG("arv_stream_push_buffer(%p)", buffer->buffer);
-    arv_stream_push_buffer(*stream, (ArvBuffer*)buffer->buffer);
+    push_buffer((ArvBuffer*)(buffer->buffer), ctx);
 }
