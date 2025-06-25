@@ -607,10 +607,8 @@ class Fl_Image_View_Group(Fl_Group):
                                           flip_y = flip_y )
 
             if image_callback is not None:
-                image_callback(frame['image'],
-                               timestamp      = frame['timestamp'],
-                               iframe         = self.iframe,
-                               off_decimation = frame['off_decimation'],
+                image_callback(iframe = self.iframe,
+                               **frame,
                                **image_callback_cookie)
 
             if not frame['off_decimation']:

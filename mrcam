@@ -194,9 +194,10 @@ def save_image_safe(path, image):
         return None
 
 Ncameras_seen_iframe = dict()
-def image_callback(image,
-                   *,
+def image_callback(*,
+                   image,
                    timestamp,
+                   buffer,
                    iframe,
                    off_decimation,
                    # All these are the cookie given to set_up_image_capture()
