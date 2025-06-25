@@ -452,7 +452,7 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
 
     Py_XDECREF(image);
     if(result == NULL)
-        mrcam_push_buffer(buffer, &self->ctx);
+        mrcam_push_buffer(&buffer, &self->ctx);
     RESET_SIGINT();
     return result;
 }
@@ -838,8 +838,7 @@ push_buffer(camera* self, PyObject* args, PyObject* kwargs)
     if(!IS_NULL(py_buffer))
     {
         void* buffer = PyLong_AsVoidPtr(py_buffer);
-        if(buffer != NULL)
-            mrcam_push_buffer(buffer, &self->ctx);
+        mrcam_push_buffer(&buffer, &self->ctx);
     }
 
     result = Py_None;

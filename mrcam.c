@@ -210,14 +210,15 @@ static void report_available_pixel_formats(ArvCamera* camera,
     g_free(available_pixel_formats);
 }
 
-void mrcam_push_buffer(void*    buffer, // ArvBuffer*, without requiring #include arv.h
+void mrcam_push_buffer(void**   buffer, // ArvBuffer**, without requiring #include arv.h
                        mrcam_t* ctx)
 {
-    if(buffer != NULL)
+    if(*buffer != NULL)
     {
         if(ctx->verbose)
-            MSG("arv_stream_push_buffer(%p)", buffer);
-        arv_stream_push_buffer((ArvStream*)(ctx->stream), (ArvBuffer*)buffer);
+            MSG("arv_stream_push_buffer(%p)", *buffer);
+        arv_stream_push_buffer((ArvStream*)(ctx->stream), (ArvBuffer*)(*buffer));
+        *buffer = NULL;
     }
 }
 
@@ -933,7 +934,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
             {
                 if(ctx->verbose)
                     MSG("off-decimation. NOT calling the active_callback()");
-                mrcam_push_buffer(buffer_popped, ctx);
+                mrcam_push_buffer(&buffer_popped, ctx);
 
                 // External triggering or whatever else. New frame requests
                 // happen here
@@ -1095,16 +1096,12 @@ bool mrcam_pull(/* out */
                           timeout_us, ctx);
         if(!result)
         {
-            mrcam_push_buffer(*buffer, ctx);
-            *buffer = NULL;
+            mrcam_push_buffer(buffer, ctx);
             return false;
         }
         if(N > 1)
-        {
             // Off-decimation. We ignore this image, and keep going
-            mrcam_push_buffer(*buffer, ctx);
-            *buffer = NULL;
-        }
+            mrcam_push_buffer(buffer, ctx);
     }
 
     // The caller MUST mrcal_push_buffer(buffer) when done

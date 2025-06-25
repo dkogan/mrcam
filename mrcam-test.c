@@ -352,7 +352,7 @@ int main(int argc, char **argv)
                 if(err) continue;
             }
 
-            mrcam_push_buffer(buffers[icam], &ctx[icam]);
+            mrcam_push_buffer(&buffers[icam], &ctx[icam]);
 
             printf("%d %d %s %ld.%06ld %s\n",
                    iframe, icam,
@@ -382,7 +382,7 @@ int main(int argc, char **argv)
  done:
     for(int icam=0; icam<options.Ncameras; icam++)
     {
-        mrcam_push_buffer(buffers[icam], &ctx[icam]);
+        mrcam_push_buffer(&buffers[icam], &ctx[icam]);
         mrcam_free(&ctx[icam]);
     }
 
