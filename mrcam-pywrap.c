@@ -614,10 +614,10 @@ requested_image(camera* self, PyObject* args, PyObject* kwargs)
             Py_INCREF(image);
         }
 
-        result = Py_BuildValue("{sOsdsKsi}",
+        result = Py_BuildValue("{sOsdsNsi}",
                                "image",          image,
                                "timestamp",      (double)s.timestamp_us / 1e6,
-                               "buffer",         (unsigned long long)s.buffer.buffer,
+                               "buffer",         PyLong_FromVoidPtr(s.buffer.buffer),
                                "off_decimation", 0);
     }
     else
@@ -826,18 +826,23 @@ push_buffer(camera* self, PyObject* args, PyObject* kwargs)
 {
     // error by default
     PyObject* result = NULL;
-    unsigned long long buffer = 0;
+    PyObject* py_buffer = NULL;
 
     char* keywords[] = {"buffer",
                         NULL};
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "K:mrcam.push_buffer", keywords,
-                                     &buffer))
+                                     "|O:mrcam.push_buffer", keywords,
+                                     &py_buffer))
         goto done;
 
-    mrcam_push_buffer( &(mrcam_buffer_t){.ctx    = &self->ctx,
-                                         .buffer = (void*)buffer } );
+    if(!IS_NULL(py_buffer))
+    {
+        void* buffer = PyLong_AsVoidPtr(py_buffer);
+        if(buffer != NULL)
+            mrcam_push_buffer( &(mrcam_buffer_t){.ctx    = &self->ctx,
+                                                 .buffer = buffer } );
+    }
 
     result = Py_None;
     Py_INCREF(result);
