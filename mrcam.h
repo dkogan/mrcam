@@ -92,14 +92,11 @@ may not be the same because the mrcam.h header does NOT #include arv.h
 
 The SINGLE_FRAME and MULTI_FRAME modes are frame-by-frame modes: we request and
 capture one frame, then we request and capture the next one, and so on. The
-MULTI_FRAME mode also asks for ONE frame. These usually should start and stop
-the acquisition for each frame, and should set acquisition_persistent to false.
-Some cameras require the opposite, however
+MULTI_FRAME mode also asks for ONE frame. These start and stop the acquisition
+for each frame.
 
-By contrast, the CONTINUOUS mode usually should start the acquisition at the
-beginning of the capture, and keeps it going for all the subsequent frames, and
-should set acquisition_persistent to true. Some cameras require the opposite,
-however
+By contrast, the CONTINUOUS mode starts the acquisition at the beginning of the
+capture, and keeps it going for all the subsequent frames
 */
 #define LIST_MRCAM_ACQUISITION_MODE(_)          \
     _(SINGLE_FRAME)                             \
@@ -167,7 +164,6 @@ typedef struct
     bool acquiring                       : 1; // we're acquiring RIGHT NOW
 
     // Options. These don't change after init
-    bool acquisition_persistent          : 1; // never stop the acquisition
     bool verbose                         : 1;
 } mrcam_t;
 
@@ -187,7 +183,6 @@ typedef struct
 
     // If time_decimation_factor > 1, we report every Nth frame to the user.
     int time_decimation_factor;
-    bool acquisition_persistent; // never stop the acquisition
     bool verbose;
 } mrcam_options_t;
 

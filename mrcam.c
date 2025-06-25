@@ -333,7 +333,6 @@ bool mrcam_init(// out
     *ctx = (mrcam_t){ .pixfmt                          = options->pixfmt,
                       .trigger                         = options->trigger,
                       .acquisition_mode                = options->acquisition_mode,
-                      .acquisition_persistent          = options->acquisition_persistent,
                       .verbose                         = options->verbose,
                       .time_decimation_factor          = options->time_decimation_factor,
                       .fd_tty_trigger                  = -1};
@@ -746,7 +745,7 @@ bool receive_image(// out
         MSG("... received buffer %p", *buffer);
 
     // This MUST have been done by this function, regardless of things failing
-    if(!ctx->acquisition_persistent)
+    if(ctx->acquisition_mode != MRCAM_ACQUISITION_MODE_CONTINUOUS)
     {
         try_arv(arv_camera_stop_acquisition(*camera, &error));
 
@@ -920,7 +919,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
                 // If we're not persistent, we got the frame, the callback was
                 // invoked, and we're done. To get another frame, we must
                 // request() it, with another active_callback
-                if(!ctx->acquisition_persistent)
+                if(ctx->acquisition_mode != MRCAM_ACQUISITION_MODE_CONTINUOUS)
                     ctx->active_callback = NULL;
 
                 // the buffer remains popped until the active callback is done
@@ -962,7 +961,7 @@ bool mrcam_request( // in
     if( (ctx->trigger == MRCAM_TRIGGER_NONE ||
          ctx->trigger == MRCAM_TRIGGER_HARDWARE_EXTERNAL) &&
         ctx->acquiring &&
-        ctx->acquisition_persistent)
+        ctx->acquisition_mode == MRCAM_ACQUISITION_MODE_CONTINUOUS)
 
     {
         // Nothing to do. We're not triggering, so we will get frames as they
@@ -975,11 +974,11 @@ bool mrcam_request( // in
         return true;
     }
 
-    if( !ctx->acquisition_persistent &&
+    if( ctx->acquisition_mode != MRCAM_ACQUISITION_MODE_CONTINUOUS &&
         (ctx->acquiring || ctx->active_callback != NULL))
     {
         MSG("Acquisition already in progress: acquisition_persistent=%d, acquiring=%d, active_callback_exists=%d. If mrcam_request() was called, wait for the callback or call mrcam_cancel_request()",
-            ctx->acquisition_persistent, ctx->acquiring, !!ctx->active_callback);
+            ctx->acquisition_mode == MRCAM_ACQUISITION_MODE_CONTINUOUS, ctx->acquiring, !!ctx->active_callback);
         goto done;
     }
 
@@ -1037,7 +1036,7 @@ bool mrcam_request( // in
  done:
     if(!result)
     {
-        if(!ctx->acquisition_persistent &&
+        if(ctx->acquisition_mode != MRCAM_ACQUISITION_MODE_CONTINUOUS &&
            ctx->acquiring)
         {
             // if still acquiring for some reason, stop that, with limited error checking

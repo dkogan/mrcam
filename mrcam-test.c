@@ -25,7 +25,6 @@ typedef struct { int width,height; } dimensions_t;
     _(mrcam_trigger_t,trigger, trigger, MRCAM_TRIGGER_SOFTWARE,required_argument, " TRIGGER",     't', ""  ) \
     _(mrcam_acquisition_mode_t,acquisition_mode, acquisition-mode, MRCAM_ACQUISITION_MODE_SINGLE_FRAME,required_argument, " ACQUISITION-MODE",     'a', ""  ) \
     _(int,            time_decimation_factor,time-decimation-factor, 1, required_argument, " DECIMATION_FACTOR" ,'f', "") \
-    _(bool,           acquisition_persistent,acquisition-persistent, false, no_argument, ,'p', "") \
     _(bool,           verbose, verbose, false,               no_argument,       ,               'v', "v")
 
 
@@ -128,7 +127,6 @@ static bool parse_args(// out
         case 'j': options->jpg                             = true;         break;
         case 'T': options->period                          = atof(optarg); break;
         case 'v': options->verbose                         = true;         break;
-        case 'p': options->acquisition_persistent          = true;         break;
         case 'F':
 
             if(0) ;
@@ -254,7 +252,6 @@ int main(int argc, char **argv)
                 .height                          = options.dims.height,
                 .trigger                         = options.trigger,
                 .acquisition_mode                = options.acquisition_mode,
-                .acquisition_persistent          = options.acquisition_persistent,
                 .time_decimation_factor          = options.time_decimation_factor,
                 .verbose                         = options.verbose
             };

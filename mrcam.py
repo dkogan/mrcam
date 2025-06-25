@@ -55,12 +55,6 @@ def _add_common_cmd_options(parser,
                         help='''The acquisition mode. If omitted, we use
                         "SINGLE_FRAME". Pass any invalid mode (like "") to get a
                         list of valid values on stderr.''')
-    parser.add_argument('--acquisition-persistent',
-                        action='store_true',
-                        help='''If given, we start the acquisition once, and
-                        keep it active as the process runs. Usually you want
-                        this in the CONTINUOUS acquisition mode, but different
-                        cameras may demand different things''')
     parser.add_argument('--trigger',
                         # should match the LIST_OPTIONS macro in mrcam-test.c
                         # and camera_init() in mrcam-pywrap.c
@@ -156,7 +150,6 @@ def _parse_args_postprocess(args):
          "trigger",
          "time_decimation_factor",
          "dims",
-         "acquisition_persistent",
          "verbose")
     args.camera_params_noname = dict()
     for k in camera_param_noname_keys:
