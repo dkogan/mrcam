@@ -95,7 +95,7 @@ static bool int_from_sequence_element(// out
     if(py_value == NULL || !PyLong_Check(py_value))
         goto done;
 
-    *x = PyLong_AsInt(py_value);
+    *x = (int)PyLong_AsLong(py_value);
     result = true;
 
  done:
