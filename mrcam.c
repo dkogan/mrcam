@@ -934,7 +934,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
             {
                 if(ctx->verbose)
                     MSG("off-decimation. NOT calling the active_callback()");
-                mrcam_push_buffer(&buffer_popped, ctx);
+                mrcam_push_buffer((void**)&buffer_popped, ctx);
 
                 // External triggering or whatever else. New frame requests
                 // happen here
