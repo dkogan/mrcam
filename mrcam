@@ -224,7 +224,14 @@ def image_callback(*,
         if logdir is not None:
             if not iframe in log_replay_entry_from_iframe:
                 # Started this set of cameras. Add empty record; fill it in as I get
-                # frames
+                # frames.
+                #
+                # It is very strange to have a list of iframes here: each iframe
+                # in the list will be the same. I do that because that's what I
+                # get when I read logs, and I want to use the same code patch
+                # for the read- and write-log cases. This could be simplified if
+                # I adjust the results in open_log() to remove the duplicated
+                # iframes
                 log_replay_entry_from_iframe[iframe] = dict(time      = [None] * Ncameras,
                                                             imagepath = [None] * Ncameras,
                                                             iframe    = [None] * Ncameras)
