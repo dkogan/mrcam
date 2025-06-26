@@ -461,12 +461,9 @@ Ncameras = len(args.camera)
 cameras           = [None] * Ncameras
 image_view_groups = [None] * Ncameras
 
-# I init each camera. If we're doing serial triggering, only the LAST camera
-# should touch these: it's assumed that the trigger and power signals are shared
-# between ALL the cameras. I give this to the last camera and not the first, so
-# that at capture time all the cameras get ready to capture, and only then do we
-# actually send the trigger; otherwise when the first camera sends the trigger,
-# the last camera might still be initializing
+# I init each camera. If we're sending the TTYS0 trigger signal, I want all the
+# cameras to be ready when the trigger comes in. Thus the LAST camera will send
+# the trigger; I set the rest to EXTERNAL triggering in that case
 if args.replay is None:
     if args.logdir is not None:
         path = f"{args.logdir}/images.vnl"
@@ -488,9 +485,6 @@ if args.replay is None:
                          **args.camera_params_noname)
 
         if args.camera_params_noname['trigger'] == 'HARDWARE_TTYS0':
-            # As noted above, if we're generating a trigger signal, the LAST
-            # camera only should do that. So here the non-last cameras are set
-            # to expect a trigger signal, but not to produce it
             args.camera_params_noname['trigger'] = 'HARDWARE_EXTERNAL'
 
 else:
