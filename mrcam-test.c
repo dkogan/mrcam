@@ -266,23 +266,30 @@ int main(int argc, char **argv)
     omp_set_num_threads(options.Ncameras);
 
     mrcam_t ctx[options.Ncameras];
-    for(int icam=0; icam<options.Ncameras; icam++)
+
+    // I init each camera. If we're sending the TTYS0 trigger signal, I want all
+    // the cameras to be ready when the trigger comes in. Thus the LAST camera
+    // will send the trigger; I set the rest to EXTERNAL triggering in that case
+    mrcam_options_t mrcam_options =
+        {
+            .pixfmt                          = options.pixfmt,
+            .width                           = options.dims.width,
+            .height                          = options.dims.height,
+            .trigger                         = options.trigger,
+            .acquisition_mode                = options.acquisition_mode,
+            .time_decimation_factor          = options.time_decimation_factor,
+            .Nbuffers                        = options.Nbuffers,
+            .verbose                         = options.verbose
+        };
+    for(int icam=options.Ncameras-1; icam>=0; icam--)
     {
-        const mrcam_options_t mrcam_options =
-            {
-                .pixfmt                          = options.pixfmt,
-                .width                           = options.dims.width,
-                .height                          = options.dims.height,
-                .trigger                         = options.trigger,
-                .acquisition_mode                = options.acquisition_mode,
-                .time_decimation_factor          = options.time_decimation_factor,
-                .Nbuffers                        = options.Nbuffers,
-                .verbose                         = options.verbose
-            };
         if(!mrcam_init(&ctx[icam],
                        options.camera_names[icam],
                        &mrcam_options))
             return 1;
+
+        if(mrcam_options.trigger == MRCAM_TRIGGER_HARDWARE_TTYS0)
+            mrcam_options.trigger = MRCAM_TRIGGER_HARDWARE_EXTERNAL;
     }
 
 

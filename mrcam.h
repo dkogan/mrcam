@@ -172,9 +172,9 @@ typedef struct
 
 typedef struct
 {
-    const mrcam_pixfmt_t           pixfmt;
-    const mrcam_trigger_t          trigger;
-    const mrcam_acquisition_mode_t acquisition_mode;
+    mrcam_pixfmt_t           pixfmt;
+    mrcam_trigger_t          trigger;
+    mrcam_acquisition_mode_t acquisition_mode;
 
     // if either is <=0, we try to autodetect by asking the camera
     // for WidthMax and HeightMax. Some cameras report the native
