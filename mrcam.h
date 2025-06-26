@@ -224,6 +224,11 @@ bool mrcam_is_inited(mrcam_t* ctx);
 //     mrcam_push_buffer(buffer);
 //     ...
 //   }
+//
+// Note: with multiple cameras and especially time_decimation_factor>1
+// mrcam_pull() might not be what you want. You might want to mrcam_request() to
+// ask for data for all the cameras at the same time, instead of waiting for all
+// of one camera's data to come in before requesting frames from the next camera
 bool mrcam_pull( // out
                  mrcal_image_uint8_t* image, // type may not be exact
                  void** buffer, // the buffer. Call mrcam_push_buffer(buffer) when done with the image
