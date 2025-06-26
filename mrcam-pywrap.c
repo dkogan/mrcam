@@ -555,7 +555,6 @@ request(camera* self, PyObject* args)
                        self,
                        &self->ctx))
     {
-#warning "off-decimation callback in python"
         BARF("mrcam_request() failed");
         goto done;
     }
