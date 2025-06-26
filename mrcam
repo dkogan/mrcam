@@ -220,6 +220,12 @@ we will do that ourselves, set frame['buffer'] to None)
 
         time_slider_at_max = False
         if logdir is not None:
+
+            time_slider_now = int(time_slider_widget.value())
+            time_slider_at_max = \
+                time_slider_now == int(time_slider_widget.maximum())
+
+
             if not iframe in log_replay_entry_from_iframe:
                 # Started this set of cameras. Add empty record; fill it in as I get
                 # frames.
@@ -247,10 +253,6 @@ we will do that ourselves, set frame['buffer'] to None)
                 image_view_groups[icam].camera. \
                     async_save_image_and_push_buffer(path,image,frame['buffer'])
                 frame['buffer'] = None # indicate that the caller should NOT re-push the buffer
-
-            time_slider_now = int(time_slider_widget.value())
-            time_slider_at_max = \
-                time_slider_now == int(time_slider_widget.maximum())
 
             log_replay_entry_from_iframe[iframe]['time'     ][icam] = timestamp
             log_replay_entry_from_iframe[iframe]['iframe'   ][icam] = iframe
