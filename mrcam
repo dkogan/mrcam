@@ -32,10 +32,11 @@ def parse_args():
                                   single_camera = False)
 
     parser.add_argument('--logdir',
-                        help='''The directory to write the images and
-                        metadata. If omitted, we do NOT log anything to
-                        disk. Exclusive with --replay. When logging,
-                        simultaneous replaying is ALWAYS enabled''')
+                        help='''The directory to write the images and metadata.
+                        If omitted, we do NOT log anything to disk. Exclusive
+                        with --replay. When logging, simultaneous replaying is
+                        ALWAYS enabled. If the requested directory does not
+                        exist, we create it''')
     parser.add_argument('--jpg',
                         action='store_true',
                         help='''If given, we write the output images as .jpg
@@ -473,6 +474,18 @@ image_view_groups = [None] * Ncameras
 # the trigger; I set the rest to EXTERNAL triggering in that case
 if args.replay is None:
     if args.logdir is not None:
+        if not os.path.isdir(args.logdir):
+            if os.path.exists(args.logdir):
+                print(f"Error: requested logdir '{args.logdir}' is a FILE on disk. It should be a directory (that we will write to) or it shouldn't exist (we will create the directory)",
+                      file=sys.stderr)
+                sys.exit(1)
+            try:
+                os.mkdir(args.logdir)
+            except Exception as e:
+                print(f"Error: could not mkdir requested logdir '{args.logdir}': {e}",
+                      file=sys.stderr)
+                sys.exit(1)
+
         path = f"{args.logdir}/images.vnl"
         try:
             file_log = open(path, "w")
