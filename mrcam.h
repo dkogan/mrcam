@@ -161,6 +161,7 @@ typedef struct
 
     int Nbuffers;
 
+    uint64_t timestamp_request_us;
     uint64_t timestamp_start_buffer_us;
 
     bool acquiring                       : 1; // we're acquiring RIGHT NOW
@@ -229,13 +230,19 @@ bool mrcam_is_inited(mrcam_t* ctx);
 // mrcam_pull() might not be what you want. You might want to mrcam_request() to
 // ask for data for all the cameras at the same time, instead of waiting for all
 // of one camera's data to come in before requesting frames from the next camera
-bool mrcam_pull( // out
-                 mrcal_image_uint8_t* image, // type may not be exact
-                 void** buffer, // the buffer. Call mrcam_push_buffer(buffer) when done with the image
-                 uint64_t* timestamp_us,
-                 // in
-                 const uint64_t timeout_us,
-                 mrcam_t* ctx);
+bool mrcam_pull(/* out */
+                mrcal_image_uint8_t* image,
+                // the buffer. Call mrcam_push_buffer(buffer) when done with the
+                // image
+                void** buffer,
+                uint64_t* timestamp_us,
+                /* in */
+                // The frame period. Used only if time_decimation_factor > 1;
+                // sets the delay of the off-decimation frame requests. Pass 0
+                // to ignore, and to request the frames immediately
+                uint64_t period_us,
+                const uint64_t timeout_us,
+                mrcam_t* ctx);
 
 // Asynchronous get-image functions
 //
@@ -282,3 +289,12 @@ bool mrcam_cancel_request(mrcam_t* ctx);
 
 void mrcam_push_buffer(void**   buffer, // the buffer, from mrcam_pull() or a mrcam_callback_t
                        mrcam_t* ctx);
+
+void mrcam_sleep_until_next_request(// The frame period. Used only if
+                                    // time_decimation_factor > 1; sets the
+                                    // delay of the off-decimation frame
+                                    // requests. Pass 0 to ignore, and to
+                                    // request the frames immediately
+                                    uint64_t period_us,
+                                    mrcam_t* ctx);
+

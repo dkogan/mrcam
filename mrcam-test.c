@@ -238,6 +238,18 @@ static bool parse_args(// out
         options->camera_names = one_null;
     }
 
+    if(options->time_decimation_factor > 1 &&
+       options->Ncameras > 1 &&
+       options->period > 0)
+    {
+        // This will NOT work right if we have multiple cameras and
+        // time_decimation_factor>1. Each pull() would have multiple period
+        // delays for one camera, so the other cameras will see a much
+        // larger-than-period delays in the meantime.
+        MSG("time_decimation_factor>1 && Ncameras>1 && period>0 not supported: pull() will produce uneven delays. Asynchronous request() calls should be done in this case");
+        exit(1);
+    }
+
     return true;
 }
 
@@ -297,7 +309,9 @@ int main(int argc, char **argv)
             if(!mrcam_pull( &images.image_uint8 [icam],
                             &buffers[icam],
                             &timestamps_us[icam],
-                            0, &ctx[icam]))
+                            (uint64_t)(options.period  * 1e6),
+                            0, // timeout
+                            &ctx[icam]))
                 goto done;
 
         int64_t t1 = gettimeofday_int64();
@@ -378,15 +392,10 @@ int main(int argc, char **argv)
         if(capturefailed)
             goto done;
 
-        if(options.period > 0)
-        {
-            int64_t t2 = gettimeofday_int64();
-
-            // I sleep the requested period, minus whatever time already elapsed
-            int t_sleep = (int)(options.period*1e6 + 0.5) - (int)(t2-t0);
-            if(t_sleep > 0)
-                usleep(t_sleep);
-        }
+        // This will NOT work right if we have multiple cameras and
+        // time_decimation_factor>1. I detect and reject that case above
+        mrcam_sleep_until_next_request(options.period  * 1e6,
+                                       &ctx[0]);
     }
 
     result = 0;

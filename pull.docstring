@@ -17,6 +17,10 @@ exception
 
 ARGUMENTS
 
+- period: optional floating point value defaulting to 0. The frame period. Used
+  only if time_decimation_factor > 1; sets the delay of the off-decimation frame
+  requests. Pass 0 to ignore, and to request the frames immediately
+
 - timeout: optional floating point value indicating when we should give up
   waiting for the frame. Given in seconds. If omitted or <=0, we wait forever
 

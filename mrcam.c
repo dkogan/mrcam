@@ -973,6 +973,8 @@ bool mrcam_request( // in
     bool    result = false;
     GError* error  = NULL;
 
+    ctx->timestamp_request_us = gettimeofday_uint64();
+
     if( (ctx->trigger == MRCAM_TRIGGER_NONE ||
          ctx->trigger == MRCAM_TRIGGER_HARDWARE_EXTERNAL) &&
         ctx->acquiring &&
@@ -1078,9 +1080,15 @@ bool mrcam_request( // in
 /* timeout_us=0 means "wait forever" */
 bool mrcam_pull(/* out */
                 mrcal_image_uint8_t* image,
-                void** buffer, // the buffer. Call mrcam_push_buffer(buffer) when done with the image
+                // the buffer. Call mrcam_push_buffer(buffer) when done with the
+                // image
+                void** buffer,
                 uint64_t* timestamp_us,
                 /* in */
+                // The frame period. Used only if time_decimation_factor > 1;
+                // sets the delay of the off-decimation frame requests. Pass 0
+                // to ignore, and to request the frames immediately
+                uint64_t period_us,
                 const uint64_t timeout_us,
                 mrcam_t* ctx)
 {
@@ -1088,8 +1096,6 @@ bool mrcam_pull(/* out */
 
     int N = ctx->time_decimation_factor;
     if(N < 1) N = 1;
-
-#warning "make pull work. needs off-decimation callback"
 
     *buffer = NULL;
 
@@ -1110,8 +1116,11 @@ bool mrcam_pull(/* out */
             return false;
         }
         if(N > 1)
+        {
             // Off-decimation. We ignore this image, and keep going
             mrcam_push_buffer(buffer, ctx);
+            mrcam_sleep_until_next_request(period_us, ctx);
+        }
     }
 
     // The caller MUST mrcal_push_buffer(buffer) when done
@@ -1126,4 +1135,24 @@ bool mrcam_cancel_request(mrcam_t* ctx)
     return false;
 }
 
+void mrcam_sleep_until_next_request(// The frame period. Used only if
+                                    // time_decimation_factor > 1; sets the
+                                    // delay of the off-decimation frame
+                                    // requests. Pass 0 to ignore, and to
+                                    // request the frames immediately
+                                    uint64_t period_us,
+                                    mrcam_t* ctx)
+{
+    if(period_us == 0)
+        return;
+
+    const uint64_t time_now_us = gettimeofday_uint64();
+    int64_t time_sleep_us;
+    if(ctx->timestamp_request_us == 0)
+        time_sleep_us = period_us;
+    else
+        time_sleep_us = (ctx->timestamp_request_us + period_us) - time_now_us;
+    if(time_sleep_us > 0)
+        usleep(time_sleep_us);
+}
 

@@ -404,9 +404,11 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
     void*     buffer = NULL;
 
     char* keywords[] = {"timeout",
+                        "period",
                         NULL};
 
     double timeout_sec = 0.0;
+    double period_sec  = 0.0;
 
     if(currently_processing_image(self))
     {
@@ -418,8 +420,9 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
     SET_SIGINT();
 
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "|$d:mrcam.pull", keywords,
-                                     &timeout_sec))
+                                     "|$dd:mrcam.pull", keywords,
+                                     &timeout_sec,
+                                     &period_sec))
         goto done;
 
     if(timeout_sec < 0) timeout_sec = 0;
@@ -430,6 +433,7 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
     if(!mrcam_pull( &mrcal_image,
                     &buffer,
                     &timestamp_us,
+                    (uint64_t)(period_sec  * 1e6),
                     (uint64_t)(timeout_sec * 1e6),
                     &self->ctx))
     {
