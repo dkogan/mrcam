@@ -286,7 +286,7 @@ def image_callback(*,
                 # The bounds changed, so the handle should be redrawn
                 time_slider_widget.redraw()
 
-        mrcam.schedule_next_frame(request_image_set, args.period)
+        mrcam.schedule_next_frame(request_image_set, image_view_groups[0].camera.timestamp_request_us/1e6, args.period)
 
 
 

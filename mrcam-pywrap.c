@@ -1415,6 +1415,9 @@ static const char requested_image_docstring[] =
 static const char fd_image_ready_docstring[] =
 #include "fd_image_ready.docstring.h"
     ;
+static const char timestamp_request_us_docstring[] =
+#include "timestamp_request_us.docstring.h"
+    ;
 static const char feature_descriptor_docstring[] =
 #include "feature_descriptor.docstring.h"
     ;
@@ -1447,9 +1450,13 @@ static PyMethodDef camera_methods[] =
         {}
     };
 
+#define MRCAM_T_UINT64 Py_T_ULONG
+static_assert(sizeof(uint64_t) == sizeof(unsigned long),
+              "Here I'm assuming that uint64_t == unsigned long");
 static PyMemberDef camera_members[] =
     {
-        {"fd_image_ready", T_INT, offsetof(camera,fd_read), READONLY, fd_image_ready_docstring},
+        {"fd_image_ready",       Py_T_INT,       offsetof(camera,fd_read),                  READONLY, fd_image_ready_docstring},
+        {"timestamp_request_us", MRCAM_T_UINT64, offsetof(camera,ctx.timestamp_request_us), READONLY, timestamp_request_us_docstring},
         {}
     };
 

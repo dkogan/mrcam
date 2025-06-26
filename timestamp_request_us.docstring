@@ -1,0 +1,29 @@
+A timestamp for the most recent mrcam_request() call
+
+SYNOPSIS
+
+    camera = mrcam.camera()
+
+    def callback_mrcam(fd):
+        frame = camera.requested_image()
+        ....
+
+    Fl.add_fd( camera.fd_image_ready,
+               callback_mrcam )
+
+    while True:
+        camera.request()
+
+        .... do other stuff
+
+        time_now = time.time()
+
+        time_sleep_us = camera.timestamp_request_us + period_us - time_now*1e6
+
+        if time_sleep_us > 0:
+            time.sleep(time_sleep_us*1e6)
+
+A common use case is to ask a camera for frames at a certain rate. We know the
+desired frame period, and we want to account for the processing time when
+waiting for subsequent frames. It is needed to know the timestamp of the
+previous mrcam_request() call to do this, and a simple demo is given above.
