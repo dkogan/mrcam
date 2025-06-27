@@ -8,7 +8,9 @@ TAIL_VERSION := 0
 VERSION := 0.0
 
 LIB_SOURCES := \
-  mrcam.c
+  mrcam.c \
+  clahe.cc \
+  equalize-fieldscale.c
 
 BIN_SOURCES := \
   mrcam-test.c
@@ -19,6 +21,11 @@ CCXXFLAGS += -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-pa
 # to avoid benign warnings about casting the various mrcam_callback_image_TYPE_t
 # to each other. These don't matter
 CCXXFLAGS += -Wno-cast-function-type
+
+# For the equalization
+clahe.o: CCXXFLAGS += -I/usr/include/opencv4
+LDLIBS             += -lopencv_imgproc -lopencv_core
+
 
 # stolen docstring logic from Makefile.common.footer
 %.usage.h: %.usage
