@@ -1400,6 +1400,66 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
     return result;
 }
 
+static
+PyObject* equalize_fieldscale(PyObject* NPY_UNUSED(self),
+                              PyObject* args,
+                              PyObject* kwargs)
+{
+    PyObject*      result       = NULL;
+    PyArrayObject* py_image     = NULL;
+    PyArrayObject* py_image_out = NULL;
+
+    char* keywords[] = { "image",
+                         NULL};
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     "O:mrcam.equalize_fieldscale",
+                                     keywords,
+                                     &py_image))
+        goto done;
+
+    if(! (PyArray_Check(py_image) &&
+          PyArray_TYPE(py_image) == NPY_UINT16 &&
+          PyArray_NDIM(py_image) == 2 &&
+          PyArray_STRIDES(py_image)[1] == (int)sizeof(uint16_t) &&
+          PyArray_STRIDES(py_image)[0] == (int)sizeof(uint16_t)*PyArray_DIM(py_image,1)) )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "'image' must be a densely-stored image with uint16 data");
+        return false;
+    }
+
+    const int H = PyArray_DIM(py_image,0);
+    const int W = PyArray_DIM(py_image,1);
+
+    py_image_out =
+        (PyArrayObject*)PyArray_SimpleNew(2, ((npy_intp[]){H,W}), NPY_UINT8);
+    if(py_image_out == NULL)
+        goto done;
+
+    if(!mrcam_equalize_fieldscale(// out
+                 &(mrcal_image_uint8_t ){.width  = W,
+                                         .height = H,
+                                         .stride = PyArray_STRIDE(py_image_out,0),
+                                         .data   = PyArray_DATA  (py_image_out) },
+                 // in
+                 &(mrcal_image_uint16_t){.width  = W,
+                                         .height = H,
+                                         .stride = PyArray_STRIDE(py_image,0),
+                                         .data   = PyArray_DATA  (py_image) } ))
+    {
+        BARF("mrcam_equalize_fieldscale() failed");
+        goto done;
+    }
+
+    result = (PyObject*)py_image_out;
+
+ done:
+    if(result == NULL)
+        Py_XDECREF(py_image_out);
+
+    return result;
+}
+
+
 static const char camera_docstring[] =
 #include "camera.docstring.h"
     ;
@@ -1432,6 +1492,9 @@ static const char stream_stats_docstring[] =
     ;
 static const char push_buffer_docstring[] =
 #include "push_buffer.docstring.h"
+    ;
+static const char equalize_fieldscale_docstring[] =
+#include "equalize_fieldscale.docstring.h"
     ;
 
 
@@ -1482,6 +1545,11 @@ static PyTypeObject camera_type =
 #pragma GCC diagnostic pop
 
 
+static PyMethodDef functions[] =
+    {
+        PYMETHODDEF_ENTRY(, equalize_fieldscale, METH_VARARGS | METH_KEYWORDS),
+        {}
+    };
 
 #define MODULE_DOCSTRING \
     "mrcam: an aravis frontend to genicam cameras\n"
@@ -1492,7 +1560,7 @@ static struct PyModuleDef module_def =
      "mrcam",
      MODULE_DOCSTRING,
      -1,
-     NULL,
+     functions,
     };
 
 PyMODINIT_FUNC PyInit__mrcam(void)
