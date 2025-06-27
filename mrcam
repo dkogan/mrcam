@@ -165,6 +165,8 @@ log_replay                   = []
 log_replay_entry_from_iframe = dict()
 time_slider_widget           = None
 
+do_equalize_fieldscale = False
+
 if args.utcoffset_hours is not None:
     utcoffset_sec = args.utcoffset_hours*3600
     tzname        = f"{'-' if args.utcoffset_hours<0 else ''}{int(abs(args.utcoffset_hours)):02d}:{round( (abs(args.utcoffset_hours) % 1)*60 ):02d}"
@@ -268,7 +270,8 @@ def image_callback(*,
         if logdir is None or time_slider_at_max:
             image_view_groups[icam].update_image_widget( image  = image,
                                                          flip_x = args.flip_x,
-                                                         flip_y = args.flip_y)
+                                                         flip_y = args.flip_y,
+                                                         do_equalize_fieldscale = do_equalize_fieldscale)
 
     # schedule the next set of images; do this even if off_decimation
     if not iframe in Ncameras_seen_iframe:
@@ -338,7 +341,8 @@ def update_image_from_path(icam, path):
 
     image_view_groups[icam].update_image_widget( image,
                                                  flip_x = args.flip_x,
-                                                 flip_y = args.flip_y)
+                                                 flip_y = args.flip_y,
+                                                 do_equalize_fieldscale = do_equalize_fieldscale)
 
 def time_slider_update_label(iframe,time):
     t = int(time + utcoffset_sec)
@@ -585,6 +589,19 @@ if args.logdir is not None and \
 
 
 
+def handle_event_image_widget(widget,image_view_group,event):
+    global do_equalize_fieldscale
+    if event == FL_KEYUP:
+        if Fl.event_key() == ord('e') or \
+           Fl.event_key() == ord('E'):
+            do_equalize_fieldscale = not do_equalize_fieldscale
+            if args.replay is not None:
+                update_all_images_from_replay()
+            return 1
+
+    return None # Use parent's return code
+
+
 image_views = Fl_Group(0, 0, W, H-H_footers)
 for i in range(Hgrid):
     x0 = 0
@@ -597,6 +614,7 @@ for i in range(Hgrid):
                                       camera          = cameras[icam],
                                       status_widget   = status_widget,
                                       features        = args.features,
+                                      handle_extra    = handle_event_image_widget,
                                       image_view_groups = \
                                       None if args.unlock_panzoom else image_view_groups)
         if image_view_groups[icam].camera is not None:

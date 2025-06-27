@@ -186,7 +186,9 @@ def schedule_next_frame(f, t0, period):
         Fl.add_timeout(time_sleep, lambda *args: f())
 
 
-def displayed_image(image):
+def displayed_image(image,
+                    *,
+                    do_equalize_fieldscale = False):
     if image.itemsize == 1:
         # 8-bit image. Display as is
         return image
@@ -194,12 +196,21 @@ def displayed_image(image):
     # Deep image. Display as a heat map
     if image.ndim > 2:
         raise Exception("high-depth color images not supported yet")
-    q = 5
-    a_min = np.percentile(image, q = q)
-    a_max = np.percentile(image, q = 100-q)
-    return mrcal.apply_color_map(image,
-                                 a_min = a_min,
-                                 a_max = a_max)
+
+    if not do_equalize_fieldscale:
+        q = 5
+        a_min = np.percentile(image, q = q)
+        a_max = np.percentile(image, q = 100-q)
+        return mrcal.apply_color_map(image,
+                                     a_min = a_min,
+                                     a_max = a_max)
+    else:
+        return mrcal.apply_color_map(equalize_fieldscale(image),
+                                     a_min = 0,
+                                     a_max = 255)
+
+
+
 
 
 class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
@@ -550,7 +561,8 @@ class Fl_Image_View_Group(Fl_Group):
                             *,
                             displayed_image_function = None,
                             flip_x,
-                            flip_y):
+                            flip_y,
+                            do_equalize_fieldscale = False):
 
         self.image_widget.image = image
 
@@ -562,7 +574,7 @@ class Fl_Image_View_Group(Fl_Group):
             return
 
         f = displayed_image_function or displayed_image
-        self.image_widget.update_image(image_data = f(image),
+        self.image_widget.update_image(image_data = f(image, do_equalize_fieldscale=do_equalize_fieldscale),
                                        flip_x     = flip_x,
                                        flip_y     = flip_y)
 
