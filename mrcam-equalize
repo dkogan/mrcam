@@ -1,0 +1,141 @@
+#!/usr/bin/python3
+
+r'''Equalize a set of images, and write the output to disk
+'''
+
+import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--outdir',
+                        required=True,
+                        type=lambda d: d if os.path.isdir(d) else \
+                                parser.error(f"--outdir requires an existing directory as the arg, but got '{d}'"),
+                        help='''Directory to write the output images into.
+                        Required. May not be the same directory as the input''')
+
+    parser.add_argument('--force', '-f',
+                        action='store_true',
+                        default=False,
+                        help='''By default existing files are not overwritten. Pass --force to overwrite them
+                        without complaint''')
+
+    parser.add_argument('--color-map',
+                        action='store_true',
+                        default=False,
+                        help='''If given, we apply a color-map to the output
+                        grayscale image, for human consumption''')
+
+    parser.add_argument('--jobs', '-j',
+                        type=int,
+                        required=False,
+                        default=1,
+                        help='''parallelize the processing JOBS-ways. This is like Make, except you're
+                        required to explicitly specify a job count.''')
+
+    parser.add_argument('image-globs',
+                        type=str,
+                        nargs='+',
+                        help='''The images to equalize''')
+
+    args = parser.parse_args()
+
+    args.image_globs = getattr(args, 'image-globs')
+
+    return args
+
+
+args = parse_args()
+
+
+import glob
+import os.path
+import multiprocessing
+import mrcal
+import maritime_aec
+
+
+def _transform_this(inout):
+    if inout[1] is None:
+        return
+
+    try:
+        image = mrcal.load_image(inout[0])
+    except:
+        print(f"Couldn't load '{inout[0]}'",
+              file=sys.stderr)
+        return
+
+    image = maritime_aec.equalize(image)
+
+    if args.color_map:
+        image = mrcal.apply_color_map(image,
+                                      a_min = 0,
+                                      a_max = 255)
+
+    mrcal.save_image(inout[1], image)
+    print(f"Wrote {inout[1]}", file=sys.stderr)
+    return True
+
+
+def target_image_filename(filename_in):
+    d,f = os.path.split(filename_in)
+    filename_out = f"{args.outdir}/{f}"
+    if os.path.abspath(filename_in) == os.path.abspath(filename_out):
+        print(f"Image '{filename_in}' is set to be processed into the same path. Skipping",
+              file=sys.stderr)
+        return None
+
+    if not args.force and os.path.exists(filename_out):
+        print(f"Image '{filename_out}' already exists. Skipping",
+              file=sys.stderr)
+        return None
+    return filename_out
+
+
+
+filenames_in  = [f for g in args.image_globs for f in glob.glob(g)]
+if len(filenames_in) == 0:
+    print(f"Globs '{args.image_globs}' matched no files!", file=sys.stderr)
+    sys.exit(1)
+filenames_out = [target_image_filename(f) for f in filenames_in]
+filenames_inout = zip(filenames_in, filenames_out)
+
+
+if args.jobs > 1:
+    filenames_inout = list(filenames_inout)
+
+    # Normal parallelized path. I process one image serially to initialize any
+    # state needed for future conversions
+    for i,f in enumerate(filenames_inout):
+        if _transform_this(f):
+            break
+
+    # i is the just-processed index. I process the rest in parallel
+    filenames_inout = filenames_inout[i+1:]
+
+    pool = multiprocessing.Pool(args.jobs)
+    try:
+        mapresult = pool.map_async(_transform_this, filenames_inout)
+
+        # like wait(), but will barf if something goes wrong. I don't actually care
+        # about the results
+        mapresult.get(1000000)
+    except:
+        pool.terminate()
+
+    pool.close()
+    pool.join()
+
+else:
+    # Serial path. Useful for debugging
+    for f in filenames_inout:
+        _transform_this(f)
+
