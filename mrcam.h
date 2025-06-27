@@ -206,13 +206,7 @@ bool mrcam_is_inited(mrcam_t* ctx);
 
 
 
-// Synchronous get-image functions.
-//
-// timeout_us=0 means "wait forever"
-//
-// The image structure should exist in memory, but the data buffer doesn't need
-// to be preallocated or freed
-//
+// Synchronous capture
 // Usage:
 //
 //   capture()
@@ -226,10 +220,18 @@ bool mrcam_is_inited(mrcam_t* ctx);
 //     ...
 //   }
 //
+// timeout_us=0 means "wait forever"
+//
 // Note: with multiple cameras and especially time_decimation_factor>1
 // mrcam_pull() might not be what you want. You might want to mrcam_request() to
 // ask for data for all the cameras at the same time, instead of waiting for all
 // of one camera's data to come in before requesting frames from the next camera
+//
+// The image structure should exist in memory, but the data buffer doesn't need
+// to be preallocated or freed
+//
+// You MUST call mrcam_push_buffer(buffer) when it is done processing the image,
+// to make the buffer available to future captures.
 bool mrcam_pull(/* out */
                 mrcal_image_uint8_t* image,
                 // the buffer. Call mrcam_push_buffer(buffer) when done with the
@@ -244,9 +246,8 @@ bool mrcam_pull(/* out */
                 const uint64_t timeout_us,
                 mrcam_t* ctx);
 
-// Asynchronous get-image functions
-//
-// Asynchronous usage:
+// Asynchronous capture
+// Usage:
 //
 //   void callback(mrcal_image_uint8_t image,
 //                 void* buffer,
@@ -256,8 +257,7 @@ bool mrcam_pull(/* out */
 //       // we may or may not be in the same thread where the image
 //       // was requested
 //
-//       // Do stuff with image. When we are done using the image, you must
-//       // call:
+//       // Do stuff with image. When we are done using the image, we MUST do
 //       mrcam_push_buffer(buffer);
 //
 //       // The data inside the image is now no-longer usable
@@ -273,10 +273,29 @@ bool mrcam_pull(/* out */
 //     ...
 //   }
 //
-// If mrcam_request() failed, there will be no callback call.
+// timeout_us=0 means "wait forever"
 //
-// If mrcam_request() succeeded, there will be exactly ONE callback
-// call. If there was a problem, the callback will have image.data==NULL
+// If mrcam_request() failed and returned false, there will be no callback call.
+//
+// If mrcam_request() succeeded, there will be usually be ONE callback call; if
+// there was a problem, the callback will have image.data==NULL
+//
+// The exception to the one-request-one-callback rule is free-running captures:
+//
+//   ctx->acquisition_mode == MRCAM_ACQUISITION_MODE_CONTINUOUS &&
+//   (ctx->trigger == MRCAM_TRIGGER_NONE ||
+//    ctx->trigger == MRCAM_TRIGGER_HARDWARE_EXTERNAL)
+//
+// In that scenario mrcam_request() only does anything on the first call (it
+// initiates the capture). In subsequent calls, mrcam_request() doesn't do
+// anything, and the frames come in on their own whenever the camera wants to
+// send them. It is still recommended to call mrcam_request() even during this
+// scenario to, at the very least, be able to restart the capture if something
+// goes wrong
+//
+// The callback MUST call mrcam_push_buffer(buffer) when it is done processing
+// the image, to make the buffer available to future captures. Even if
+// image==NULL (some error occurred), you must mrcam_push_buffer(buffer)
 //
 // To give up waiting on a callback, call mrcam_cancel_request()
 // Requesting an image before the previous one was processed is an error
