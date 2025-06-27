@@ -1,6 +1,6 @@
 /*
 An equalization routine meant to boost the local contrast in 16-bit images.
-Originally based on:
+Based on:
 
   Fieldscale: Locality-Aware Field-based Adaptive Rescaling for Thermal Infrared
   Image Hyeonjae Gil, Myeon-Hwan Jeon, and Ayoung Kim
@@ -22,12 +22,11 @@ Originally based on:
 #include <stdlib.h>
 #include <limits.h>
 #include <math.h>
+#include <stdbool.h>
+#include <mrcal/mrcal-image.h>
 
-#include "equalize.h"
 #include "clahe.h"
-
-
-#define MSG(fmt, ...) fprintf(stderr, "%s(%d) in %s(): " fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#include "util.h"
 
 
 #define WRITE_INTERMEDIATE 0
@@ -370,10 +369,10 @@ void apply_minmax(// out
 }
 
 
-bool equalize(// out
-              mrcal_image_uint8_t*        image_out,
-              // in
-              const mrcal_image_uint16_t* image_in)
+bool mrcam_equalize_fieldscale(// out
+                               mrcal_image_uint8_t*        image_out,
+                               // in
+                               const mrcal_image_uint16_t* image_in)
 {
     const int W = image_in->width;
     const int H = image_in->height;

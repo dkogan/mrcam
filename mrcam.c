@@ -1155,4 +1155,3 @@ void mrcam_sleep_until_next_request(// The frame period. Used only if
     if(time_sleep_us > 0)
         usleep(time_sleep_us);
 }
-
