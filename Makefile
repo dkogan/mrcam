@@ -41,6 +41,17 @@ LDLIBS += $(shell pkg-config --libs   aravis-0.8) -lavutil -lswscale
 
 
 
+
+DIST_BIN := \
+	mrcam-equalize
+DIST_MAN := $(addsuffix .1,$(DIST_BIN))
+$(DIST_MAN): %.1: %.pod
+	pod2man --center="mrcam: machine-vision camera interface" --name=MRCAM --release="mrcam $(VERSION)" --section=1 $< $@
+%.pod: %
+	$(MRBUILD_BIN)/make-pod-from-help $< > $@.tmp && cat footer.pod >> $@.tmp && mv $@.tmp $@
+EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
+
+
 ######### python stuff
 mrcam-pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
 _mrcam$(PY_EXT_SUFFIX): mrcam-pywrap.o libmrcam.so

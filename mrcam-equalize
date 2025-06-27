@@ -59,7 +59,7 @@ import glob
 import os.path
 import multiprocessing
 import mrcal
-import maritime_aec
+import mrcam
 
 
 def _transform_this(inout):
@@ -73,7 +73,7 @@ def _transform_this(inout):
               file=sys.stderr)
         return
 
-    image = maritime_aec.equalize(image)
+    image = mrcam.equalize_fieldscale(image)
 
     if args.color_map:
         image = mrcal.apply_color_map(image,
