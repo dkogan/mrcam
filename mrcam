@@ -155,6 +155,8 @@ from fltk import *
 import math
 import mrcal
 import datetime
+import numpy as np
+import numpysane as nps
 import multiprocess
 
 
