@@ -7,6 +7,7 @@ extern "C" {
 }
 
 
+static Ptr<CLAHE> _clahe = NULL;
 
 extern "C"
 __attribute__((visibility("hidden")))
@@ -14,13 +15,8 @@ void clahe( uint8_t* buffer, // input AND output
             int width, int height,
             double clipLimit)
 {
-    static bool inited = false;
-    static Ptr<CLAHE> clahe;
-    if(!inited)
-    {
-        inited = true;
-        clahe = createCLAHE(clipLimit);
-    }
+    if(_clahe == NULL)
+        _clahe = createCLAHE(clipLimit);
 
     Mat cvmat_src(height, width,
                   CV_8UC1,
@@ -28,5 +24,5 @@ void clahe( uint8_t* buffer, // input AND output
     Mat cvmat_dst(height, width,
                   CV_8UC1,
                   buffer, width);
-    clahe->apply(cvmat_src, cvmat_dst);
+    _clahe->apply(cvmat_src, cvmat_dst);
 }
