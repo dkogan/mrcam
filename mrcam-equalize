@@ -73,7 +73,10 @@ def _transform_this(inout):
               file=sys.stderr)
         return
 
-    image = mrcam.equalize_fieldscale(image)
+    try:
+        image = mrcam.equalize_fieldscale(image)
+    except Exception as e:
+        raise Exception(f"Error transforming '{inout[0]}': {e}")
 
     if args.color_map:
         image = mrcal.apply_color_map(image,
