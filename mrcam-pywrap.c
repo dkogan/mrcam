@@ -1518,6 +1518,19 @@ static PyMemberDef camera_members[] =
     };
 
 
+static
+PyObject* GenericNew_and_zero(PyTypeObject* type, PyObject* args, PyObject* kwds)
+{
+    PyObject* obj = PyType_GenericNew(type, args, kwds);
+
+    // Reset all the non-PyObject stuff
+    memset( (uint8_t*)obj + sizeof(PyObject),
+            0,
+            sizeof(camera) - sizeof(PyObject));
+
+    return obj;
+}
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-braces"
 // PyObject_HEAD_INIT throws
@@ -1528,7 +1541,7 @@ static PyTypeObject camera_type =
      PyObject_HEAD_INIT(NULL)
     .tp_name      = "mrcam.camera",
     .tp_basicsize = sizeof(camera),
-    .tp_new       = PyType_GenericNew,
+    .tp_new       = GenericNew_and_zero,
     .tp_init      = (initproc)camera_init,
     .tp_dealloc   = (destructor)camera_dealloc,
     .tp_methods   = camera_methods,
