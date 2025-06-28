@@ -50,7 +50,8 @@ do {                                                                    \
 } while(0)
 
 
-
+#define PIPE_FD_READ  0
+#define PIPE_FD_WRITE 1
 typedef struct {
     PyObject_HEAD
 
@@ -60,18 +61,11 @@ typedef struct {
     // request() function. When a frame is available, a image_ready_t structure
     // is sent over this pipe. The Python main thread can then read the pipe to
     // process the frame
-    union
-    {
-        int pipefd[2];
-        struct
-        {
-            int fd_read, fd_write;
-        };
-    };
+    int pipe_capture[2];
 
 } camera;
 
-// The structure being sent over the pipe
+// The structure being sent over the pipe when an image is received
 typedef struct
 {
     mrcal_image_uint8_t mrcal_image; // type might not be exact
@@ -176,7 +170,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
                                      &verbose))
         goto done;
 
-    if(0 != pipe(self->pipefd))
+    if(0 != pipe(self->pipe_capture))
     {
         BARF("Couldn't init pipe");
         goto done;
@@ -302,8 +296,8 @@ static void camera_dealloc(camera* self)
 {
     mrcam_free(&self->ctx);
 
-    close(self->fd_read);
-    close(self->fd_write);
+    close(self->pipe_capture[PIPE_FD_READ]);
+    close(self->pipe_capture[PIPE_FD_WRITE]);
 
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
@@ -391,7 +385,7 @@ static bool currently_processing_image(const camera* self)
 {
 #warning need to know if request() but not yet ready
     return
-        fd_has_data(self->fd_read);
+        fd_has_data(self->pipe_capture[PIPE_FD_READ]);
 }
 
 // Synchronous frame processing. May block. No pipe
@@ -525,7 +519,7 @@ callback(mrcal_image_uint8_t mrcal_image, // type might not be exact
                        .timestamp_us = timestamp_us,
                        .buffer       = buffer};
 
-    if(sizeof(s) != write_persistent(self->fd_write, (uint8_t*)&s, sizeof(s)))
+    if(sizeof(s) != write_persistent(self->pipe_capture[PIPE_FD_WRITE], (uint8_t*)&s, sizeof(s)))
     {
         MSG("Couldn't write image metadata to pipe!");
         return;
@@ -543,7 +537,7 @@ callback_off_decimation(__attribute__((unused)) mrcal_image_uint8_t mrcal_image,
 
     image_ready_t s = {.off_decimation = true};
 
-    if(sizeof(s) != write_persistent(self->fd_write, (uint8_t*)&s, sizeof(s)))
+    if(sizeof(s) != write_persistent(self->pipe_capture[PIPE_FD_WRITE], (uint8_t*)&s, sizeof(s)))
     {
         MSG("Couldn't write image metadata to pipe!");
         return;
@@ -591,14 +585,14 @@ requested_image(camera* self, PyObject* args, PyObject* kwargs)
                                      &block))
         goto done;
 
-    if(!block && !fd_has_data(self->fd_read))
+    if(!block && !fd_has_data(self->pipe_capture[PIPE_FD_READ]))
     {
         BARF("Non-blocking mode requested, but no data is available to be read");
         goto done;
     }
 
     image_ready_t s;
-    if(sizeof(s) != read_persistent(self->fd_read, (uint8_t*)&s, sizeof(s)))
+    if(sizeof(s) != read_persistent(self->pipe_capture[PIPE_FD_READ], (uint8_t*)&s, sizeof(s)))
     {
         BARF("Couldn't read image metadata from pipe!");
         goto done;
@@ -1518,7 +1512,7 @@ static_assert(sizeof(uint64_t) == sizeof(unsigned long),
               "Here I'm assuming that uint64_t == unsigned long");
 static PyMemberDef camera_members[] =
     {
-        {"fd_image_ready",       Py_T_INT,       offsetof(camera,fd_read),                  READONLY, fd_image_ready_docstring},
+        {"fd_image_ready",       Py_T_INT,       offsetof(camera,pipe_capture[PIPE_FD_READ]),                  READONLY, fd_image_ready_docstring},
         {"timestamp_request_us", MRCAM_T_UINT64, offsetof(camera,ctx.timestamp_request_us), READONLY, timestamp_request_us_docstring},
         {}
     };
