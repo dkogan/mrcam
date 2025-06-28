@@ -615,9 +615,8 @@ class Fl_Image_View_Group(Fl_Group):
                 image_callback(iframe = self.iframe,
                                **frame,
                                **image_callback_cookie)
-
+            self.camera.push_buffer(frame['buffer']) # no-op if the buffer is None
             if not frame['off_decimation']:
-                self.camera.push_buffer(frame['buffer'])
                 self.iframe += 1
 
             if period is not None:
