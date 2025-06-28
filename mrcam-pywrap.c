@@ -7,7 +7,8 @@
 #include <signal.h>
 #include <poll.h>
 #include <assert.h>
-
+#include <pthread.h>
+#include <mrcal/mrcal-image.h>
 #include <arv.h>
 
 #include "mrcam.h"
@@ -57,11 +58,21 @@ typedef struct {
 
     mrcam_t ctx;
 
-    // Returned from pipe(). Used by the asynchronous frame grabbing using the
-    // request() function. When a frame is available, a image_ready_t structure
-    // is sent over this pipe. The Python main thread can then read the pipe to
-    // process the frame
+    // Descriptors returned from pipe()
+
+    // Used by the asynchronous frame grabbing using the request() function.
+    // When a frame is available, a image_ready_t structure is sent over this
+    // pipe. The Python main thread can then read the pipe to process the frame
     int pipe_capture[2];
+
+    // Used to asynchronously save images to disk by
+    // async_save_image_and_push_buffer_t()
+    int pipe_save[2];
+
+    // Used to asynchronously save images to disk by
+    // async_save_image_and_push_buffer_t()
+    pthread_t thread_save;
+    bool      thread_save_active : 1;
 
 } camera;
 
@@ -73,6 +84,18 @@ typedef struct
     ArvBuffer*          buffer;
     bool                off_decimation;
 } image_ready_t;
+
+
+typedef bool (mrcal_image_uint8_save_t)(const char* filename, const mrcal_image_uint8_t* image);
+// The structure being sent over the pipe when we want to write an image to disk
+// asynchronously (writing might be slow, and we want to parallelize it)
+typedef struct
+{
+    mrcal_image_uint8_t mrcal_image; // type might not be exact
+    ArvBuffer*          buffer;
+    char                path[1024 - sizeof(ArvBuffer*) - sizeof(mrcal_image_uint8_t)];
+    mrcal_image_uint8_save_t* mrcal_image_generic_save; // type-specific function
+} async_save_image_and_push_buffer_t;
 
 
 
@@ -116,6 +139,8 @@ static bool string_from_pystring__leave_if_null_or_none(// out
     }
     return true;
 }
+
+static void* thread_save(void* cookie);
 
 static int
 camera_init(camera* self, PyObject* args, PyObject* kwargs)
@@ -171,6 +196,11 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
         goto done;
 
     if(0 != pipe(self->pipe_capture))
+    {
+        BARF("Couldn't init pipe");
+        goto done;
+    }
+    if(0 != pipe(self->pipe_save))
     {
         BARF("Couldn't init pipe");
         goto done;
@@ -285,6 +315,15 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
         goto done;
     }
 
+    if(0 != pthread_create(&self->thread_save,
+                           NULL,
+                           thread_save, self))
+    {
+        BARF("Couldn't start image-save thread");
+        goto done;
+    }
+    self->thread_save_active = true;
+
     result = 0;
 
  done:
@@ -294,10 +333,25 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 
 static void camera_dealloc(camera* self)
 {
+    if(self->thread_save_active)
+    {
+        if(0 != pthread_cancel(self->thread_save))
+            BARF("Couldn't pthread_cancel(thread_save)... Continuing dealloc anyway");
+        else
+        {
+            if(0 != pthread_join(self->thread_save, NULL))
+                BARF("Couldn't pthread_join(thread_save)... Continuing dealloc anyway");
+
+        }
+        self->thread_save_active = false;
+    }
+
     mrcam_free(&self->ctx);
 
     close(self->pipe_capture[PIPE_FD_READ]);
     close(self->pipe_capture[PIPE_FD_WRITE]);
+    close(self->pipe_save   [PIPE_FD_READ]);
+    close(self->pipe_save   [PIPE_FD_WRITE]);
 
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
@@ -366,6 +420,72 @@ numpy_image_from_mrcal_image(// type not exact
         return NULL;
     }
 }
+
+static
+bool mrcal_image_from_numpy_image(mrcal_image_uint8_t* image, // type not exact
+                                  mrcal_image_uint8_save_t** generic_save,
+                                  PyArrayObject*       py_image )
+{
+    if(!PyArray_Check(py_image))
+    {
+        BARF("Input not a numpy array");
+        return false;
+    }
+
+    if( PyArray_TYPE(py_image) == NPY_UINT8 &&
+        PyArray_NDIM(py_image) == 2 )
+    {
+        if(PyArray_STRIDES(py_image)[1] != (int)sizeof(uint8_t))
+        {
+            BARF("8-bit monochrome image expected to have densely-stored pixels");
+            return false;
+        }
+        if(generic_save != NULL) *generic_save = &mrcal_image_uint8_save;
+    }
+    else if( PyArray_TYPE(py_image) == NPY_UINT16 &&
+             PyArray_NDIM(py_image) == 2 )
+    {
+        if(PyArray_STRIDES(py_image)[1] != (int)sizeof(uint16_t))
+        {
+            BARF("16-bit monochrome image expected to have densely-stored pixels");
+            return false;
+        }
+        if(generic_save != NULL) *generic_save = (mrcal_image_uint8_save_t*)&mrcal_image_uint16_save;
+    }
+    else if( PyArray_TYPE(py_image) == NPY_UINT8 &&
+             PyArray_NDIM(py_image) == 3 )
+    {
+        if(PyArray_DIMS(py_image)[2] != 3)
+        {
+            BARF("image.ndim==3, but image.shape[-1]!=3: not a 3-channel color image");
+            return false;
+        }
+        if(PyArray_STRIDES(py_image)[2] != (int)sizeof(uint8_t))
+        {
+            BARF("24-bit color image expected to have densely-stored channels");
+            return false;
+        }
+        if(PyArray_STRIDES(py_image)[1] != 3*(int)sizeof(uint8_t))
+        {
+            BARF("24-bit color image expected to have densely-stored channels");
+            return false;
+        }
+        if(generic_save != NULL) *generic_save = (mrcal_image_uint8_save_t*)&mrcal_image_bgr_save;
+    }
+    else
+    {
+        BARF("Unexpected image type. I know about 8-bit-1-channel, 16-bit-1-channel, 8-bit-3-channel images only");
+        return false;
+    }
+
+    image->width  = PyArray_DIMS   (py_image)[1];
+    image->height = PyArray_DIMS   (py_image)[0];
+    image->stride = PyArray_STRIDES(py_image)[0];
+    image->data   = PyArray_DATA   (py_image);
+
+    return true;
+}
+
 
 static bool fd_has_data(int fd)
 {
@@ -849,6 +969,91 @@ push_buffer(camera* self, PyObject* args, PyObject* kwargs)
     return result;
 }
 
+static PyObject*
+async_save_image_and_push_buffer(camera* self, PyObject* args, PyObject* kwargs)
+{
+    // error by default
+    PyObject* result = NULL;
+
+    const char* path      = NULL;
+    PyObject*   py_image  = NULL;
+    PyObject*   py_buffer = NULL;
+
+    async_save_image_and_push_buffer_t s;
+
+    char* keywords[] = {"path",
+                        "image",
+                        "buffer",
+                        NULL};
+
+    if( !PyArg_ParseTupleAndKeywords(args, kwargs,
+                                     "sOO:mrcam.async_save_image_and_push_buffer",
+                                     keywords,
+                                     &path,
+                                     &py_image,
+                                     &py_buffer))
+        goto done;
+
+    if(IS_NULL(py_buffer))
+    {
+        BARF("buffer is NULL or None. This is a bug");
+        goto done;
+    }
+    s.buffer = (ArvBuffer*)PyLong_AsVoidPtr(py_buffer);
+
+    if(strlen(path) > sizeof(s.path)-1)
+    {
+        BARF("The path is too large to fit into the statically allocated async_save_image_and_push_buffer_t.path. Boost its size");
+        goto done;
+    }
+    strcpy(s.path, path);
+
+    if(!mrcal_image_from_numpy_image(&s.mrcal_image,
+                                     &s.mrcal_image_generic_save,
+                                     (PyArrayObject*)py_image))
+        // BARF() already called
+        goto done;
+
+    if(sizeof(s) != write_persistent(self->pipe_save[PIPE_FD_WRITE], (uint8_t*)&s, sizeof(s)))
+    {
+        MSG("Couldn't write image-save data to pipe!");
+        goto done;
+    }
+
+    result = Py_None;
+    Py_INCREF(result);
+
+ done:
+    return result;
+}
+
+static
+void* thread_save(void* cookie)
+{
+    camera* self = (camera*)cookie;
+    async_save_image_and_push_buffer_t s;
+
+    while(true)
+    {
+        if(sizeof(s) != read_persistent(self->pipe_save[PIPE_FD_READ], (uint8_t*)&s, sizeof(s)))
+        {
+            fprintf(stderr, "Couldn't read image-save data from pipe.... Giving up on the thread\n");
+            return NULL;
+        }
+
+        if( !(*s.mrcal_image_generic_save)(s.path,&s.mrcal_image) )
+        {
+            fprintf(stderr,
+                    "## ERROR: couldn't save image to path='%s'\n",
+                    s.path);
+            continue;
+        }
+
+        mrcam_push_buffer((void**)&s.buffer, &self->ctx);
+    }
+
+    return NULL;
+}
 
 // The feature must be of any of the types in what[]. The list is ended with a
 // NULL. what_all_string is for error reporting
@@ -1487,6 +1692,9 @@ static const char stream_stats_docstring[] =
 static const char push_buffer_docstring[] =
 #include "push_buffer.docstring.h"
     ;
+static const char async_save_image_and_push_buffer_docstring[] =
+#include "async_save_image_and_push_buffer.docstring.h"
+    ;
 static const char equalize_fieldscale_docstring[] =
 #include "equalize_fieldscale.docstring.h"
     ;
@@ -1504,6 +1712,8 @@ static PyMethodDef camera_methods[] =
 
         PYMETHODDEF_ENTRY(, stream_stats,       METH_NOARGS),
         PYMETHODDEF_ENTRY(, push_buffer, METH_VARARGS | METH_KEYWORDS),
+
+        PYMETHODDEF_ENTRY(, async_save_image_and_push_buffer, METH_VARARGS | METH_KEYWORDS),
         {}
     };
 

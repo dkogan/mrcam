@@ -55,7 +55,7 @@ EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
 ######### python stuff
 mrcam-pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
 _mrcam$(PY_EXT_SUFFIX): mrcam-pywrap.o libmrcam.so
-	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $(PY_MRBUILD_LDFLAGS) $< -lmrcam -o $@
+	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $(PY_MRBUILD_LDFLAGS) $< -lmrcam -lmrcal -o $@
 
 PYTHON_OBJECTS := mrcam-pywrap.o
 

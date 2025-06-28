@@ -157,7 +157,6 @@ import mrcal
 import datetime
 import numpy as np
 import numpysane as nps
-import multiprocess
 
 
 file_log                     = None
@@ -190,40 +189,34 @@ def request_image_set():
     for image_view_group in image_view_groups:
         image_view_group.camera.request()
 
-def save_image_safe(path, image):
-    try:
-        return mrcal.save_image(path,image)
-    except:
-        print(f"## ERROR: couldn't save image to {path=}",
-              file = sys.stderr)
-        return None
-
 Ncameras_seen_iframe = dict()
 def image_callback(*,
-                   image,
-                   timestamp,
-                   buffer,
                    iframe,
-                   off_decimation,
+                   frame, # dict from requested_image()
                    # All these are the cookie given to set_up_image_capture()
                    icam,
                    logdir,
                    extension):
 
+    r'''Process the image
+
+On return, we will push_buffer(frame['buffer']). If we do not want that (i.e. if
+we will do that ourselves, set frame['buffer'] to None)
+
+    '''
+
     global Ncameras_seen_iframe
-    global smp_pool
 
 
+    image          = frame['image']
+    timestamp      = frame['timestamp']
+    buffer         = frame['buffer']
+    off_decimation = frame['off_decimation']
 
     if not off_decimation:
         if image is None:
             print("Error capturing the image. I will try again",
                   file=sys.stderr)
-
-
-
-
-
 
         time_slider_at_max = False
         if logdir is not None:
@@ -251,11 +244,9 @@ def image_callback(*,
             else:
                 write_logline(f"{timestamp:.3f} {iframe} {icam} {filename}");
 
-                if smp_pool is None:
-                    # Serial path. Used most of the time
-                    save_image_safe(path, image)
-                else:
-                    smp_pool.apply_async(save_image_safe, (path, image))
+                image_view_groups[icam].camera. \
+                    async_save_image_and_push_buffer(path,image,frame['buffer'])
+                frame['buffer'] = None # indicate that the caller should NOT re-push the buffer
 
             time_slider_now = int(time_slider_widget.value())
             time_slider_at_max = \
@@ -576,18 +567,6 @@ status_widget.value('')
 # allow keyboard input to not be sent to THIS status widget, so that left/right
 # and 'u' go to the time slider and image windows respectively.
 status_widget.visible_focus(0)
-
-
-
-# Init this as late as possible. It needs special cleanup to avoid scary-looking
-# errors, and initing it late lets me not do that as much
-smp_pool = None
-if args.logdir is not None and \
-   args.replay is None:
-    # we are logging camera data
-    smp_pool = multiprocess.Pool()
-
-
 
 def handle_event_image_widget(widget,image_view_group,event):
     global do_equalize_fieldscale
