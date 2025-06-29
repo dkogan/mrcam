@@ -1,1 +1,26 @@
-asdf
+Report some diagnostic statistics about the current image stream
+
+SYNOPSIS
+
+    camera = mrcam.camera()
+    ...
+    print(camera.stream_stats())
+
+    ----> {'n_input_buffers': 10, 'n_output_buffers': 0}
+
+Reports some diagnostics. At this time only the output of
+arv_stream_get_n_buffers() is reported, but this may be expanded over time
+
+ARGUMENTS
+
+None
+
+RETURNED VALUES
+
+A dict containing the statistics. Keys:
+
+- n_input_buffers: how many buffers are currently available for incoming images
+  to use
+
+- n_output_buffers: how many buffers currently have images ready for the
+  application to read

@@ -5,12 +5,15 @@ SYNOPSIS
     from fltk import *
     from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
 
-    camera = mrcam.camera()
-
     def callback_mrcam(fd):
         frame = camera.requested_image()
-        image_widget.update_image(image_data = frame['image'])
+        if frame['image'] is not None:
+            image_widget.update_image(image_data = frame['image'])
+        camera.push_buffer(frame['buffer']) # no-op if the buffer is None
         Fl.add_timeout(1., camera.request)
+
+
+    camera = mrcam.camera()
 
     Fl.add_fd( camera.fd_image_ready,
                callback_mrcam )
@@ -53,8 +56,7 @@ ARGUMENTS
 - trigger: optional string, defaulting to 'SOFTWARE' if omitted or None.
   Currently we support:
 
-  - "NONE": no triggering at all. The camera will decide to send us frames all by
-    itself.
+  - "NONE": no triggering at all. The camera decides when send us frames
 
   - "SOFTWARE": software "triggering". We request a frame by sending a
     "TriggerSoftware" command. The image will be captured "soon" after it is
@@ -89,9 +91,15 @@ ARGUMENTS
   By contrast, the CONTINUOUS mode starts the acquisition at the beginning of
   the capture, and keeps it going for all the subsequent frames.
 
-- dims: optional tuple of 2 integers: (width,height). If given, we use these as
-  the given image dimensions. If not given or if (0,0), we take the
-  highest-resolution image shape available
+- time_decimation_factor: optional integer, defaulting to 1. If >1 we report
+  only Nth frame back to the software. requested_image() will still return a
+  frame, but frame['off_decimation'] will be true, with no other info available.
+  Note that the skipped frames are still transmitted over the network and are
+  still received by aravis. time_decimation_factor throws them away in mrcam
+
+- dims: optional tuple of 2 integers: (width,height). If given, we request these
+  image dimensions. If not given or if (0,0), we take the highest resolution
+  available
 
 - Nbuffers: optional integer defaulting to 10. How many buffers to allocate to
   store received images. As the camera sends images, the driver writes them into

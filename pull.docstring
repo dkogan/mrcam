@@ -10,7 +10,7 @@ SYNOPSIS
 
 pull() retrieves an image off the camera in a blocking fashion: the call will
 block until the image is retrieved, or the timeout expires. To get images
-asynchronously, look at request().
+asynchronously, look at request()/requested_image().
 
 At this time a missed timeout is treated like any other error: we raise an
 exception
@@ -18,16 +18,25 @@ exception
 ARGUMENTS
 
 - period: optional floating point value defaulting to 0. The frame period. Used
-  only if time_decimation_factor > 1; sets the delay of the off-decimation frame
-  requests. Pass 0 to ignore, and to request the frames immediately
+  only if mrcam.camera was constructed with time_decimation_factor > 1; sets the
+  period of the off-decimation frame requests. Pass 0 to ignore, and to request
+  the frames immediately
 
 - timeout: optional floating point value indicating when we should give up
   waiting for the frame. Given in seconds. If omitted or <=0, we wait forever
 
 RETURNED VALUE
 
-The returned data is given in a dict with keys
+A dict with keys:
 
-- 'image':     the numpy array containing the image
+- 'image': the numpy array containing the image, or None on error
+
 - 'timestamp': the unix timestamp of the host machine during image capture, in
   floating-point seconds
+
+- 'buffer': the aravis buffer used to store this image. Once we're done
+  processing this image, we MUST call camera.push_buffer(frame['buffer']).
+  Usually you'd do this very soon after pull() returns. It COULD be done later.
+  But if the number of extant images (ones that haven't had been pushed back)
+  exceed Nbuffers (passed to the mrcam.camera() constructor), then image capture
+  will fail: the driver will have nowhere to put the new images

@@ -1,1 +1,70 @@
-asdf
+Schedule a task to save an image to disk and push the buffer
+
+SYNOPSIS
+
+    from fltk import *
+    from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
+
+    def callback_mrcam(fd):
+        global iframe
+
+        frame = camera.requested_image()
+        if frame['image'] is not None:
+            image_widget.update_image(image_data = frame['image'])
+
+            path = f"frame{iframe:05d}.png"
+            camera.async_save_image_and_push_buffer(path,frame['image'],frame['buffer'])
+            iframe += 1
+
+        Fl.add_timeout(1., camera.request)
+
+
+    iframe = 0
+    camera = mrcam.camera()
+
+    Fl.add_fd( camera.fd_image_ready,
+               callback_mrcam )
+    camera.request()
+
+    window       = Fl_Window(800,600, "mrcam")
+    image_widget = Fl_Gl_Image_Widget(0,0, 800,600)
+
+    window.resizable(image_widget)
+    window.end()
+    window.show()
+
+    Fl.run()
+
+    ### An interactive GUI window pops up, displaying the live camera feed at
+    ### 1Hz, saving images to disk
+
+A very common use case is to log images to disk as they are received. This could
+be relatively slow, and we might not want to tie up the GUI thread as the images
+are written. To do that, we want to perform the write in a separate thread. And
+we thus want to delay pushing the buffer until AFTER the write is complete.
+
+This is accomplished by the convenience function
+async_save_image_and_push_buffer(). The nominal usage is in the sample above. We
+replace the synchronous
+
+  mrcal.save_image(path,frame['image'])
+  camera.push_buffer(frame['buffer']))
+
+with the asynchronous
+
+  camera.async_save_image_and_push_buffer(path,frame['image'],frame['buffer'])
+
+ARGUMENTS
+
+- path: a string, the path on disk where to write the image. libfreeimage is
+  ultimately responsible for writing the image. It supports most common file
+  formats
+
+- image: the numpy array containing the image
+
+- buffer: the buffer to push. Given to us in frame['buffer'] by
+  camera.requested_image() or camera.pull()
+
+RETURN VALUES
+
+None

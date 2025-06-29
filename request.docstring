@@ -5,12 +5,15 @@ SYNOPSIS
     from fltk import *
     from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
 
-    camera = mrcam.camera()
-
     def callback_mrcam(fd):
         frame = camera.requested_image()
-        image_widget.update_image(image_data = frame['image'])
+        if frame['image'] is not None:
+            image_widget.update_image(image_data = frame['image'])
+        camera.push_buffer(frame['buffer']) # no-op if the buffer is None
         Fl.add_timeout(1., camera.request)
+
+
+    camera = mrcam.camera()
 
     Fl.add_fd( camera.fd_image_ready,
                callback_mrcam )
@@ -53,8 +56,20 @@ The image capture sequence is:
 This function normally cannot fail. Any image capture errors will be indicated
 by requested_image()['image'] being None.
 
-It is guaranteed that every request() call will be followed by a single response
-that should be ingested by a single requested_image() call.
+Usually each successfull request() call (no exception raised) will be followed
+by ONE callback call. An error when receiving the image will result in a
+callback with requested_image()['image'] is None. The exception to the
+one-request-one-callback rule is free-running captures:
+
+  acquisition_mode == ACQUISITION_MODE_CONTINUOUS &&
+  (trigger == TRIGGER_NONE ||
+   trigger == TRIGGER_HARDWARE_EXTERNAL)
+
+In that scenario request() only does anything on the first call (it initiates
+the capture). In subsequent calls, request() doesn't do anything, and the frames
+come in on their own whenever the camera wants to send them. It is still
+recommended to call request() even during this scenario to, at the very least,
+be able to restart the capture if something goes wrong.
 
 ARGUMENTS
 

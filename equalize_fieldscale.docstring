@@ -1,1 +1,52 @@
-xxx
+Adaptive equalization for deep images
+
+SYNOPSIS
+
+    camera = mrcam.camera(pixfmt = 'mono16')
+    frame  = camera.pull()
+
+    # frame['image'] is a 16-bit grayscale image with a high dynamic range
+    image = mrcam.equalize_fieldscale(frame['image'])
+
+    # image contains 8-bit grayscale data that emphasizes the local contrast
+
+Images produced by cameras often require some processing to be usable. It is
+common for most of the intensity variation to lie in a small intensity region.
+Various equalization schemes exist to bring out this detail. Simple methods
+(stretch equalization, histogram equalization, CLAHE) are often sufficient, but
+are NOT enough when given 16-bit data with high dynamic range and a greatly
+varying intensity histogram across the image. This scenario is common when
+reading thermal cameras.
+
+This method implements a fancier equalization method that works well for thermal
+images. This 'fieldscale' method is based on the paper
+
+  Fieldscale: Locality-Aware Field-based Adaptive Rescaling for Thermal Infrared
+  Image Hyeonjae Gil, Myeon-Hwan Jeon, and Ayoung Kim
+
+  @article{gil2024fieldscale,
+    title={Fieldscale: Locality-Aware Field-based Adaptive Rescaling for Thermal Infrared Image},
+    author={Gil, Hyeonjae and Jeon, Myung-Hwan and Kim, Ayoung},
+    journal={IEEE Robotics and Automation Letters},
+    year={2024},
+    publisher={IEEE}
+  }
+
+  Original author: Hyeonjae Gil
+  Author email: h.gil@snu.ac.kr
+
+Their reference implementation lives here:
+
+  https://github.com/HyeonJaeGil/fieldscale
+
+This is a translation of their implementation to C. This method is intended ONLY
+to translate grayscale 16-bit images to grayscale 8-bit images.
+
+ARGUMENTS
+
+- image: numpy array of shape (height,width) with dtype numpy.uint16
+
+RETURNED VALUES
+
+The equalized image in a numpy array of shape (height,width) with dtype
+numpy.uint8
