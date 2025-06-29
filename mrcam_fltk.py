@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+r'''mrcam camera integration with FLTK'''
+
 import sys
 import re
 from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
