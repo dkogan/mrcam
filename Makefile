@@ -54,7 +54,7 @@ EXTRA_CLEAN += $(DIST_MAN) $(patsubst %.1,%.pod,$(DIST_MAN))
 
 ######### python stuff
 mrcam-pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
-_mrcam$(PY_EXT_SUFFIX): mrcam-pywrap.o libmrcam.so
+mrcam$(PY_EXT_SUFFIX): mrcam-pywrap.o libmrcam.so
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $(PY_MRBUILD_LDFLAGS) $< -lmrcam -lmrcal -o $@
 
 PYTHON_OBJECTS := mrcam-pywrap.o
@@ -65,9 +65,9 @@ PYTHON_OBJECTS := mrcam-pywrap.o
 $(PYTHON_OBJECTS): CFLAGS += -Wno-cast-function-type
 $(PYTHON_OBJECTS): CFLAGS += $(PY_MRBUILD_CFLAGS)
 
-DIST_PY3_MODULES := _mrcam
+DIST_PY3_MODULES := mrcam mrcam_fltk
 
-all: _mrcam$(PY_EXT_SUFFIX)
+all: mrcam$(PY_EXT_SUFFIX)
 
 
 include $(MRBUILD_MK)/Makefile.common.footer

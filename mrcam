@@ -20,7 +20,7 @@ import argparse
 import re
 import os
 
-import mrcam
+import mrcam_fltk as mrcam
 
 def parse_args():
 
