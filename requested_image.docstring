@@ -1,0 +1,98 @@
+Retrieve a requested image from a camera during asynchronous capture
+
+SYNOPSIS
+
+    from fltk import *
+    from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
+
+    def callback_mrcam(fd):
+        frame = camera.requested_image()
+        if frame['image'] is not None:
+            image_widget.update_image(image_data = frame['image'])
+        camera.push_buffer(frame['buffer']) # no-op if the buffer is None
+        Fl.add_timeout(1., camera.request)
+
+
+    camera = mrcam.camera()
+
+    Fl.add_fd( camera.fd_image_ready,
+               callback_mrcam )
+    camera.request()
+
+    window       = Fl_Window(800,600, "mrcam")
+    image_widget = Fl_Gl_Image_Widget(0,0, 800,600)
+
+    window.resizable(image_widget)
+    window.end()
+    window.show()
+
+    Fl.run()
+
+    ### An interactive GUI window pops up, displaying the live camera feed at
+    ### 1Hz
+
+requested_image() is used to retrieve an image we asked for in a previous
+request() call.
+
+The image capture sequence is:
+
+- camera.request() call is made to ask for a frame
+
+- camera.fd_image_ready is a file descriptor that can be poll()-ed or
+  select()-ed. When the requested image is ready, this file descriptor becomes
+  ready for reading. In the main loop, an application would poll() ALL the
+  descriptors that potentially have work for the application to do (keyboard,
+  mouse, network, timerfd, mrcam, ...). When any of the descriptors get data to
+  be read, the application wakes up and does the necessary work. In the example
+  above we add this camera file descriptor to the set that the FLTK GUI waits
+  for by calling Fl.add_fd(...). When the requested image is ready, Fl.run()
+  wakes up and calls callback_mrcam()
+
+- In callback_mrcam() we call camera.requested_image() to retrieve the
+  incoming image
+
+Usually requested_image() is called as part of the above sequence. If we want to
+allow requested_image() to block, like pull() does, you can call
+requested_image(block = True)
+
+Usually each successfull request() call (no exception raised) will be followed
+by ONE callback call. An error when receiving the image will result in a
+callback with requested_image()['image'] is None. The exception to the
+one-request-one-callback rule is free-running captures:
+
+  acquisition_mode == ACQUISITION_MODE_CONTINUOUS &&
+  (trigger == TRIGGER_NONE ||
+   trigger == TRIGGER_HARDWARE_EXTERNAL)
+
+In that scenario request() only does anything on the first call (it initiates
+the capture). In subsequent calls, request() doesn't do anything, and the frames
+come in on their own whenever the camera wants to send them. It is still
+recommended to call request() even during this scenario to, at the very least,
+be able to restart the capture if something goes wrong.
+
+ARGUMENTS
+
+- block: optional boolean, defaulting to False. if block: this function is
+  allowed to block, waiting for data
+
+RETURNED VALUE
+
+A dict with keys:
+
+- 'image': the numpy array containing the image, or None on error
+
+- 'timestamp': the unix timestamp of the host machine during image capture, in
+  floating-point seconds
+
+- 'buffer': the aravis buffer used to store this image. Once we're done
+  processing this image, we MUST call camera.push_buffer(frame['buffer']).
+  Usually you'd do this at the end of the callback. It COULD be done later. But
+  if the number of extant images (ones that haven't had been pushed back) exceed
+  Nbuffers (passed to the mrcam.camera() constructor), then image capture will
+  fail: the driver will have nowhere to put the new images
+
+- 'off_decimation': boolean indicating if this is an off-decimation callback. If
+  we created the mrcam.camera object with time_decimation_factor > 1, we report
+  only every Nth frame. Every OTHER frame will be returned with
+  frame['off_decimation'] true. We can then request subsequent frames with
+  whatever timing we want.

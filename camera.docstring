@@ -1,0 +1,120 @@
+mrcam camera object
+
+SYNOPSIS
+
+    from fltk import *
+    from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
+
+    def callback_mrcam(fd):
+        frame = camera.requested_image()
+        if frame['image'] is not None:
+            image_widget.update_image(image_data = frame['image'])
+        camera.push_buffer(frame['buffer']) # no-op if the buffer is None
+        Fl.add_timeout(1., camera.request)
+
+
+    camera = mrcam.camera()
+
+    Fl.add_fd( camera.fd_image_ready,
+               callback_mrcam )
+    camera.request()
+
+    window       = Fl_Window(800,600, "mrcam")
+    image_widget = Fl_Gl_Image_Widget(0,0, 800,600)
+
+    window.resizable(image_widget)
+    window.end()
+    window.show()
+
+    Fl.run()
+
+    ### An interactive GUI window pops up, displaying the live camera feed at
+    ### 1Hz
+
+mrcam.camera represents a single camera. For a multi-camera system, create
+multiple mrcam.camera objects.
+
+This class can be used to quickly build applications in Python that capture and
+process images with mrcam (and thus, aravis). The above sample is a full GUI
+application to display a live stream from a camera at 1Hz.
+
+ARGUMENTS
+
+- name: optional string identifying the camera. This is very flexible. The set
+  of ways to identify the camera are given in the aravis docs:
+
+  https://aravisproject.github.io/docs/aravis-0.8/ArvCamera.html#arv-camera-new
+
+  The name may be omitted or None to select the first available camera
+
+- pixfmt: optional string for the requested pixel format. If omitted or None, we
+  select "MONO_8". mrcam supports many common pixel formats, but not everything
+  supported by aravis. To get a list of formats supported by mrcam, pass an
+  invalid string here (such as '', for instance). To get a list of formats
+  supported by the hardware, run 'arv-tool-0.8 features PixelFormat'
+
+- trigger: optional string, defaulting to 'SOFTWARE' if omitted or None.
+  Currently we support:
+
+  - "NONE": no triggering at all. The camera decides when send us frames
+
+  - "SOFTWARE": software "triggering". We request a frame by sending a
+    "TriggerSoftware" command. The image will be captured "soon" after it is
+    requested. This is useful for testing, but if any kind of camera
+    synchronization is required, this mode does not work
+
+  - "HARDWARE_EXTERNAL": "hardware" triggering. The implementation details are
+    specific to each camera. Usually there's a physical pin feeding into the
+    camera; an electrical pulse on this pin initiates the image capture. In this
+    'HARDWARE_EXTERNAL' mode we tell the camera to wait for a pulse to begin
+    capture, but we don't actually supply this pulse. Some external process has to
+    do that
+
+  - "HARDWARE_TTYS0": like 'HARDWARE_EXTERNAL', but we produce the trigger pulse
+    as well: by sending \xFF to /dev/ttyS0. The start bit in each character is
+    the pulse. It is assumed that the Tx pin in the RS-232 port is connected
+    (usually through some level shifters and/or buffers) to the trigger pin in
+    the camera
+
+- acquisition_mode: optional string, defaulting to 'SINGLE_FRAME' if omitted or
+  None. Currently we support:
+
+  - SINGLE_FRAME
+  - MULTI_FRAME
+  - CONTINUOUS
+
+  The SINGLE_FRAME and MULTI_FRAME modes are frame-by-frame modes: we request
+  and capture one frame, then we request and capture the next one, and so on.
+  The MULTI_FRAME mode also asks for ONE frame. These start and stop the
+  acquisition for each frame
+
+  By contrast, the CONTINUOUS mode starts the acquisition at the beginning of
+  the capture, and keeps it going for all the subsequent frames.
+
+- time_decimation_factor: optional integer, defaulting to 1. If >1 we report
+  only Nth frame back to the software. requested_image() will still return a
+  frame, but frame['off_decimation'] will be true, with no other info available.
+  Note that the skipped frames are still transmitted over the network and are
+  still received by aravis. time_decimation_factor throws them away in mrcam
+
+- dims: optional tuple of 2 integers: (width,height). If given, we request these
+  image dimensions. If not given or if (0,0), we take the highest resolution
+  available
+
+- Nbuffers: optional integer defaulting to 10. How many buffers to allocate to
+  store received images. As the camera sends images, the driver writes them into
+  a buffer in memory. When the client program is ready to process the images, it
+  reads the buffer, and gives it back for the driver to use for future images.
+  If a camera is sending data very quickly and the client cannot process them
+  immediately, we need more buffers to store the data until the client can catch
+  up.
+  
+- verbose: optional boolean, defaulting to False. If verbose: we output lots of
+  diagnostics to the console. Every aravis call is traced. Note that this is
+  separate from the much-deeper aravis diagnostics documented here:
+
+    https://aravisproject.github.io/docs/aravis-0.8/aravis-building.html
+
+RETURNED VALUE
+
+The mrcam.camera object to be used for image capture

@@ -1,0 +1,41 @@
+Retrive the metadata for a camera feature
+
+SYNOPSIS
+
+    from pprint import pprint
+
+    camera     = mrcam.camera()
+    descriptor = camera.feature_descriptor('ExposureTime')
+
+    pprint(descriptor)
+    ===> {'bounds': (35.0, 1460000.0),
+          'increment': 35.0,
+          'node': 46957520,
+          'precision': 1,
+          'representation': 'LOGARITHMIC',
+          'type': 'float',
+          'unit': 'us'}
+
+
+    # Get the current value
+    print(camera.feature_value(descriptor))
+    ===> (35000.0, {'locked': False})
+
+    # Set a new value
+    camera.feature_value(descriptor, 1000)
+
+A genicam camera is configurable by a set of "features". These give you control
+over (usually) exposure time and gain and countless other things. To access
+these features in mrcam, a "descriptor" has to be obtained by calling
+'feature_descriptor()', and this descriptor can then be pased to
+'feature_value()' to get/set the values of a particular feature.
+
+The descriptor is a dict of properties queried from the camera.
+
+ARGUMENTS
+
+- name: required string identifying the feature being queried
+
+RETURNED VALUE
+
+The feature descriptor object that can be pased to 'feature_value()'

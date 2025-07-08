@@ -1,0 +1,10 @@
+*.o
+*.d
+*.so
+*.so.*
+*~
+cscope*
+__pycache__
+*.docstring.h
+
+mrcam-test
