@@ -1,6 +1,12 @@
 #!/usr/bin/python3
 
 r'''Equalize a set of images, and write the output to disk
+
+SYNOPSIS
+
+  mrcam-equalize --outdir /tmp -j '*.png'
+  [all .png files are equalized in parallel, with the results written to /tmp]
+
 '''
 
 import sys
