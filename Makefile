@@ -42,6 +42,9 @@ LDLIBS += $(shell pkg-config --libs   aravis-0.8) -lavutil -lswscale
 
 
 
+DIST_INCLUDE := \
+  mrcam.h
+
 DIST_BIN := \
 	mrcam-equalize
 DIST_MAN := $(addsuffix .1,$(DIST_BIN))
