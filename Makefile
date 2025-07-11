@@ -42,6 +42,9 @@ LDLIBS += $(shell pkg-config --libs   aravis-0.8) -lavutil -lswscale
 
 
 
+DIST_INCLUDE := \
+  mrcam.h
+
 DIST_BIN := \
 	mrcam-equalize
 DIST_MAN := $(addsuffix .1,$(DIST_BIN))
@@ -65,7 +68,7 @@ PYTHON_OBJECTS := mrcam-pywrap.o
 $(PYTHON_OBJECTS): CFLAGS += -Wno-cast-function-type
 $(PYTHON_OBJECTS): CFLAGS += $(PY_MRBUILD_CFLAGS)
 
-DIST_PY3_MODULES := mrcam mrcam_fltk
+DIST_PY3_MODULES := mrcam$(PY_EXT_SUFFIX) mrcam_fltk.py
 
 all: mrcam$(PY_EXT_SUFFIX)
 

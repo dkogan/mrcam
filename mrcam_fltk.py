@@ -7,7 +7,7 @@ from fltk import *
 import mrcal
 import time
 import numpy as np
-from _mrcam import *
+from mrcam import *
 
 def _add_common_cmd_options(parser,
                             *,
