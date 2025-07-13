@@ -48,9 +48,9 @@ a float value calls round() first.
 Getting a boolean returns True or False. Setting a boolean uses the normal
 Python logic rules.
 
-A "command" an action to be executed. Getting a "command" feature returns None.
-To execute the "command", "set" it to a true value. So to execute a "command",
-call feature_value(descriptor,True). feature_value(descriptor) and
+A "command" is an action to be executed. Getting a "command" feature returns
+None. To execute the "command", "set" it to a true value. So to execute a
+"command", call feature_value(descriptor,True). feature_value(descriptor) and
 feature_value(descriptor,0) will NOT execute the command.
 
 An "enumeration" is a feature that can take some preset values only. These

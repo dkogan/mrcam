@@ -1,6 +1,11 @@
 #!/usr/bin/python3
 
-r'''mrcam camera integration with FLTK'''
+r'''mrcam camera integration with FLTK
+
+This is a higher-level Python interface to make full-featured mrcam-enabled FLTK
+applications simple to build
+
+'''
 
 import sys
 import re
