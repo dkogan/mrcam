@@ -30,6 +30,7 @@ LDLIBS             += -lopencv_imgproc -lopencv_core
 # stolen docstring logic from Makefile.common.footer
 %.usage.h: %.usage
 	< $^ sed 's/\\/\\\\/g; s/"/\\"/g; s/^/"/; s/$$/\\n"/;' > $@
+EXTRA_CLEAN += mrcam-test.usage.h
 
 mrcam-test.o: mrcam-test.usage.h
 mrcam-test.o: CPPFLAGS += -fopenmp
