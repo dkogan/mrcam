@@ -37,8 +37,9 @@ mrcam-test.o: CPPFLAGS += -fopenmp
 mrcam-test:   LDFLAGS  += -fopenmp
 mrcam-test:   LDLIBS += -lmrcal
 
-CFLAGS += $(shell pkg-config --cflags aravis-0.8)
-LDLIBS += $(shell pkg-config --libs   aravis-0.8) -lavutil -lswscale
+# use the arch-specific pkg-config if there is one
+CFLAGS += $(shell $(or $(PKG_CONFIG),pkg-config) --cflags aravis-0.8)
+LDLIBS += $(shell $(or $(PKG_CONFIG),pkg-config) --libs   aravis-0.8) -lavutil -lswscale
 
 
 
