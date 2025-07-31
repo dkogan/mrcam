@@ -1372,19 +1372,6 @@ def fltk_application_init(camera_params_noname,
                                                                        image_directory   = image_directory)),
                                     unlock_panzoom  = unlock_panzoom,
                                     **ctx)
-            if ctx['image_view_groups'][icam].camera is not None:
-                cookie = dict(icam = icam,
-                              # pieces of the log_readwrite_context
-                              logged_images = logged_images,
-                              logdir_write  = logdir_write,
-                              file_log      = file_log,
-                              jpg           = jpg,
-                              **ctx)
-                ctx['image_view_groups'][icam].set_up_image_capture(period         = None, # don't auto-recur. I do that myself, making sure ALL the cameras are processed
-                                                                    flip_x         = flip_x,
-                                                                    flip_y         = flip_y,
-                                                                    auto_update_image_widget = False,
-                                                                    image_callback = (image_callback__default, cookie))
             x0   += w_image
             icam += 1
 
@@ -1395,6 +1382,23 @@ def fltk_application_init(camera_params_noname,
 
         y0 += h_image
     image_views.end()
+
+
+    for icam in range(Ncameras):
+        if ctx['image_view_groups'][icam].camera is not None:
+            cookie = dict(icam = icam,
+                          # pieces of the log_readwrite_context
+                          logged_images = logged_images,
+                          logdir_write  = logdir_write,
+                          file_log      = file_log,
+                          jpg           = jpg,
+                          **ctx)
+            ctx['image_view_groups'][icam].set_up_image_capture(# don't auto-recur. I do that myself, making sure ALL the cameras are processed
+                                                                period         = None,
+                                                                flip_x         = flip_x,
+                                                                flip_y         = flip_y,
+                                                                auto_update_image_widget = False,
+                                                                image_callback = (image_callback__default, cookie))
 
     window.resizable(image_views)
     window.end()
