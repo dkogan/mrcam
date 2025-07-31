@@ -41,11 +41,9 @@ def _add_common_cmd_options(parser,
                         help='''A comma-separated list of features for which GUI
                         controls should be displayed. The available features can
                         be queried with "arv-tool-0.8". Each feature can be
-                        postfixed with [log] to indicate that a log-scale widget
-                        should be used. Each feature can be specified as a regex
-                        to pick multiple features at once. If the regex matches
-                        any category, everything in that category will be
-                        selected''')
+                        specified as a regex to pick multiple features at once.
+                        If the regex matches any category, everything in that
+                        category will be selected''')
     parser.add_argument('--display-flip',
                         help='''Flip the image horizontally and/or vertically
                         for display. This changes the way the image is displayed
@@ -583,6 +581,9 @@ class Fl_Image_View_Group(Fl_Group):
                       file = sys.stderr)
                 continue
 
+            if desc.get('representation','') == 'LOGARITHMIC':
+                flags.add('log')
+
             t = desc['type']
             if t == 'integer' or t == 'float':
                 if desc['unit']: label = f"{name} ({desc['unit']})"
@@ -594,7 +595,7 @@ class Fl_Image_View_Group(Fl_Group):
                 widget.align(FL_ALIGN_BOTTOM)
                 widget.type(FL_HORIZONTAL)
 
-                if desc.get('representation','') == 'LOGARITHMIC':
+                if 'log' in flags:
                     if any(x <= 0 for x in desc['bounds']):
                         raise Exception(f"Requested log-scale feature '{name}' has non-positive bounds: {desc['bounds']}. Log-scale features must have strictly positive bounds")
                     widget.bounds(*[np.log(x) for x in desc['bounds']])
