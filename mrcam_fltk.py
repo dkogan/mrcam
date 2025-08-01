@@ -701,7 +701,7 @@ class Fl_Image_View_Group(Fl_Group):
                             image,
                             *,
                             # (function,cookie)
-                            displayed_image = None,
+                            displayed_image_and_cookie = None,
                             flip_x,
                             flip_y):
 
@@ -714,8 +714,8 @@ class Fl_Image_View_Group(Fl_Group):
                                            flip_y     = flip_y)
             return
 
-        if displayed_image is not None:
-            f,cookie = displayed_image
+        if displayed_image_and_cookie is not None:
+            f,cookie = displayed_image_and_cookie
         else:
             f,cookie = displayed_image__default,dict()
         image_data = f(image,
