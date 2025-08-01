@@ -1501,7 +1501,8 @@ def fltk_application_init(camera_params_noname,
                           jpg           = jpg,
                           **ctx,
                           **image_callback_cookie)
-            ctx['image_view_groups'][icam].set_up_image_capture(# don't auto-recur. I do that myself, making sure ALL the cameras are processed
+            ctx['image_view_groups'][icam].set_up_image_capture(# don't auto-recur. I do that myself,
+                                                                # making sure ALL the cameras are processed
                                                                 period         = None,
                                                                 flip_x         = flip_x,
                                                                 flip_y         = flip_y,
