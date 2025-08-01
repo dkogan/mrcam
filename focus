@@ -64,6 +64,7 @@ from Fl_gnuplotlib import *
 
 focus_regions = []
 imagersize = None
+plot_widget = None
 t0 = time.time()
 
 
@@ -119,39 +120,52 @@ def sharpness(image):
     return nps.norm2(L.ravel())
 
 def update_sharpness(image,
-                     **kwargs_extra):
-    global imagersize
+                     **kwargs):
+    global imagersize, plot_widget
 
-    if image is None:
+    if image is not None:
+        t = time.time()-t0
+
+        if imagersize is None:
+            imagersize = np.array((image.shape[1], image.shape[0]),)
+
+        for region in focus_regions:
+            roi  = region['roi']
+            region['data'] = nps.glue(region['data'],
+                                      np.array((t, sharpness(image[roi[0],roi[1]])),
+                                               dtype=float),
+                                      axis = -2)
+
+        if focus_regions:
+            plot_widget.plot(*[(region['data'] - np.array((t,0),),
+                                dict(tuplesize = -2,
+                                     _with     = f"lines lw 2 lc \"{region['color_string']}\"")) \
+                               for region in focus_regions])
+
+    else:
         # Error occurred capturing the image. Let it go; hopefully the next one
         # will work
-        return
+        pass
 
-    t = time.time()-t0
-
-    if imagersize is None:
-        imagersize = np.array((image.shape[1], image.shape[0]),)
-
-    for region in focus_regions:
-        roi  = region['roi']
-        region['data'] = nps.glue(region['data'],
-                                  np.array((t, sharpness(image[roi[0],roi[1]])),
-                                           dtype=float),
-                                  axis = -2)
-
-    if focus_regions:
-        plot_widget.plot(*[(region['data'] - np.array((t,0),),
-                            dict(tuplesize = -2,
-                                 _with     = f"lines lw 2 lc \"{region['color_string']}\"")) \
-                           for region in focus_regions])
+    return mrcam.displayed_image__default(image, **kwargs)
 
 
-def handle_event_image_widget(widget, event):
+def handle_event_image_widget(image_view_group, event,
+                              **kwargs):
+
+    result = mrcam.handle_image_widget__extra_e(image_view_group, event,
+                                                **kwargs)
+    if result is not None:
+        return result
+
+
     if event != FL_PUSH:
         return None
 
     if Fl.event_button() != FL_RIGHT_MOUSE:
         return None
+
+    widget = image_view_group.image_widget
 
     try:
         q = np.round(np.array(widget.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ))).astype(int)
@@ -160,7 +174,6 @@ def handle_event_image_widget(widget, event):
 
     if q is None:
         return None
-
 
 
     global focus_regions
@@ -200,31 +213,100 @@ def handle_event_image_widget(widget, event):
 
     region['data'] = np.array(())
 
+
     return 1
 
-c = mrcam.camera(name = args.camera,
-                 **args.camera_params_noname
 
 
-W        = 1280
-H        = 1024
-window        = Fl_Window(W, H, "mrcam focus tool")
-image_view_group = mrcam.Fl_Image_View_Group(0,0, W//2,H,
-                                             camera          = c,
-                                             features        = args.features,
-                                             handle_extra    = handle_event_image_widget)
-plot_widget   = Fl_Gnuplotlib_Window        (W//2, 0, W//2,H,
-                                             ymin = 0,
-                                             _xrange=(-args.plot_history,0)
-                                             )
-window.resizable(window)
-window.end()
-window.show()
 
 
-image_view_group.set_up_image_capture(period         = args.period,
-                                      image_callback = update_sharpness,
-                                      flip_x         = args.flip_x,
-                                      flip_y         = args.flip_y)
+def create_gui_elements(*,
+                        fltk_application_context,
+                        log_readwrite_context,
+                        W,
+                        H,
+                        H_footer,
+                        title,
+                        unlock_panzoom,
+                        features,
+                        displayed_image_and_cookie):
+
+    global plot_widget
+
+    H_footers = H_footer
+    if log_readwrite_context.get('logged_images') is not None:
+        H_footers += 2*H_footer
+
+    kwargs = dict(fltk_application_context = fltk_application_context,
+                  log_readwrite_context    = log_readwrite_context,
+                  W                        = W,
+                  H                        = H,
+                  H_image_views            = H - H_footers,
+                  W_image_views            = W,
+                  H_footer                 = H_footer,
+                  title                    = title,
+                  unlock_panzoom           = unlock_panzoom,
+                  features                 = features)
+
+    mrcam.create_gui_window     (**kwargs)
+    mrcam.create_gui_time_slider(**kwargs)
+    mrcam.create_gui_status     (**kwargs)
+
+    W_image_views = kwargs['W_image_views']
+    H_image_views = kwargs['H_image_views']
+
+    image_views = Fl_Group(0, 0, W_image_views, H_image_views)
+    fltk_application_context['image_views'] = image_views
+    fltk_application_context['image_view_groups'][0] = \
+        mrcam.Fl_Image_View_Group(0,0,
+                            W_image_views // 2,
+                            H_image_views,
+                            camera          = fltk_application_context['cameras'][0],
+                            features        = features,
+                            handle_image_widget__extra = (handle_event_image_widget,
+                                                          # the cookie
+                                                          dict(**log_readwrite_context,
+                                                               **fltk_application_context)),
+                            unlock_panzoom  = unlock_panzoom,
+                            displayed_image_and_cookie = displayed_image_and_cookie,
+                            **fltk_application_context)
+
+    plot_widget = Fl_Gnuplotlib_Window(W_image_views//2, 0,
+                                       W_image_views//2,
+                                       H_image_views,
+                                       ymin = 0,
+                                       _xrange=(-args.plot_history,0)
+                                       )
+    image_views.end()
+
+
+    mrcam.finish_gui_window     (**kwargs)
+
+
+
+
+log_readwrite_context = \
+    mrcam.log_readwrite_init(args.camera,
+                             logdir_write      = args.logdir,
+                             logdir_read       = args.replay,
+                             replay_from_frame = args.replay_from_frame,
+                             jpg               = args.jpg,
+                             image_path_prefix = args.image_path_prefix,
+                             image_directory   = args.image_directory)
+
+fltk_application_context = \
+    mrcam.fltk_application_init(args.camera_params_noname,
+                                args.camera,
+                                replay            = args.replay,
+                                utcoffset_hours   = args.utcoffset_hours,
+                                flip_x            = args.flip_x,
+                                flip_y            = args.flip_y,
+                                unlock_panzoom    = args.unlock_panzoom,
+                                features          = args.features,
+                                period            = args.period,
+                                title             = "mrcam focus tool",
+                                create_gui_elements_and_cookie = (create_gui_elements, dict()),
+                                displayed_image_and_cookie     = (update_sharpness,    dict()),
+                                **log_readwrite_context)
 
 Fl.run()
