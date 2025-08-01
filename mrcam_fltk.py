@@ -1237,6 +1237,162 @@ def handle_image_widget__extra_e(image_view_group,
     return None # Use parent's return code
 
 
+def create_gui_elements__default(*,
+                                 fltk_application_context,
+                                 log_readwrite_context,
+                                 W,
+                                 H,
+                                 H_footer,
+                                 title,
+                                 unlock_panzoom,
+                                 features):
+
+    H_footers = H_footer
+    if log_readwrite_context.get('logged_images') is not None:
+        H_footers += 2*H_footer
+
+    kwargs = dict(fltk_application_context = fltk_application_context,
+                  log_readwrite_context    = log_readwrite_context,
+                  W                        = W,
+                  H                        = H,
+                  H_image_views            = H - H_footers,
+                  W_image_views            = W,
+                  H_footer                 = H_footer,
+                  title                    = title,
+                  unlock_panzoom           = unlock_panzoom,
+                  features                 = features)
+
+    create_gui_window     (**kwargs)
+    create_gui_time_slider(**kwargs)
+    create_gui_status     (**kwargs)
+    create_gui_image_views(**kwargs)
+    finish_gui_window     (**kwargs)
+
+
+def create_gui_window(*,
+                      fltk_application_context,
+                      W,
+                      H,
+                      title,
+                      # extra uneeded stuff
+                      **kwargs):
+    fltk_application_context['window'] = Fl_Window(W,H, title)
+
+
+def create_gui_time_slider(*,
+                           fltk_application_context,
+                           log_readwrite_context,
+                           W,
+                           H_image_views,
+                           H_footer,
+                           # extra uneeded stuff
+                           **kwargs):
+
+    logged_images     = log_readwrite_context.get('logged_images')
+    replay_from_frame = log_readwrite_context.get('replay_from_frame', 0)
+
+    if logged_images is not None:
+        time_slider_widget = \
+            Fl_Slider(0, H_image_views,
+                      W,H_footer)
+        time_slider_widget.align(FL_ALIGN_BOTTOM)
+        time_slider_widget.type(FL_HORIZONTAL)
+        time_slider_widget.step(1)
+        if len(logged_images) > 0:
+            time_slider_widget.bounds(0, len(logged_images)-1)
+            time_slider_widget.value(replay_from_frame)
+        else:
+            time_slider_widget.bounds(0, 0)
+            time_slider_widget.value(0)
+        time_slider_widget.callback( \
+            lambda *args: \
+                time_slider_select(**log_readwrite_context,
+                                   **fltk_application_context))
+    else:
+        time_slider_widget = None
+    fltk_application_context['time_slider_widget'] = time_slider_widget
+
+
+def create_gui_status(*,
+                      fltk_application_context,
+                      W,
+                      H,
+                      H_footer,
+                      # extra uneeded stuff
+                      **kwargs):
+    status_widget = Fl_Output(0, H-H_footer,
+                              W, H_footer)
+    status_widget.value('')
+
+    # I want the status widget to be output-only and not user-focusable. This will
+    # allow keyboard input to not be sent to THIS status widget, so that left/right
+    # and 'u' go to the time slider and image windows respectively.
+    status_widget.visible_focus(0)
+    fltk_application_context['status_widget'] = status_widget
+
+
+def create_gui_image_views(*,
+                           fltk_application_context,
+                           log_readwrite_context,
+                           W_image_views,
+                           H_image_views,
+                           unlock_panzoom,
+                           features,
+                           # extra uneeded stuff
+                           **kwargs):
+
+    Ncameras = len(fltk_application_context['image_view_groups'])
+    Ngrid = math.ceil(math.sqrt(Ncameras))
+    Wgrid = Ngrid
+    Hgrid = math.ceil(Ncameras/Wgrid)
+    w_image = W_image_views // Wgrid
+    h_image = H_image_views // Hgrid
+
+    icam = 0
+    y0   = 0
+    image_views = Fl_Group(0, 0, W_image_views, H_image_views)
+    fltk_application_context['image_views'] = image_views
+    for i in range(Hgrid):
+        x0 = 0
+
+        for j in range(Wgrid):
+            fltk_application_context['image_view_groups'][icam] = \
+                Fl_Image_View_Group(x0,y0,
+                                    w_image if j < Wgrid-1 else (W_image_views-x0),
+                                    h_image if i < Hgrid-1 else (H_image_views-y0),
+                                    camera          = fltk_application_context['cameras'][icam],
+                                    features        = features,
+                                    handle_image_widget__extra = (handle_image_widget__extra_e,
+                                                                  # the cookie
+                                                                  dict(**log_readwrite_context,
+                                                                       **fltk_application_context)),
+                                    unlock_panzoom  = unlock_panzoom,
+                                    **fltk_application_context)
+            x0   += w_image
+            icam += 1
+
+            if icam == Ncameras:
+                break
+        if icam == Ncameras:
+            break
+
+        y0 += h_image
+    image_views.end()
+
+
+def finish_gui_window(*,
+                      fltk_application_context,
+                      # extra uneeded stuff
+                      **kwargs):
+
+    window = fltk_application_context['window']
+
+    window.resizable(fltk_application_context['image_views'])
+    window.end()
+
+
+
+
 def fltk_application_init(camera_params_noname,
                           camera_names,
                           *,
@@ -1260,6 +1416,7 @@ def fltk_application_init(camera_params_noname,
                           replay_from_frame = 0,
                           jpg               = False,
 
+                          create_gui_elements_and_cookie = None,
                           image_callback_and_cookie      = None,
                           # other stuff from the contexts that I don't need here
                           **kwargs
@@ -1305,92 +1462,28 @@ def fltk_application_init(camera_params_noname,
         ctx['tzname']        = t.tm_zone
 
 
-    window = Fl_Window(W,H, title)
-    ctx['window'] = window
-
-    H_status  = H_footer
-    H_footers = H_status
-    if logged_images is not None:
-        H_time_slider  = H_footer
-        H_slider_label = H_footer
-        H_footers     += H_time_slider + H_slider_label
-
-    Ngrid = math.ceil(math.sqrt(Ncameras))
-    Wgrid = Ngrid
-    Hgrid = math.ceil(Ncameras/Wgrid)
-
-    w_image = W             // Wgrid
-    h_image = (H-H_footers) // Hgrid
-
-    if logged_images is not None:
-        time_slider_widget = \
-            Fl_Slider(0, H-H_footers,
-                      W,H_time_slider)
-        ctx['time_slider_widget'] = time_slider_widget
-        time_slider_widget.align(FL_ALIGN_BOTTOM)
-        time_slider_widget.type(FL_HORIZONTAL)
-        time_slider_widget.step(1)
-        if logged_images is not None and len(logged_images) > 0:
-            time_slider_widget.bounds(0, len(logged_images)-1)
-            time_slider_widget.value(replay_from_frame)
-        else:
-            time_slider_widget.bounds(0, 0)
-            time_slider_widget.value(0)
-        time_slider_widget.callback( \
-            lambda *args: \
-                time_slider_select(logged_images     = logged_images,
-                                   logdir_write      = logdir_write,
-                                   logdir_read       = logdir_read,
-                                   image_path_prefix = image_path_prefix,
-                                   image_directory   = image_directory,
-                                   **ctx))
+    if create_gui_elements_and_cookie is not None:
+        f,cookie = create_gui_elements_and_cookie
     else:
-        ctx['time_slider_widget'] = None
+        f,cookie = create_gui_elements__default,dict()
+    f(fltk_application_context = ctx,
+      W                        = W,
+      H                        = H,
+      H_footer                 = H_footer,
+      title                    = title,
+      unlock_panzoom           = unlock_panzoom,
+      features                 = features,
+      log_readwrite_context    = dict( logged_images     = logged_images,
+                                       logdir_write      = logdir_write,
+                                       logdir_read       = logdir_read,
+                                       image_path_prefix = image_path_prefix,
+                                       image_directory   = image_directory,
+                                       file_log          = file_log,
+                                       replay_from_frame = replay_from_frame,
+                                       jpg               = jpg,
+                                      ),
+      **cookie)
 
-    status_widget = Fl_Output(0, H-H_status,
-                              W, H_status)
-    status_widget.value('')
-
-    # I want the status widget to be output-only and not user-focusable. This will
-    # allow keyboard input to not be sent to THIS status widget, so that left/right
-    # and 'u' go to the time slider and image windows respectively.
-    status_widget.visible_focus(0)
-
-
-    icam = 0
-    y0   = 0
-    image_views = Fl_Group(0, 0, W, H-H_footers)
-    for i in range(Hgrid):
-        x0 = 0
-
-        for j in range(Wgrid):
-            ctx['image_view_groups'][icam] = \
-                Fl_Image_View_Group(x0,y0,
-                                    w_image if j < Wgrid-1 else (W          -x0),
-                                    h_image if i < Hgrid-1 else (H-H_footers-y0),
-                                    camera          = ctx['cameras'][icam],
-                                    status_widget   = status_widget,
-                                    features        = features,
-                                    handle_image_widget__extra = (handle_image_widget__extra_e,
-                                                                  # the cookie
-                                                                  dict(**ctx,
-                                                                       logged_images     = logged_images,
-                                                                       logdir_write      = logdir_write,
-                                                                       logdir_read       = logdir_read,
-                                                                       image_path_prefix = image_path_prefix,
-                                                                       image_directory   = image_directory)),
-                                    unlock_panzoom  = unlock_panzoom,
-                                    **ctx)
-            x0   += w_image
-            icam += 1
-
-            if icam == Ncameras:
-                break
-        if icam == Ncameras:
-            break
-
-        y0 += h_image
-    image_views.end()
 
     if image_callback_and_cookie is None:
         image_callback,image_callback_cookie = image_callback__default,dict()
@@ -1413,10 +1506,7 @@ def fltk_application_init(camera_params_noname,
                                                                 flip_y         = flip_y,
                                                                 auto_update_image_widget = False,
                                                                 image_callback_and_cookie = (image_callback,cookie))
-
-    window.resizable(image_views)
-    window.end()
-    window.show()
+    ctx['window'].show()
 
     if logdir_read is None:
         # request the initial frame; will recur in image_callback
