@@ -739,7 +739,7 @@ class Fl_Image_View_Group(Fl_Group):
 
                              # guaranteed to be called with each frame; even on error
                              # (function,cookie)
-                             image_callback = None):
+                             image_callback_and_cookie = None):
 
         if self.camera is None:
             return
@@ -757,10 +757,10 @@ class Fl_Image_View_Group(Fl_Group):
                                           flip_x = flip_x,
                                           flip_y = flip_y )
 
-            if image_callback is not None:
-                image_callback[0](iframe = self.iframe,
-                                  frame  = frame,
-                                  **image_callback[1])
+            if image_callback_and_cookie is not None:
+                image_callback_and_cookie[0](iframe = self.iframe,
+                                             frame  = frame,
+                                             **image_callback_and_cookie[1])
             self.camera.push_buffer(frame['buffer']) # no-op if the buffer is None
             if not frame['off_decimation']:
                 self.iframe += 1
@@ -1259,6 +1259,8 @@ def fltk_application_init(camera_params_noname,
                           file_log          = None,
                           replay_from_frame = 0,
                           jpg               = False,
+
+                          image_callback_and_cookie      = None,
                           # other stuff from the contexts that I don't need here
                           **kwargs
                           ):
@@ -1390,6 +1392,10 @@ def fltk_application_init(camera_params_noname,
         y0 += h_image
     image_views.end()
 
+    if image_callback_and_cookie is None:
+        image_callback,image_callback_cookie = image_callback__default,dict()
+    else:
+        image_callback,image_callback_cookie = image_callback_and_cookie
 
     for icam in range(Ncameras):
         if ctx['image_view_groups'][icam].camera is not None:
@@ -1399,13 +1405,14 @@ def fltk_application_init(camera_params_noname,
                           logdir_write  = logdir_write,
                           file_log      = file_log,
                           jpg           = jpg,
-                          **ctx)
+                          **ctx,
+                          **image_callback_cookie)
             ctx['image_view_groups'][icam].set_up_image_capture(# don't auto-recur. I do that myself, making sure ALL the cameras are processed
                                                                 period         = None,
                                                                 flip_x         = flip_x,
                                                                 flip_y         = flip_y,
                                                                 auto_update_image_widget = False,
-                                                                image_callback = (image_callback__default, cookie))
+                                                                image_callback_and_cookie = (image_callback,cookie))
 
     window.resizable(image_views)
     window.end()
