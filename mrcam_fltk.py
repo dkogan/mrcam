@@ -23,7 +23,7 @@ import mrcam
 
 def _add_common_cmd_options(parser,
                             *,
-                            single_camera):
+                            single_camera = False):
 
     parser.add_argument('--verbose','-v',
                         action='store_true',
@@ -161,8 +161,9 @@ def _add_common_cmd_options(parser,
                         default to local time''')
 
 
-
-def _parse_args_postprocess(args):
+def _parse_args_postprocess(args,
+                            *,
+                            single_camera = False):
     if args.dims is not None:
         errmsg = f"--dims MUST be followed by integer dimensions given by 'WIDTH,HEIGHT'. Couldn't parse '{args.dims}' that way"
         m = re.match('([0-9]+),([0-9]+)$', args.dims)
@@ -286,6 +287,12 @@ def _parse_args_postprocess(args):
         print("--replay and --features are mutually exclusive",
               file=sys.stderr)
         sys.exit(1)
+
+    if single_camera:
+        # The various machinery requires SOME value to exist, so I write one
+        args.unlock_panzoom = False
+        # Lots of code assumes multiple cameras. I oblige
+        args.camera = (args.camera,)
 
 
 
