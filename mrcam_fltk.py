@@ -754,7 +754,6 @@ class Fl_Image_View_Group(Fl_Group):
                              period                   = None,
                              flip_x                   = False,
                              flip_y                   = False,
-                             auto_update_image_widget = True,
 
                              # guaranteed to be called with each frame; even on error
                              # (function,cookie)
@@ -766,15 +765,6 @@ class Fl_Image_View_Group(Fl_Group):
         def callback_mrcam(fd):
 
             frame = self.camera.requested_image()
-
-            if auto_update_image_widget and not frame['off_decimation']:
-                if frame['image'] is None:
-                    print("Error capturing the image. I will try again",
-                          file=sys.stderr)
-
-                self.update_image_widget( image  = frame['image'],
-                                          flip_x = flip_x,
-                                          flip_y = flip_y )
 
             if image_callback_and_cookie is not None:
                 image_callback_and_cookie[0](iframe = self.iframe,
@@ -1537,7 +1527,6 @@ def fltk_application_init(camera_params_noname,
                                                                 period         = None,
                                                                 flip_x         = flip_x,
                                                                 flip_y         = flip_y,
-                                                                auto_update_image_widget = False,
                                                                 image_callback_and_cookie = (image_callback,cookie))
     ctx['window'].show()
 
