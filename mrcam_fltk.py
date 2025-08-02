@@ -317,6 +317,9 @@ def schedule_next_frame(f, t0, period):
 def displayed_image__default(image,
                              *,
                              do_equalize_fieldscale = False):
+    if image is None:
+        return None
+
     if image.itemsize == 1:
         # 8-bit image. Display as is
         return image
@@ -730,13 +733,7 @@ class Fl_Image_View_Group(Fl_Group):
 
         self.image_widget.image = image
 
-        if image is None:
-            # black image
-            self.image_widget.update_image(image_data = None,
-                                           flip_x     = flip_x,
-                                           flip_y     = flip_y)
-            return
-
+        # Will be None if the image was None (i.e. the capture failed)
         image_data = \
             self.displayed_image(image,
                                  do_equalize_fieldscale = self.do_equalize_fieldscale[0],
@@ -744,7 +741,9 @@ class Fl_Image_View_Group(Fl_Group):
         self.image_widget.update_image(image_data = image_data,
                                        flip_x     = flip_x,
                                        flip_y     = flip_y)
-        self.sync_feature_widgets()
+
+        if image_data is not None:
+            self.sync_feature_widgets()
 
 
     def set_up_image_capture(self,
