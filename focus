@@ -41,12 +41,12 @@ def parse_args():
                         help='''The width of the sharpness plot. If omitted,
                         defaults to 30 seconds''')
 
-    mrcam._add_common_cmd_options(parser,
+    mrcam.add_common_cmd_options(parser,
                                   single_camera = True)
 
     args = parser.parse_args()
 
-    mrcam._parse_args_postprocess(args,
+    mrcam.parse_args_postprocess(args,
                                   single_camera = True)
 
     return args

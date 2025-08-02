@@ -21,7 +21,7 @@ import os
 import mrcam
 
 
-def _add_common_cmd_options(parser,
+def add_common_cmd_options(parser,
                             *,
                             single_camera     = False,
                             Ncameras_expected = None):
@@ -163,7 +163,7 @@ def _add_common_cmd_options(parser,
                         default to local time''')
 
 
-def _parse_args_postprocess(args,
+def parse_args_postprocess(args,
                             *,
                             single_camera = False):
     if args.dims is not None:
@@ -783,7 +783,7 @@ def log_readwrite_init(camera_names,
 
     if logdir_read is not None and \
        logdir_write is not None:
-        raise Exception("logdir_read and logdir_write are exclusive. _parse_args_postprocess() should have checked this")
+        raise Exception("logdir_read and logdir_write are exclusive. parse_args_postprocess() should have checked this")
 
     Ncameras = len(camera_names)
 

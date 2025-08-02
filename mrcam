@@ -28,9 +28,9 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    mrcam._add_common_cmd_options(parser)
+    mrcam.add_common_cmd_options(parser)
     args = parser.parse_args()
-    mrcam._parse_args_postprocess(args)
+    mrcam.parse_args_postprocess(args)
     return args
 
 
