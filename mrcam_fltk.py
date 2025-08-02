@@ -316,7 +316,9 @@ def schedule_next_frame(f, t0, period):
 
 def displayed_image__default(image,
                              *,
-                             do_equalize_fieldscale = False):
+                             do_equalize_fieldscale = False,
+                             # extra stuff
+                             **kwargs):
     if image is None:
         return None
 
@@ -702,6 +704,8 @@ class Fl_Image_View_Group(Fl_Group):
     def update_image_widget(self,
                             image,
                             *,
+                            iframe,
+                            icam,
                             flip_x,
                             flip_y):
 
@@ -710,6 +714,8 @@ class Fl_Image_View_Group(Fl_Group):
         # Will be None if the image was None (i.e. the capture failed)
         image_data = \
             self.displayed_image(image,
+                                 iframe                 = iframe,
+                                 icam                   = icam,
                                  do_equalize_fieldscale = self.do_equalize_fieldscale[0])
         self.image_widget.update_image(image_data = image_data,
                                        flip_x     = flip_x,
@@ -991,6 +997,8 @@ we will do that ourselves, set frame['buffer'] to None)
 
         if logdir_write is None or time_slider_at_max:
             image_view_groups[icam].update_image_widget( image  = image,
+                                                         iframe = iframe,
+                                                         icam   = icam,
                                                          flip_x = flip_x,
                                                          flip_y = flip_y)
 
@@ -1116,6 +1124,8 @@ def update_all_images_from_replay(*,
                 image = None
 
         image_view_groups[icam].update_image_widget( image,
+                                                     iframe = record['iframe'][icam],
+                                                     icam   = icam,
                                                      flip_x = flip_x,
                                                      flip_y = flip_y)
 
