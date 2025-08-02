@@ -1402,9 +1402,9 @@ def fltk_application_init(camera_params_noname,
                           replay_from_frame = 0,
                           jpg               = False,
 
-                          create_gui_elements_and_cookie = None,
-                          cb_displayed_image             = None,
-                          cb_status_value                = None,
+                          cb_create_gui_elements = create_gui_elements__default,
+                          cb_displayed_image     = None,
+                          cb_status_value        = None,
                           # other stuff from the contexts that I don't need here
                           **kwargs
                           ):
@@ -1449,12 +1449,8 @@ def fltk_application_init(camera_params_noname,
         ctx['tzname']        = t.tm_zone
 
 
-    if create_gui_elements_and_cookie is not None:
-        f,cookie = create_gui_elements_and_cookie
-    else:
-        f,cookie = create_gui_elements__default,dict()
-
-    f(fltk_application_context   = ctx,
+    cb_create_gui_elements(
+      fltk_application_context   = ctx,
       W                          = W,
       H                          = H,
       H_footer                   = H_footer,
@@ -1471,8 +1467,7 @@ def fltk_application_init(camera_params_noname,
                                          file_log          = file_log,
                                          replay_from_frame = replay_from_frame,
                                          jpg               = jpg,
-                                        ),
-      **cookie)
+                                        ))
 
 
     for icam in range(Ncameras):

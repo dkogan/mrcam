@@ -305,8 +305,8 @@ fltk_application_context = \
                                 features          = args.features,
                                 period            = args.period,
                                 title             = "mrcam focus tool",
-                                create_gui_elements_and_cookie = (create_gui_elements, dict()),
-                                cb_displayed_image = update_sharpness,
+                                cb_create_gui_elements = create_gui_elements,
+                                cb_displayed_image     = update_sharpness,
                                 **log_readwrite_context)
 
 Fl.run()
