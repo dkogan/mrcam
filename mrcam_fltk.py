@@ -1413,7 +1413,7 @@ def fltk_application_init(camera_params_noname,
                           jpg               = False,
 
                           cb_create_gui_elements = create_gui_elements__default,
-                          cb_displayed_image     = None,
+                          cb_displayed_image     = displayed_image__default,
                           cb_status_value        = None,
                           # other stuff from the contexts that I don't need here
                           **kwargs
