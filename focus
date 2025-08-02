@@ -229,7 +229,7 @@ def create_gui_elements(*,
                         title,
                         unlock_panzoom,
                         features,
-                        displayed_image_and_cookie):
+                        cb_displayed_image):
 
     global plot_widget
 
@@ -268,7 +268,7 @@ def create_gui_elements(*,
                                                           dict(**log_readwrite_context,
                                                                **fltk_application_context)),
                             unlock_panzoom  = unlock_panzoom,
-                            displayed_image_and_cookie = displayed_image_and_cookie,
+                            cb_displayed_image = cb_displayed_image,
                             **fltk_application_context)
 
     plot_widget = Fl_Gnuplotlib_Window(W_image_views//2, 0,
@@ -306,7 +306,7 @@ fltk_application_context = \
                                 period            = args.period,
                                 title             = "mrcam focus tool",
                                 create_gui_elements_and_cookie = (create_gui_elements, dict()),
-                                displayed_image_and_cookie     = (update_sharpness,    dict()),
+                                cb_displayed_image = update_sharpness,
                                 **log_readwrite_context)
 
 Fl.run()
