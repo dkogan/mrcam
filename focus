@@ -238,12 +238,15 @@ def create_gui_elements(*,
     if log_readwrite_context.get('logged_images') is not None:
         H_footers += 2*H_footer
 
+    H_image_views = H - H_footers
+    W_image_views = W
+
     kwargs = dict(fltk_application_context = fltk_application_context,
                   log_readwrite_context    = log_readwrite_context,
                   W                        = W,
                   H                        = H,
-                  H_image_views            = H - H_footers,
-                  W_image_views            = W,
+                  H_image_views            = H_image_views,
+                  W_image_views            = W_image_views,
                   H_footer                 = H_footer,
                   title                    = title,
                   unlock_panzoom           = unlock_panzoom,
