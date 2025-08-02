@@ -338,6 +338,16 @@ def displayed_image__default(image,
                                      a_max = 255)
 
 
+def status_value__default(q, pixel_value_text):
+    if q is not None:
+        if pixel_value_text is not None:
+            return f"{q[0]:.1f},{q[1]:.1f}{pixel_value_text}"
+        else:
+            return f"{q[0]:.1f},{q[1]:.1f}"
+    else:
+        return ""
+
+
 
 
 
@@ -454,6 +464,7 @@ class Fl_Image_View_Group(Fl_Group):
                  handle_image_widget__extra = None,
                  unlock_panzoom,
                  displayed_image_and_cookie = None,
+                 status_value_and_cookie    = None,
                  # usually will come from **fltk_application_context
                  image_view_groups,
                  do_equalize_fieldscale, # [value] and not value
@@ -466,6 +477,12 @@ class Fl_Image_View_Group(Fl_Group):
             self.displayed_image,self.displayed_image_cookie = displayed_image_and_cookie
         else:
             self.displayed_image,self.displayed_image_cookie = displayed_image__default,dict()
+
+
+        if status_value_and_cookie is not None:
+            self.status_value,self.status_value_cookie = status_value_and_cookie
+        else:
+            self.status_value,self.status_value_cookie = status_value__default,dict()
 
         self.camera = camera
         self.iframe = 0
@@ -500,9 +517,11 @@ class Fl_Image_View_Group(Fl_Group):
 
                             pixel_value_text = f",{self.image_widget.image[qint_y,qint_x,...]}"
 
-                    self.status_widget.value(f"{q[0]:.1f},{q[1]:.1f}{pixel_value_text}")
+                    self.status_widget.value( self.status_value(q, pixel_value_text,
+                                                                **self.status_value_cookie) )
                 except:
-                    self.status_widget.value("")
+                    self.status_widget.value( self.status_value(None, None,
+                                                                **self.status_value_cookie) )
 
             if handle_image_widget__extra is not None:
                 return handle_image_widget__extra[0](self,event,
@@ -1247,7 +1266,8 @@ def create_gui_elements__default(*,
                                  title,
                                  unlock_panzoom,
                                  features,
-                                 displayed_image_and_cookie):
+                                 displayed_image_and_cookie,
+                                 status_value_and_cookie):
 
     H_footers = H_footer
     if log_readwrite_context.get('logged_images') is not None:
@@ -1263,7 +1283,8 @@ def create_gui_elements__default(*,
                   title                      = title,
                   unlock_panzoom             = unlock_panzoom,
                   features                   = features,
-                  displayed_image_and_cookie = displayed_image_and_cookie)
+                  displayed_image_and_cookie = displayed_image_and_cookie,
+                  status_value_and_cookie    = status_value_and_cookie)
 
     create_gui_window     (**kwargs)
     create_gui_time_slider(**kwargs)
@@ -1342,6 +1363,7 @@ def create_gui_image_views(*,
                            unlock_panzoom,
                            features,
                            displayed_image_and_cookie,
+                           status_value_and_cookie,
                            # extra uneeded stuff
                            **kwargs):
 
@@ -1372,6 +1394,7 @@ def create_gui_image_views(*,
                                                                        **fltk_application_context)),
                                     unlock_panzoom  = unlock_panzoom,
                                     displayed_image_and_cookie = displayed_image_and_cookie,
+                                    status_value_and_cookie    = status_value_and_cookie,
                                     **fltk_application_context)
             x0   += w_image
             icam += 1
@@ -1424,6 +1447,7 @@ def fltk_application_init(camera_params_noname,
                           create_gui_elements_and_cookie = None,
                           image_callback_and_cookie      = None,
                           displayed_image_and_cookie     = None,
+                          status_value_and_cookie        = None,
                           # other stuff from the contexts that I don't need here
                           **kwargs
                           ):
@@ -1481,6 +1505,7 @@ def fltk_application_init(camera_params_noname,
       unlock_panzoom             = unlock_panzoom,
       features                   = features,
       displayed_image_and_cookie = displayed_image_and_cookie,
+      status_value_and_cookie    = status_value_and_cookie,
       log_readwrite_context      = dict( logged_images     = logged_images,
                                          logdir_write      = logdir_write,
                                          logdir_read       = logdir_read,
