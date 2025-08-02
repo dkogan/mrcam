@@ -229,7 +229,8 @@ def create_gui_elements(*,
                         title,
                         unlock_panzoom,
                         features,
-                        cb_displayed_image):
+                        cb_displayed_image,
+                        cb_status_value):
 
     global plot_widget
 
@@ -246,7 +247,9 @@ def create_gui_elements(*,
                   H_footer                 = H_footer,
                   title                    = title,
                   unlock_panzoom           = unlock_panzoom,
-                  features                 = features)
+                  features                 = features,
+                  cb_displayed_image       = cb_displayed_image,
+                  cb_status_value          = cb_status_value)
 
     mrcam.create_gui_window     (**kwargs)
     mrcam.create_gui_time_slider(**kwargs)
