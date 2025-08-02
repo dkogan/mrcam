@@ -19,6 +19,7 @@ import math
 import datetime
 import os
 import mrcam
+from mrcam import * # so that the upstream importers can get both mrcam_fltk and mrcam stuff from this one import
 
 
 def add_common_cmd_options(parser,
