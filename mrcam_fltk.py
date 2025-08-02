@@ -738,10 +738,7 @@ class Fl_Image_View_Group(Fl_Group):
                              period                   = None,
                              flip_x                   = False,
                              flip_y                   = False,
-
-                             # guaranteed to be called with each frame; even on error
-                             # (function,cookie)
-                             image_callback_and_cookie = None):
+                             **image_callback__cookie):
 
         if self.camera is None:
             return
@@ -750,10 +747,9 @@ class Fl_Image_View_Group(Fl_Group):
 
             frame = self.camera.requested_image()
 
-            if image_callback_and_cookie is not None:
-                image_callback_and_cookie[0](iframe = self.iframe,
-                                             frame  = frame,
-                                             **image_callback_and_cookie[1])
+            image_received_from_mrcam(iframe = self.iframe,
+                                      frame  = frame,
+                                      **image_callback__cookie)
             self.camera.push_buffer(frame['buffer']) # no-op if the buffer is None
             if not frame['off_decimation']:
                 self.iframe += 1
@@ -917,29 +913,29 @@ def write_logline(l,
         file_log.flush()
 
 
-def image_callback__default(*,
-                            iframe,
-                            frame, # dict from requested_image()
+def image_received_from_mrcam(*,
+                              iframe,
+                              frame, # dict from requested_image()
 
-                            # All these are the cookie given to set_up_image_capture()
-                            icam,
-                            # usually will come from **log_readwrite_context
-                            logged_images,
-                            logdir_write,
-                            file_log,
-                            jpg,
-                            # usually will come from **fltk_application_context
-                            image_view_groups,
-                            time_slider_widget,
-                            flip_x,
-                            flip_y,
-                            utcoffset_sec,
-                            tzname,
-                            period,
-                            Ncameras_seen_iframe,
-                            logged_image_from_iframe,
-                            # other stuff from the contexts that I don't need here
-                            **kwargs):
+                              # All these are the cookie given to set_up_image_capture()
+                              icam,
+                              # usually will come from **log_readwrite_context
+                              logged_images,
+                              logdir_write,
+                              file_log,
+                              jpg,
+                              # usually will come from **fltk_application_context
+                              image_view_groups,
+                              time_slider_widget,
+                              flip_x,
+                              flip_y,
+                              utcoffset_sec,
+                              tzname,
+                              period,
+                              Ncameras_seen_iframe,
+                              logged_image_from_iframe,
+                              # other stuff from the contexts that I don't need here
+                              **kwargs):
     r'''Process the image
 
 On return, we will push_buffer(frame['buffer']). If we do not want that (i.e. if
@@ -1418,7 +1414,6 @@ def fltk_application_init(camera_params_noname,
                           jpg               = False,
 
                           create_gui_elements_and_cookie = None,
-                          image_callback_and_cookie      = None,
                           displayed_image_and_cookie     = None,
                           status_value_and_cookie        = None,
                           # other stuff from the contexts that I don't need here
@@ -1491,27 +1486,21 @@ def fltk_application_init(camera_params_noname,
       **cookie)
 
 
-    if image_callback_and_cookie is None:
-        image_callback,image_callback_cookie = image_callback__default,dict()
-    else:
-        image_callback,image_callback_cookie = image_callback_and_cookie
-
     for icam in range(Ncameras):
         if ctx['image_view_groups'][icam].camera is not None:
-            cookie = dict(icam = icam,
-                          # pieces of the log_readwrite_context
-                          logged_images = logged_images,
-                          logdir_write  = logdir_write,
-                          file_log      = file_log,
-                          jpg           = jpg,
-                          **ctx,
-                          **image_callback_cookie)
             ctx['image_view_groups'][icam].set_up_image_capture(# don't auto-recur. I do that myself,
                                                                 # making sure ALL the cameras are processed
                                                                 period         = None,
                                                                 flip_x         = flip_x,
                                                                 flip_y         = flip_y,
-                                                                image_callback_and_cookie = (image_callback,cookie))
+                                                                ### image_callback__cookie
+                                                                icam = icam,
+                                                                # pieces of the log_readwrite_context
+                                                                logged_images = logged_images,
+                                                                logdir_write  = logdir_write,
+                                                                file_log      = file_log,
+                                                                jpg           = jpg,
+                                                                **ctx)
     ctx['window'].show()
 
     if logdir_read is None:
