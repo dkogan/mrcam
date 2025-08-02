@@ -153,7 +153,7 @@ def update_sharpness(image,
 def handle_event_image_widget(image_view_group, event,
                               **kwargs):
 
-    result = mrcam.handle_image_widget__extra_e(image_view_group, event,
+    result = mrcam.handle_event_image_widget__e(image_view_group, event,
                                                 **kwargs)
     if result is not None:
         return result
@@ -263,10 +263,10 @@ def create_gui_elements(*,
                             H_image_views,
                             camera          = fltk_application_context['cameras'][0],
                             features        = features,
-                            handle_image_widget__extra = (handle_event_image_widget,
-                                                          # the cookie
-                                                          dict(**log_readwrite_context,
-                                                               **fltk_application_context)),
+                            cb_handle_event_image_widget = (handle_event_image_widget,
+                                                            # the cookie
+                                                            dict(**log_readwrite_context,
+                                                                 **fltk_application_context)),
                             unlock_panzoom  = unlock_panzoom,
                             cb_displayed_image = cb_displayed_image,
                             **fltk_application_context)

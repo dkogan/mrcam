@@ -465,11 +465,11 @@ class Fl_Image_View_Group(Fl_Group):
                  # re-tried as a regex
                  features          = (),
                  status_widget,
-                 # (function,cookie)
-                 handle_image_widget__extra = None,
                  unlock_panzoom,
-                 cb_displayed_image         = displayed_image__default,
-                 cb_status_value            = status_value__default,
+                 # (function,cookie)
+                 cb_handle_event_image_widget = None,
+                 cb_displayed_image           = displayed_image__default,
+                 cb_status_value              = status_value__default,
                  # usually will come from **fltk_application_context
                  image_view_groups,
                  do_equalize_fieldscale, # [value] and not value
@@ -513,9 +513,9 @@ class Fl_Image_View_Group(Fl_Group):
                 except:
                     self.status_widget.value( self.status_value(None, None) )
 
-            if handle_image_widget__extra is not None:
-                return handle_image_widget__extra[0](self,event,
-                                                     **handle_image_widget__extra[1])
+            if cb_handle_event_image_widget is not None:
+                return cb_handle_event_image_widget[0](self,event,
+                                                     **cb_handle_event_image_widget[1])
 
             return None # Use parent's return code
 
@@ -1183,7 +1183,7 @@ def time_slider_select(*,
             time_slider_widget.color(FL_BACKGROUND_COLOR)
 
 
-def handle_image_widget__extra_e(image_view_group,
+def handle_event_image_widget__e(image_view_group,
                                  event,
                                  *,
                                  # user-passed cookie
@@ -1356,10 +1356,10 @@ def create_gui_image_views(*,
                                     h_image if i < Hgrid-1 else (H_image_views-y0),
                                     camera          = fltk_application_context['cameras'][icam],
                                     features        = features,
-                                    handle_image_widget__extra = (handle_image_widget__extra_e,
-                                                                  # the cookie
-                                                                  dict(**log_readwrite_context,
-                                                                       **fltk_application_context)),
+                                    cb_handle_event_image_widget = (handle_event_image_widget__e,
+                                                                    # the cookie
+                                                                    dict(**log_readwrite_context,
+                                                                         **fltk_application_context)),
                                     unlock_panzoom  = unlock_panzoom,
                                     cb_displayed_image = cb_displayed_image,
                                     cb_status_value    = cb_status_value,
