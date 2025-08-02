@@ -462,7 +462,7 @@ class Fl_Image_View_Group(Fl_Group):
                  # feature name that doesn't exist EXACTLY as given will be
                  # re-tried as a regex
                  features          = (),
-                 status_widget     = None,
+                 status_widget,
                  # (function,cookie)
                  handle_image_widget__extra = None,
                  unlock_panzoom,
@@ -495,12 +495,7 @@ class Fl_Image_View_Group(Fl_Group):
         if features: w_controls = 300
         else:        w_controls = 0
 
-        if status_widget is None:
-            # no global status bar; create one here
-            h_status_here = h_status
-        else:
-            # use a global status bar
-            h_status_here = 0
+        self.status_widget = status_widget
 
 
         def handle_image_widget(self_image_widget, event):
@@ -534,28 +529,17 @@ class Fl_Image_View_Group(Fl_Group):
 
         self.image_widget = \
             Fl_Gl_Image_with_handle(x, y,
-                                    w-w_controls, h-h_status_here,
+                                    w-w_controls, h,
                                     handler               = handle_image_widget,
                                     double_buffered       = True,
                                     locked_panzoom_groups = \
                                       None if unlock_panzoom else \
                                       image_view_groups)
-        if status_widget is None:
-            self.status_widget = Fl_Output(x, y + h-h_status_here, w, h_status_here)
-            # We're making our own status widget. I'd like it to be output-only
-            # and not user-focusable. This will allow keyboard input to not be
-            # sent to THIS widget, so that left/right and 'u' go to the time
-            # slider and image windows respectively. For status widgets that
-            # were PASSED to us, we make the caller do this; because they might
-            # actually want to do something different
-            self.status_widget.visible_focus(0)
-        else:
-            self.status_widget = status_widget
 
         # Need group to control resizing: I want to fix the sizes of the widgets in
         # the group, so I group.resizable(None) later
         group = Fl_Group(x + w-w_controls, y,
-                         w_controls, h-h_status_here)
+                         w_controls, h)
 
         def expand_features(features_selected):
             feature_set = camera.features() if camera is not None else set()
