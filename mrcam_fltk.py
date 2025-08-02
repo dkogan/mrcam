@@ -23,7 +23,8 @@ import mrcam
 
 def _add_common_cmd_options(parser,
                             *,
-                            single_camera = False):
+                            single_camera     = False,
+                            Ncameras_expected = None):
 
     parser.add_argument('--verbose','-v',
                         action='store_true',
@@ -109,7 +110,7 @@ def _add_common_cmd_options(parser,
                             locked together''')
         parser.add_argument('camera',
                             type = str,
-                            nargs = '*',
+                            nargs = Ncameras_expected if Ncameras_expected is not None else '*',
                             default = (None,),
                             help='''Without --replay: the camera(s) to talk to.
                             One argument per camera. These are strings passed to
