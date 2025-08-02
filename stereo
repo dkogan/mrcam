@@ -1,0 +1,893 @@
+#!/usr/bin/env python3
+
+r'''Run stereo processing on data from mrcam
+
+SYNOPSIS
+
+  XXXXXXXXXXXXXXXXXXX
+
+This is mainly a copy of the mrcal-stereo tool
+'''
+
+
+import sys
+import argparse
+import re
+import os
+
+import mrcam_fltk as mrcam
+from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
+
+
+
+# A private, jpl-internal library. Most people do not have this
+try:
+    import sad5
+    have_libsad5 = True
+except:
+    have_libsad5 = False
+
+
+
+def parse_args():
+
+    def positive_float(string):
+        try:
+            value = float(string)
+        except:
+            print(f"argument MUST be a positive floating-point number. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
+        if value <= 0:
+            print(f"argument MUST be a positive floating-point number. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
+        return value
+    def positive_int(string):
+        try:
+            value = int(string)
+        except:
+            print(f"argument MUST be a positive integer. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
+        if value <= 0 or abs(value-float(string)) > 1e-6:
+            print(f"argument MUST be a positive integer. Got '{string}'",
+                  file=sys.stderr)
+            sys.exit(1)
+        return value
+
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+
+    ######## geometry and rectification system parameters
+    parser.add_argument('--az-fov-deg',
+                        type=float,
+                        help='''The field of view in the azimuth direction, in
+                        degrees. There's no auto-detection at this time, so this
+                        argument is required''')
+    parser.add_argument('--el-fov-deg',
+                        type=float,
+                        help='''The field of view in the elevation direction, in
+                        degrees. There's no auto-detection at this time, so this
+                        argument is required''')
+    parser.add_argument('--az0-deg',
+                        default = None,
+                        type=float,
+                        help='''The azimuth center of the rectified images. "0"
+                        means "the horizontal center of the rectified system is
+                        the mean forward direction of the two cameras projected
+                        to lie perpendicular to the baseline". If omitted, we
+                        align the center of the rectified system with the center
+                        of the two cameras' views''')
+    parser.add_argument('--el0-deg',
+                        default = 0,
+                        type=float,
+                        help='''The elevation center of the rectified system.
+                        "0" means "the vertical center of the rectified system
+                        lies along the mean forward direction of the two
+                        cameras" Defaults to 0.''')
+    parser.add_argument('--pixels-per-deg',
+                        help='''The resolution of the rectified images. This is
+                        either a whitespace-less, comma-separated list of two
+                        values (az,el) or a single value to be applied to both
+                        axes. If a resolution of >0 is requested, the value is
+                        used as is. If a resolution of <0 is requested, we use
+                        this as a scale factor on the resolution of the first
+                        input image. For instance, to downsample by a factor of
+                        2, pass -0.5. By default, we use -1 for both axes: the
+                        resolution of the input image at the center of the
+                        rectified system.''')
+    parser.add_argument('--rectification',
+                        choices=('LENSMODEL_PINHOLE', 'LENSMODEL_LATLON'),
+                        default = 'LENSMODEL_LATLON',
+                        help='''The lens model to use for rectification.
+                        Currently two models are supported: LENSMODEL_LATLON
+                        (the default) and LENSMODEL_PINHOLE. Pinhole stereo
+                        works badly for wide lenses and suffers from varying
+                        angular resolution across the image. LENSMODEL_LATLON
+                        rectification uses a transverse equirectangular
+                        projection, and does not suffer from these effects. It
+                        is thus the recommended model''')
+
+    ######## stereo processing
+    parser.add_argument('--disparity-range',
+                        type=int,
+                        nargs=2,
+                        default=(0,100),
+                        help='''The disparity limits to use in the search, in
+                        pixels. Two integers are expected: MIN_DISPARITY
+                        MAX_DISPARITY. Completely arbitrarily, we default to
+                        MIN_DISPARITY=0 and MAX_DISPARITY=100''')
+    parser.add_argument('--valid-intrinsics-region',
+                        action='store_true',
+                        help='''If given, annotate the image with its
+                        valid-intrinsics region. This will end up in the
+                        rectified images, and make it clear where successful
+                        matching shouldn't be expected''')
+    parser.add_argument('--range-image-limits',
+                        type=positive_float,
+                        nargs=2,
+                        default=(1,1000),
+                        help='''The nearest,furthest range to encode in the range image.
+                        Defaults to 1,1000, arbitrarily''')
+
+    correlators = ['SGBM', 'ELAS']
+    if have_libsad5:
+        correlators.append('libsad5')
+    parser.add_argument('--stereo-matcher',
+                        choices = correlators,
+                        default = 'SGBM',
+                        help='''The stereo-matching method. By default we use
+                        the "SGBM" method from OpenCV. libelas isn't always
+                        available, and must be enabled at compile-time by
+                        setting USE_LIBELAS=1 during the build''')
+
+    parser.add_argument('--sgbm-block-size',
+                        type=int,
+                        default = 5,
+                        help='''A parameter for the OpenCV SGBM matcher. If
+                        omitted, 5 is used''')
+    parser.add_argument('--sgbm-p1',
+                        type=int,
+                        help='''A parameter for the OpenCV SGBM matcher. If
+                        omitted, the OpenCV default is used''')
+    parser.add_argument('--sgbm-p2',
+                        type=int,
+                        help='''A parameter for the OpenCV SGBM matcher. If
+                        omitted, the OpenCV default is used''')
+    parser.add_argument('--sgbm-disp12-max-diff',
+                        type=int,
+                        help='''A parameter for the OpenCV SGBM matcher. If
+                        omitted, the OpenCV default is used''')
+    parser.add_argument('--sgbm-pre-filter-cap',
+                        type=int,
+                        help='''A parameter for the OpenCV SGBM matcher. If
+                        omitted, the OpenCV default is used''')
+    parser.add_argument('--sgbm-uniqueness-ratio',
+                        type=int,
+                        help='''A parameter for the OpenCV SGBM matcher. If
+                        omitted, the OpenCV default is used''')
+    parser.add_argument('--sgbm-speckle-window-size',
+                        type=int,
+                        help='''A parameter for the OpenCV SGBM matcher. If
+                        omitted, the OpenCV default is used''')
+    parser.add_argument('--sgbm-speckle-range',
+                        type=int,
+                        help='''A parameter for the OpenCV SGBM matcher. If
+                        omitted, the OpenCV default is used''')
+    parser.add_argument('--sgbm-mode',
+                        choices=('SGBM','HH','HH4','SGBM_3WAY'),
+                        help='''A parameter for the OpenCV SGBM matcher. Must be
+                        one of ('SGBM','HH','HH4','SGBM_3WAY'). If omitted, the
+                        OpenCV default (SGBM) is used''')
+
+    if have_libsad5:
+        parser.add_argument('--correlator-size',
+                            type=int,
+                            nargs=2,
+                            default=(11,11),
+                            help='''The correlator window size: WIDTH HEIGHT''')
+        parser.add_argument('--prefilter-kernel-size',
+                            type=int,
+                            default=0,
+                            help='''The kernel size of the prefilter''')
+        parser.add_argument('--postfilter-blob-area',
+                            type=int,
+                            default=0,
+                            help='''The minimum blob size to keep in the postfilter''')
+        parser.add_argument('--lr-limit',
+                            type=float,
+                            default=0.7,
+                            help='''Threshold for the left-right line-of-sight check''')
+
+    parser.add_argument('models',
+                        type=str,
+                        nargs = 2,
+                        help='''Camera models representing cameras used to
+                        capture the images. Both intrinsics and extrinsics are
+                        used''')
+
+    mrcam.add_common_cmd_options(parser,
+                                 Ncameras_expected = 2)
+
+    args = parser.parse_args()
+
+    mrcam.parse_args_postprocess(args)
+
+    Ncameras = len(args.camera)
+    if Ncameras != 2:
+        print("Exactly two cameras must be given", file=sys.stderr)
+        sys.exit(1)
+
+    if args.pixels_per_deg is None:
+        args.pixels_per_deg = (-1, -1)
+    else:
+        try:
+            l = [float(x) for x in args.pixels_per_deg.split(',')]
+            if len(l) < 1 or len(l) > 2:
+                raise
+            for x in l:
+                if x == 0:
+                    raise
+            args.pixels_per_deg = l
+        except:
+            print("""Argument-parsing error:
+  --pixels_per_deg requires "RESX,RESY" or "RESXY", where RES... is a value <0 or >0""",
+                  file=sys.stderr)
+            sys.exit(1)
+
+    if (args.az_fov_deg is None or \
+        args.el_fov_deg is None ):
+        print("""Argument-parsing error:
+  --az-fov-deg and --el-fov-deg are required""",
+              file=sys.stderr)
+        sys.exit(1)
+
+    return args
+
+
+
+args = parse_args()
+
+import numpy as np
+import numpysane as nps
+import cv2
+import mrcal
+from fltk import *
+from Fl_gnuplotlib import *
+
+
+# def status_value(q, pixel_value_text):
+
+#     UI_usage_message = r'''Usage:
+
+#     Left mouse button click/drag: pan
+#     Mouse wheel up/down/left/right: pan
+#     Ctrl-mouse wheel up/down: zoom
+#     'u': reset view: zoom out, pan to the center
+#     'd': show a colorized disparity image (default)
+#     'r': show a colorized range image
+
+#     Right mouse button click: examine stereo at pixel
+#     '''
+
+#     def set_status(string,
+#                    q_rect   = None,
+#                    q_input0 = None,
+#                    q_input1 = None):
+#         # None means "use previous"
+#         if string is not None:
+#             set_status.string = string
+#         else:
+#             if not hasattr(set_status, 'string'):
+#                 set_status.string = ''
+
+#         if q_rect is not None:
+#             # bad message: if we're mousing the second image, this is "q_rectified1"
+#             set_status.qstring = \
+#                 f"q_rectified0 = {q_rect[0]:.1f},{q_rect[1]:.1f}\n"
+#             if q_input0 is not None:
+#                 set_status.qstring += f"q_input_cam0 = {q_input0[0]:.1f},{q_input0[1]:.1f}\n"
+#             if q_input1 is not None:
+#                 set_status.qstring += f"q_input_cam1 = {q_input1[0]:.1f},{q_input1[1]:.1f}\n"
+#             set_status.qstring += "\n"
+#         else:
+#             if not hasattr(set_status, 'qstring'):
+#                 set_status.qstring = 'No current pixel\n\n'
+
+#         widget_status.value(UI_usage_message + "\n" + set_status.qstring + set_status.string)
+
+#         # window.cursor(FL_CURSOR_DEFAULT)
+
+
+
+
+#     if q is not None:
+#         if pixel_value_text is not None:
+#             return f"{q[0]:.1f},{q[1]:.1f}{pixel_value_text}"
+#         else:
+#             return f"{q[0]:.1f},{q[1]:.1f}"
+#     else:
+#         return ""
+
+shown_iframe = [None, None]
+shown_image  = [None, None]
+def displayed_image(image,
+                    **kwargs):
+
+    global shown_iframe,shown_image
+
+    iframe                 = kwargs['iframe']
+    icam                   = kwargs['icam']
+    do_equalize_fieldscale = kwargs['do_equalize_fieldscale']
+
+    shown_image[icam]  = image
+    shown_iframe[icam] = iframe
+
+    if shown_iframe[0] == shown_iframe[1]:
+        stereo_procesing(*shown_image,
+                         do_equalize_fieldscale = do_equalize_fieldscale)
+
+    return mrcam.displayed_image__default(image, **kwargs)
+
+def handle_event_image_widget(image_view_group, event,
+                              **kwargs):
+
+    result = mrcam.handle_event_image_widget__e(image_view_group, event,
+                                                **kwargs)
+    if result is not None:
+        return result
+
+
+
+    return result
+
+
+
+    if event != FL_PUSH:
+        return None
+
+    if Fl.event_button() != FL_RIGHT_MOUSE:
+        return None
+
+    widget = image_view_group.image_widget
+
+    try:
+        q = np.round(np.array(widget.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ))).astype(int)
+    except:
+        return None
+
+    if q is None:
+        return None
+
+
+    global imagersize
+
+    q00 = q - args.radius
+    q11 = q + args.radius
+
+    if imagersize is None             or \
+       np.any(q00 < 0)                or \
+       np.any(q11 < 0)                or \
+       np.any(imagersize-1 - q00 < 0) or \
+       np.any(imagersize-1 - q11 < 0):
+        return None
+
+
+    # New region
+    focus_regions.append(dict())
+    region = focus_regions[-1]
+
+    region['roi'] = ( slice(q00[1],q11[1]),
+                      slice(q00[0],q11[0]) )
+    q01 = np.array((q00[0], q11[1]))
+    q10 = np.array((q11[0], q00[1]))
+
+    color_array = color_array_from_string(color_string)
+    region_marking = dict(points = nps.cat(nps.cat(q00,q01),
+                                           nps.cat(q01,q11),
+                                           nps.cat(q11,q10),
+                                           nps.cat(q10,q00)).astype(np.float32),
+                          color_rgb = color_array )
+    region['region_marking'] = region_marking
+    region['color_string']   = color_string
+    widget.set_lines( *[r['region_marking'] for r in focus_regions] )
+
+    region['data'] = np.array(())
+
+
+    return 1
+
+
+class Fl_Multiline_Output_pass_keys(Fl_Multiline_Output):
+    def handle(self, event):
+        if event == FL_KEYDOWN:
+            if Fl.event_key() == fltk.FL_Escape:
+                window.hide()
+        return super().handle(event)
+
+class Fl_Button_pass_keys(Fl_Button):
+    def handle(self, event):
+        if event == FL_KEYDOWN:
+            if Fl.event_key() == fltk.FL_Escape:
+                window.hide()
+        return super().handle(event)
+
+
+stereo_widget = None
+def create_gui_elements(*,
+                        fltk_application_context,
+                        log_readwrite_context,
+                        W,
+                        H,
+                        H_footer,
+                        title,
+                        unlock_panzoom,
+                        features,
+                        cb_displayed_image,
+                        cb_status_value):
+
+    global stereo_widget
+
+    H_footers = 0
+    if log_readwrite_context.get('logged_images') is not None:
+        H_footers += 2*H_footer
+
+    H_image_views = H - H_footers
+    W_image_views = W
+
+    kwargs = dict(fltk_application_context = fltk_application_context,
+                  log_readwrite_context    = log_readwrite_context,
+                  W                        = W,
+                  H                        = H,
+                  H_image_views            = H_image_views,
+                  W_image_views            = W_image_views,
+                  H_footer                 = H_footer,
+                  title                    = title,
+                  unlock_panzoom           = unlock_panzoom,
+                  features                 = features,
+                  cb_displayed_image       = cb_displayed_image,
+                  cb_status_value          = cb_status_value)
+
+    mrcam.create_gui_window     (**kwargs)
+    mrcam.create_gui_time_slider(**kwargs)
+
+    fltk_application_context['status_widget'] = \
+        Fl_Multiline_Output_pass_keys(W_image_views//2, H_image_views//2,
+                                      W_image_views//2, H_image_views//2)
+    fltk_application_context['status_widget'].value('')
+
+    image_views = Fl_Group(0, 0, W_image_views, H_image_views)
+    fltk_application_context['image_views'] = image_views
+
+    for icam in range(2):
+        fltk_application_context['image_view_groups'][icam] = \
+            mrcam.Fl_Image_View_Group(icam * (W_image_views//2),
+                                      0,
+                                      W_image_views//2, H_image_views//2,
+                                      camera          = fltk_application_context['cameras'][icam],
+                                      features        = features,
+                                      cb_handle_event_image_widget = (handle_event_image_widget,
+                                                                      # the cookie
+                                                                      dict(**log_readwrite_context,
+                                                                           **fltk_application_context)),
+                                      unlock_panzoom     = unlock_panzoom,
+                                      cb_displayed_image = cb_displayed_image,
+                                      **fltk_application_context)
+
+    stereo_widget = \
+        Fl_Gl_Image_Widget(0,                H_image_views//2,
+                           W_image_views//2, H_image_views//2)
+
+    image_views.end()
+
+    # I want the status widget to be output-only and not user-focusable.
+    fltk_application_context['status_widget'].visible_focus(0)
+
+    mrcam.finish_gui_window(**kwargs)
+
+
+def equalize_stretch(image,
+                     cull_ratio_low  = 0,
+                     cull_ratio_high = 0):
+    a_min = np.percentile(image, q =       cull_ratio_high*100)
+    a_max = np.percentile(image, q = 100 - cull_ratio_high*100)
+    return ((image - a_min) / (a_max - a_min) * 255.).astype(np.uint8)
+
+
+def stereo_procesing(*images,
+                     do_equalize_fieldscale):
+
+    global stereo_widget
+
+    if images[0] is None or images[1] is None:
+        stereo_widget.update_image(image_data = None)
+        return
+
+    # This doesn't really matter: I don't use the input imagersize. But a
+    # mismatch suggests the user probably messed up, and it would save them time
+    # to yell at them
+    for icam in range(2):
+        imagersize_image = np.array((images[icam].shape[1], images[icam].shape[0]))
+        imagersize_model = models[icam].imagersize()
+        if np.any(imagersize_image - imagersize_model):
+            print(f"ERROR: imager dimensions for {icam=} mismatch: {imagersize_image=} {imagersize_model=}",
+                  file=sys.stderr)
+            sys.exit(1)
+
+    if len(images[0].shape) == 3 or len(images[1].shape) == 3:
+        if args.stereo_matcher == 'ELAS':
+            print("The ELAS matcher requires grayscale images",
+                  file=sys.stderr)
+            sys.exit(1)
+
+    if do_equalize_fieldscale:
+        images = [ mrcam.equalize_fieldscale(image) for image in images ]
+    else:
+        images = [ image if images[icam].dtype == np.uint8 else equalize_stretch(images[icam]) \
+                   for image in images ]
+
+
+    if args.valid_intrinsics_region:
+        for i in range(2):
+            mrcal.annotate_image__valid_intrinsics_region(images[i], models[i])
+
+    images_rectified = [mrcal.transform_image(images[i],
+                                              rectification_maps[i]) \
+                        for i in range(2)]
+
+    if args.stereo_matcher == 'SGBM':
+        # opencv barfs if I give it a color image and a monochrome image, so I
+        # convert
+        if len(images_rectified[0].shape) == 2 and \
+           len(images_rectified[1].shape) == 3:
+            disparity = stereo_sgbm.compute(images_rectified[0],
+                                            cv2.cvtColor(images_rectified[1], cv2.COLOR_BGR2GRAY))
+        elif len(images_rectified[0].shape) == 3 and \
+             len(images_rectified[1].shape) == 2:
+            disparity = stereo_sgbm.compute(cv2.cvtColor(images_rectified[0], cv2.COLOR_BGR2GRAY),
+                                            images_rectified[1])
+        else:
+            disparity = stereo_sgbm.compute(*images_rectified)
+
+    elif args.stereo_matcher == 'ELAS':
+
+        disparities = mrcal.stereo_matching_libelas(*images_rectified,
+                                                    disparity_min = disparity_min,
+                                                    disparity_max = disparity_max)
+
+        disparity = disparities[0]
+
+    elif args.stereo_matcher == 'libsad5':
+        disparity = correlator_sad5.compute(*images_rectified).astype(np.int16)
+    else:
+        raise("This is a bug")
+
+    disparity_colored = mrcal.apply_color_map(disparity,
+                                              a_min = disparity_min*disparity_scale,
+                                              a_max = disparity_max*disparity_scale)
+
+
+    stereo_widget.update_image(image_data = disparity_colored,
+                               flip_x     = args.flip_x,
+                               flip_y     = args.flip_y,)
+
+
+
+
+if args.stereo_matcher == 'ELAS':
+    if not hasattr(mrcal, 'stereo_matching_libelas'):
+        print("ERROR: the ELAS stereo matcher isn't available. libelas must be installed, and enabled at compile-time with USE_LIBELAS=1. Pass '--stereo-matcher SGBM' instead", file=sys.stderr)
+        sys.exit(1)
+
+if len(args.pixels_per_deg) == 2:
+    pixels_per_deg_az,pixels_per_deg_el = args.pixels_per_deg
+else:
+    pixels_per_deg_az = pixels_per_deg_el = args.pixels_per_deg[0]
+
+
+def openmodel(f):
+    try:
+        return mrcal.cameramodel(f)
+    except Exception as e:
+        print(f"Couldn't load camera model '{f}': {e}",
+              file=sys.stderr)
+        sys.exit(1)
+
+models = [openmodel(modelfilename) for modelfilename in args.models]
+
+models_rectified = \
+    mrcal.rectified_system(models,
+                           az_fov_deg          = args.az_fov_deg,
+                           el_fov_deg          = args.el_fov_deg,
+                           az0_deg             = args.az0_deg,
+                           el0_deg             = args.el0_deg,
+                           pixels_per_deg_az   = pixels_per_deg_az,
+                           pixels_per_deg_el   = pixels_per_deg_el,
+                           rectification_model = args.rectification)
+
+Rt_cam0_rect0 = \
+    mrcal.compose_Rt( models          [0].extrinsics_Rt_fromref(),
+                      models_rectified[0].extrinsics_Rt_toref() )
+Rt_cam1_rect1 = \
+    mrcal.compose_Rt( models          [1].extrinsics_Rt_fromref(),
+                      models_rectified[1].extrinsics_Rt_toref() )
+
+
+rectification_maps = mrcal.rectification_maps(models, models_rectified)
+
+if args.stereo_matcher == 'SGBM':
+    import cv2
+
+# Done with all the preliminaries. Run the stereo matching
+disparity_min,disparity_max = args.disparity_range
+
+if args.stereo_matcher == 'SGBM':
+
+    # This is a hard-coded property of the OpenCV StereoSGBM implementation
+    disparity_scale = 16
+
+    # round to nearest multiple of disparity_scale. The OpenCV StereoSGBM
+    # implementation requires this
+    num_disparities = disparity_max - disparity_min
+    num_disparities = disparity_scale*round(num_disparities/disparity_scale)
+
+    # I only add non-default args. StereoSGBM_create() doesn't like being given
+    # None args
+    kwargs_sgbm = dict()
+    if args.sgbm_p1 is not None:
+        kwargs_sgbm['P1']                = args.sgbm_p1
+    if args.sgbm_p2 is not None:
+        kwargs_sgbm['P2']                = args.sgbm_p2
+    if args.sgbm_disp12_max_diff is not None:
+        kwargs_sgbm['disp12MaxDiff']     = args.sgbm_disp12_max_diff
+    if args.sgbm_uniqueness_ratio is not None:
+        kwargs_sgbm['uniquenessRatio']   = args.sgbm_uniqueness_ratio
+    if args.sgbm_speckle_window_size is not None:
+        kwargs_sgbm['speckleWindowSize'] = args.sgbm_speckle_window_size
+    if args.sgbm_speckle_range is not None:
+        kwargs_sgbm['speckleRange']      = args.sgbm_speckle_range
+    if args.sgbm_mode is not None:
+        if   args.sgbm_mode == 'SGBM':
+            kwargs_sgbm['mode'] = cv2.StereoSGBM_MODE_SGBM
+        elif args.sgbm_mode == 'HH':
+            kwargs_sgbm['mode'] = cv2.StereoSGBM_MODE_HH
+        elif args.sgbm_mode == 'HH4':
+            kwargs_sgbm['mode'] = cv2.StereoSGBM_MODE_HH4
+        elif args.sgbm_mode == 'SGBM_3WAY':
+            kwargs_sgbm['mode'] = cv2.StereoSGBM_MODE_SGBM_3WAY
+        else:
+            raise Exception("arg-parsing error. This is a bug. Please report")
+
+    # blocksize is required, so I always pass it. There's a default set in
+    # the argument parser, so this is never None
+    kwargs_sgbm['blockSize'] = args.sgbm_block_size
+
+    stereo_sgbm = \
+        cv2.StereoSGBM_create(minDisparity      = disparity_min,
+                              numDisparities    = num_disparities,
+                              **kwargs_sgbm)
+elif args.stereo_matcher == 'ELAS':
+    disparity_scale = 1
+elif args.stereo_matcher == 'libsad5':
+    disparity_scale = 64
+
+    correlator_sad5 = \
+        sad5.dense(
+            corr_width            = args.correlator_size[0] if args.correlator_size is not None else None,
+            corr_height           = args.correlator_size[1] if args.correlator_size is not None else None,
+            rectified_image_width = models_rectified[0].imagersize()[0],
+            rectified_image_height= models_rectified[0].imagersize()[1],
+            disp_min              = disparity_min,
+            disp_max              = disparity_max,
+            lr_limit              = args.lr_limit,
+            do_write_diagnostics  = args.verbose,
+            prefilter_kernel_size = args.prefilter_kernel_size,
+            postfilter_blob_area  = args.postfilter_blob_area)
+else:
+    raise Exception("Getting here is a bug")
+
+
+
+
+log_readwrite_context = \
+    mrcam.log_readwrite_init(args.camera,
+                             logdir_write      = args.logdir,
+                             logdir_read       = args.replay,
+                             replay_from_frame = args.replay_from_frame,
+                             jpg               = args.jpg,
+                             image_path_prefix = args.image_path_prefix,
+                             image_directory   = args.image_directory)
+
+fltk_application_context = \
+    mrcam.fltk_application_init(args.camera_params_noname,
+                                args.camera,
+                                replay            = args.replay,
+                                utcoffset_hours   = args.utcoffset_hours,
+                                flip_x            = args.flip_x,
+                                flip_y            = args.flip_y,
+                                unlock_panzoom    = args.unlock_panzoom,
+                                features          = args.features,
+                                period            = args.period,
+                                title             = "mrcam stereo tool",
+                                cb_create_gui_elements = create_gui_elements,
+                                cb_displayed_image= displayed_image,
+                                #status_value_and_cookie        = (status_value,        dict())
+                                **log_readwrite_context)
+
+Fl.run()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# def handle_event_in_image_widget(self, event):
+#     if event == FL_PUSH:
+
+#         if Fl.event_button() != FL_RIGHT_MOUSE:
+#             return super().handle(event)
+
+#         try:
+#             q0_rectified = \
+#                 np.array( self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ),
+#                           dtype=float )
+#         except:
+#             set_status("Error converting pixel coordinates")
+#             widget_image0.set_cross_at(None)
+#             widget_image1.set_cross_at(None)
+#             widget_result.set_cross_at(None)
+#             return super().handle(event)
+
+#         if self is widget_image1:
+#             set_status("Please click in the left or disparity windows")
+#             widget_image0.set_cross_at(q0_rectified, no_vertical = True)
+#             widget_image1.set_cross_at(q0_rectified, no_vertical = True)
+#             widget_result.set_cross_at(q0_rectified, no_vertical = True)
+#             return super().handle(event)
+
+#         if not (q0_rectified[0] >= -0.5 and q0_rectified[0] <= images_rectified[0].shape[1]-0.5 and \
+#                 q0_rectified[1] >= -0.5 and q0_rectified[1] <= images_rectified[0].shape[0]-0.5):
+#             set_status("Out of bounds")
+#             widget_image0.set_cross_at(q0_rectified, no_vertical = True)
+#             widget_image1.set_cross_at(q0_rectified, no_vertical = True)
+#             widget_result.set_cross_at(q0_rectified, no_vertical = True)
+#             return super().handle(event)
+
+#         d = disparity[int(round(q0_rectified[-1])),
+#                       int(round(q0_rectified[-2]))]
+#         if d < disparity_min*disparity_scale:
+#             set_status("No valid disparity at the clicked location")
+#             widget_image0.set_cross_at(q0_rectified)
+#             widget_image1.set_cross_at(q0_rectified, no_vertical = True)
+#             widget_result.set_cross_at(q0_rectified)
+#             return super().handle(event)
+#         if d == disparity_min*disparity_scale:
+#             set_status("Disparity: 0pixels\n" +
+#                        "range: infinity\n")
+#             widget_image0.set_cross_at(q0_rectified)
+#             widget_image1.set_cross_at(q0_rectified)
+#             widget_result.set_cross_at(q0_rectified)
+#             return super().handle(event)
+
+#         widget_image0.set_cross_at(q0_rectified)
+#         widget_image1.set_cross_at(q0_rectified -
+#                                    np.array((d/disparity_scale, 0)))
+#         widget_result.set_cross_at(q0_rectified)
+
+#         delta = 1e-3
+#         _range   = mrcal.stereo_range( d,
+#                                        models_rectified,
+#                                        disparity_scale = disparity_scale,
+#                                        disparity_min   = disparity_min,
+#                                        qrect0          = q0_rectified)
+#         _range_d = mrcal.stereo_range( d + delta*disparity_scale,
+#                                        models_rectified,
+#                                        disparity_scale = disparity_scale,
+#                                        disparity_min   = disparity_min,
+#                                        qrect0          = q0_rectified)
+#         drange_ddisparity = np.abs(_range_d - _range) / delta
+
+
+#         # mrcal-triangulate tool: guts into a function. Call those
+#         # guts here, and display them in the window
+#         set_status(f"Disparity: {d/disparity_scale:.2f}pixels\n" +
+#                    f"range: {_range:.2f}m\n" +
+#                    f"drange/ddisparity: {drange_ddisparity:.5f}m/pixel")
+
+#         if 0:
+#             p0_rectified = \
+#                 mrcal.unproject(q0_rectified,
+#                                 *models_rectified[0].intrinsics(),
+#                                 normalize = True) * _range
+#             p0 = mrcal.transform_point_Rt( Rt_cam0_rect0,
+#                                            p0_rectified )
+#             p1 = mrcal.transform_point_Rt( mrcal.compose_Rt( models[1].extrinsics_Rt_fromref(),
+#                                                              models[0].extrinsics_Rt_toref()),
+#                                            p0 )
+
+#             q0  = mrcal.project(p0, *models[0].intrinsics())
+
+#             pt = \
+#                 mrcal.triangulate( nps.cat(q0, q1),
+#                                    models,
+#                                    stabilize_coords = True )
+#             print(f"range = {_range:.2f}, {nps.mag(pt):.2f}")
+
+#         return 0
+
+#     if event == FL_KEYDOWN:
+#         if Fl.event_key() == ord('d') or \
+#            Fl.event_key() == ord('D'):
+#             widget_result. \
+#               update_image(decimation_level = 0,
+#                            image_data       = disparity_colored)
+#             return 1
+
+#         if Fl.event_key() == ord('r') or \
+#            Fl.event_key() == ord('R'):
+#             widget_result. \
+#               update_image(decimation_level = 0,
+#                            image_data       = ranges_colored)
+#             return 1
+
+#     if event == FL_MOVE:
+#         q_rect   = None
+#         q_input0 = None
+#         q_input1 = None
+
+#         try:
+#             q_rect = self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), )
+#         except:
+#             pass
+
+#         if q_rect is not None:
+#             q_input0 = \
+#                 mrcal.project( mrcal.transform_point_Rt( Rt_cam0_rect0,
+#                                                          mrcal.unproject(q_rect, *models_rectified[0].intrinsics())),
+#                                *models[0].intrinsics())
+#             q_input1 = \
+#                 mrcal.project( mrcal.transform_point_Rt( Rt_cam1_rect1,
+#                                                          mrcal.unproject(q_rect, *models_rectified[1].intrinsics())),
+#                                *models[1].intrinsics())
+
+#         set_status(string  = None, # keep old string
+#                    q_rect   = q_rect,
+#                    q_input0 = q_input0,
+#                    q_input1 = q_input1)
+#         # fall through to let parent handlers run
+
+#     return super().handle(event)
+
+
+
+
+
+
+
+
+r'''
+todo:
+status
+UI events
+'''
