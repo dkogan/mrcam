@@ -306,6 +306,7 @@ bool mrcam_request( // in
                     mrcam_t* ctx);
 bool mrcam_cancel_request(mrcam_t* ctx);
 
+// *buffer may be NULL: this is a no-op
 void mrcam_push_buffer(void**   buffer, // the buffer, from mrcam_pull() or a mrcam_callback_t
                        mrcam_t* ctx);
 
