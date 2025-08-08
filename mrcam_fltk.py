@@ -359,6 +359,8 @@ def status_value__default(q, pixel_value_text):
 
 
 class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
+    r'''An image-display class that can tie pan/zoom for sibling widgets'''
+
     def __init__(self,
                  *args,
                  handler = None,
@@ -408,10 +410,10 @@ class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
 
         '''
 
-        if self.image is not None:
-            (image_height,image_width) = self.image.shape[:2]
-        else:
-            (image_height,image_width) = (None,None)
+        if self.image is None:
+            return
+
+        (image_height,image_width) = self.image.shape[:2]
 
         if not panzoom_siblings or \
            self.locked_panzoom_groups is None:
@@ -420,19 +422,12 @@ class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
                 return super().set_panzoom(x_centerpixel, y_centerpixel,
                                            visible_width_pixels)
             else:
-                if image_width  is None or \
-                   image_height is None:
-                    return
-
                 return super().set_panzoom(x_centerpixel        * image_width,
                                            y_centerpixel        * image_height,
                                            visible_width_pixels * image_width)
 
         # All the widgets should pan/zoom together
         if not ratios:
-            if image_width  is None or \
-               image_height is None:
-                return
             return \
                 all( g.image_widget. \
                      set_panzoom(x_centerpixel        / image_width,
@@ -525,7 +520,6 @@ class Fl_Image_View_Group(Fl_Group):
             Fl_Gl_Image_with_handle(x, y,
                                     w-w_controls, h,
                                     handler               = handle_image_widget,
-                                    double_buffered       = True,
                                     locked_panzoom_groups = \
                                       None if unlock_panzoom else \
                                       image_view_groups)
