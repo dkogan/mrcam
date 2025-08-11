@@ -71,9 +71,7 @@ typedef struct {
 
     // Used to asynchronously save images to disk by
     // async_save_image_and_push_buffer_t()
-    pthread_t thread_save;
-    bool      thread_save_active : 1;
-
+    pthread_t threads_save[10];
 } camera;
 
 // The structure being sent over the pipe when an image is received
@@ -315,14 +313,14 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
         goto done;
     }
 
-    if(0 != pthread_create(&self->thread_save,
-                           NULL,
-                           thread_save, self))
-    {
-        BARF("Couldn't start image-save thread");
-        goto done;
-    }
-    self->thread_save_active = true;
+    for(int i=0; i<(int)(sizeof(self->threads_save)/sizeof(self->threads_save[0])); i++)
+        if(0 != pthread_create(&self->threads_save[i],
+                               NULL,
+                               thread_save, self))
+        {
+            BARF("Couldn't start image-save thread");
+            goto done;
+        }
 
     result = 0;
 
@@ -333,18 +331,19 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 
 static void camera_dealloc(camera* self)
 {
-    if(self->thread_save_active)
-    {
-        if(0 != pthread_cancel(self->thread_save))
-            BARF("Couldn't pthread_cancel(thread_save)... Continuing dealloc anyway");
-        else
+    for(int i=0; i<(int)(sizeof(self->threads_save)/sizeof(self->threads_save[0])); i++)
+        if(self->threads_save[i] != (pthread_t)0)
         {
-            if(0 != pthread_join(self->thread_save, NULL))
-                BARF("Couldn't pthread_join(thread_save)... Continuing dealloc anyway");
+            if(0 != pthread_cancel(self->threads_save[i]))
+                BARF("Couldn't pthread_cancel(threads_save[%d])... Continuing dealloc anyway", i);
+            else
+            {
+                if(0 != pthread_join(self->threads_save[i], NULL))
+                    BARF("Couldn't pthread_join(threads_save[i])... Continuing dealloc anyway", i);
 
+            }
+            self->threads_save[i] = (pthread_t)0;
         }
-        self->thread_save_active = false;
-    }
 
     mrcam_free(&self->ctx);
 
