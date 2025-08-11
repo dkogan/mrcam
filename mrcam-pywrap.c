@@ -284,12 +284,12 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
         }
         if(!int_from_sequence_element(&width, py_width_height,0))
         {
-            BARF("'dims' is given; it must be an iterable with exactly 2 integers; item 0 coulnd't be interpreted as an int");
+            BARF("'dims' is given; it must be an iterable with exactly 2 integers; item 0 couldn't be interpreted as an int");
             goto done;
         }
         if(!int_from_sequence_element(&height, py_width_height,1))
         {
-            BARF("'dims' is given; it must be an iterable with exactly 2 integers; item 0 coulnd't be interpreted as an int");
+            BARF("'dims' is given; it must be an iterable with exactly 2 integers; item 0 couldn't be interpreted as an int");
             goto done;
         }
     }
