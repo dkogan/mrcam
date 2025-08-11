@@ -1728,12 +1728,12 @@ static PyMethodDef camera_methods[] =
         {}
     };
 
-#define MRCAM_T_UINT64 Py_T_ULONG
+#define MRCAM_T_UINT64 T_ULONG
 static_assert(sizeof(uint64_t) == sizeof(unsigned long),
               "Here I'm assuming that uint64_t == unsigned long");
 static PyMemberDef camera_members[] =
     {
-        {"fd_image_ready",       Py_T_INT,       offsetof(camera,pipe_capture[PIPE_FD_READ]),                  READONLY, fd_image_ready_docstring},
+        {"fd_image_ready",       T_INT,       offsetof(camera,pipe_capture[PIPE_FD_READ]),                  READONLY, fd_image_ready_docstring},
         {"timestamp_request_us", MRCAM_T_UINT64, offsetof(camera,ctx.timestamp_request_us), READONLY, timestamp_request_us_docstring},
         {}
     };
