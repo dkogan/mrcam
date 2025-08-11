@@ -1,3 +1,6 @@
+# If defined, get the aravis from here. AND assume aravis-0.10
+# ARAVIS_DIR := /home/dima/projects/aravis/
+
 include choose_mrbuild.mk
 include $(MRBUILD_MK)/Makefile.common.header
 
@@ -36,12 +39,23 @@ mrcam-test.o: CPPFLAGS += -fopenmp
 mrcam-test:   LDFLAGS  += -fopenmp
 mrcam-test:   LDLIBS += -lmrcal
 
+ifeq ($(ARAVIS_DIR),)
 CFLAGS += $(shell pkg-config --cflags aravis-0.8)
 LDLIBS += $(shell pkg-config --libs   aravis-0.8)
+else
+
+# bleeding-edge aravis 0.10
+CFLAGS += $(shell pkg-config --cflags glib-2.0)
+LDLIBS += $(shell pkg-config --libs   glib-2.0)
+LDLIBS += -laravis-0.10
+
+CFLAGS  += -I$(ARAVIS_DIR)/src -I$(ARAVIS_DIR)/build/src
+LDFLAGS += -L$(ARAVIS_DIR)/build/src -Wl,-rpath=$(ARAVIS_DIR)/build/src
+
+CFLAGS += -DARAVIS_0_10
+endif
 
 LDLIBS += -lavutil -lswscale
-
-
 
 
 DIST_INCLUDE := \

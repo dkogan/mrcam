@@ -916,6 +916,7 @@ stream_stats(camera* self, PyObject* args, PyObject* kwargs)
     PyObject* result = NULL;
     gint      n_input_buffers;
     gint      n_output_buffers;
+    gint      n_buffer_filling = -1;
 
     if(self->ctx.stream == NULL)
     {
@@ -923,13 +924,22 @@ stream_stats(camera* self, PyObject* args, PyObject* kwargs)
         goto done;
     }
 
+#ifndef ARAVIS_0_10
     arv_stream_get_n_buffers ((ArvStream*)self->ctx.stream,
                               &n_input_buffers,
                               &n_output_buffers);
+#else
+    arv_stream_get_n_owned_buffers((ArvStream*)self->ctx.stream,
+                                   &n_input_buffers,
+                                   &n_output_buffers,
+                                   &n_buffer_filling);
+#endif
 
-    result = Py_BuildValue("{sisi}",
+    result = Py_BuildValue("{sisisi}",
                            "n_input_buffers",  n_input_buffers,
-                           "n_output_buffers", n_output_buffers);
+                           "n_output_buffers", n_output_buffers,
+                           "n_buffer_filling", n_buffer_filling);
+
     if(result == NULL)
     {
         BARF("Couldn't build %s() result", __func__);
