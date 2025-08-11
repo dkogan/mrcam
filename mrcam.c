@@ -363,8 +363,17 @@ bool mrcam_init(// out
         height = (int)_height;
     }
 
-    try_arv(arv_camera_set_integer(*camera, "Width",  width,  &error));
-    try_arv(arv_camera_set_integer(*camera, "Height", height, &error));
+    // Some cameras cannot allow the width/height to be set, and I only do that if they're not already right
+    {
+        int width_now;
+        int height_now;
+        try_arv( width_now  = arv_camera_get_integer(*camera, "Width",  &error) );
+        try_arv( height_now = arv_camera_get_integer(*camera, "Height", &error) );
+        if(width != width_now)
+            try_arv(arv_camera_set_integer(*camera, "Width",  width,  &error));
+        if(height != height_now)
+            try_arv(arv_camera_set_integer(*camera, "Height", height, &error));
+    }
 
     ArvPixelFormat arv_pixfmt = pixfmt__ArvPixelFormat(ctx->pixfmt);
     if(arv_pixfmt == 0)
