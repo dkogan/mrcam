@@ -49,16 +49,16 @@ log_readwrite_context = \
                              image_path_prefix = args.image_path_prefix,
                              image_directory   = args.image_directory)
 
-fltk_application_context = \
-    mrcam.fltk_application_init(args.camera_params_noname_nodims,
-                                args.camera,
-                                replay            = args.replay,
-                                utcoffset_hours   = args.utcoffset_hours,
-                                flip_x            = args.flip_x,
-                                flip_y            = args.flip_y,
-                                unlock_panzoom    = args.unlock_panzoom,
-                                features          = args.features,
-                                period            = args.period,
-                                **log_readwrite_context)
+fltk_application = \
+    mrcam.Fl_application(args.camera_params_noname_nodims,
+                         args.camera,
+                         replay            = args.replay,
+                         utcoffset_hours   = args.utcoffset_hours,
+                         flip_x            = args.flip_x,
+                         flip_y            = args.flip_y,
+                         unlock_panzoom    = args.unlock_panzoom,
+                         features          = args.features,
+                         period            = args.period,
+                         **log_readwrite_context)
 
 Fl.run()

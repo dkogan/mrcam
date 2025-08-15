@@ -480,15 +480,13 @@ class Fl_Image_View_Group(Fl_Group):
                  # feature name that doesn't exist EXACTLY as given will be
                  # re-tried as a regex
                  features          = (),
-                 status_widget,
                  unlock_panzoom,
                  # (function,cookie)
                  cb_handle_event_image_widget = None,
                  cb_displayed_image           = displayed_image__default,
                  cb_status_value              = status_value__default,
-                 # usually will come from **fltk_application_context
-                 image_view_groups,
-                 do_equalize_fieldscale, # [value] and not value
+
+                 application,
                  # other stuff from the contexts that I don't need here
                  **kwargs):
 
@@ -500,12 +498,12 @@ class Fl_Image_View_Group(Fl_Group):
         self.camera = camera
         self.iframe = 0
 
-        self.do_equalize_fieldscale = do_equalize_fieldscale
+        self.do_equalize_fieldscale = application.do_equalize_fieldscale
 
         if features: w_controls = 300
         else:        w_controls = 0
 
-        self.status_widget = status_widget
+        self.status_widget = application.status_widget
 
 
         def handle_image_widget(self_image_widget, event):
@@ -531,7 +529,8 @@ class Fl_Image_View_Group(Fl_Group):
 
             if cb_handle_event_image_widget is not None:
                 return cb_handle_event_image_widget[0](self,event,
-                                                     **cb_handle_event_image_widget[1])
+                                                       application = application,
+                                                       **cb_handle_event_image_widget[1])
 
             return None # Use parent's return code
 
@@ -541,7 +540,7 @@ class Fl_Image_View_Group(Fl_Group):
                                     handler               = handle_image_widget,
                                     locked_panzoom_groups = \
                                       None if unlock_panzoom else \
-                                      image_view_groups)
+                                      application.image_view_groups)
 
         # Need group to control resizing: I want to fix the sizes of the widgets in
         # the group, so I group.resizable(None) later
@@ -934,16 +933,7 @@ def image_received_from_mrcam(*,
                               logdir_write,
                               file_log,
                               jpg,
-                              # usually will come from **fltk_application_context
-                              image_view_groups,
-                              time_slider_widget,
-                              flip_x,
-                              flip_y,
-                              utcoffset_sec,
-                              tzname,
-                              period,
-                              Ncameras_seen_iframe,
-                              logged_image_from_iframe,
+                              application,
                               # other stuff from the contexts that I don't need here
                               **kwargs):
     r'''Process the image
@@ -953,7 +943,7 @@ we will do that ourselves, set frame['buffer'] to None)
 
     '''
 
-    Ncameras = len(image_view_groups)
+    Ncameras = len(application.image_view_groups)
 
     extension      = "jpg" if jpg else "png"
 
@@ -970,11 +960,11 @@ we will do that ourselves, set frame['buffer'] to None)
         time_slider_at_max = False
         if logdir_write is not None:
 
-            time_slider_now = int(time_slider_widget.value())
+            time_slider_now = int(application.time_slider_widget.value())
             time_slider_at_max = \
-                time_slider_now == int(time_slider_widget.maximum())
+                time_slider_now == int(application.time_slider_widget.maximum())
 
-            if not iframe in logged_image_from_iframe:
+            if not iframe in application.logged_image_from_iframe:
                 # Started this set of cameras. Add empty record; fill it in as I get
                 # frames.
                 #
@@ -984,10 +974,10 @@ we will do that ourselves, set frame['buffer'] to None)
                 # for the read- and write-log cases. This could be simplified if
                 # I adjust the results in log_readwrite_init() to remove the
                 # duplicated iframes
-                logged_image_from_iframe[iframe] = dict(time      = [None] * Ncameras,
+                application.logged_image_from_iframe[iframe] = dict(time      = [None] * Ncameras,
                                                         imagepath = [None] * Ncameras,
                                                         iframe    = [None] * Ncameras)
-                logged_images.append( logged_image_from_iframe[iframe] )
+                logged_images.append( application.logged_image_from_iframe[iframe] )
 
             # write image to disk
             filename = f"frame{iframe:05d}-cam{icam}.{extension}"
@@ -1000,62 +990,62 @@ we will do that ourselves, set frame['buffer'] to None)
                 write_logline(f"{timestamp:.3f} {iframe} {icam} {filename}",
                               file_log = file_log);
 
-                image_view_groups[icam].camera. \
+                application.image_view_groups[icam].camera. \
                     async_save_image_and_push_buffer(path,image,frame['buffer'])
                 frame['buffer'] = None # indicate that the caller should NOT re-push the buffer
 
-            logged_image_from_iframe[iframe]['time'     ][icam] = timestamp
-            logged_image_from_iframe[iframe]['iframe'   ][icam] = iframe
+            application.logged_image_from_iframe[iframe]['time'     ][icam] = timestamp
+            application.logged_image_from_iframe[iframe]['iframe'   ][icam] = iframe
             if image is not None:
-                logged_image_from_iframe[iframe]['imagepath'][icam] = path
+                application.logged_image_from_iframe[iframe]['imagepath'][icam] = path
                 # Otherwise, leave at None
 
         if logdir_write is None or time_slider_at_max:
-            image_view_groups[icam].update_image_widget( image  = image,
+            application.image_view_groups[icam].update_image_widget( image  = image,
                                                          iframe = iframe,
                                                          icam   = icam,
-                                                         flip_x = flip_x,
-                                                         flip_y = flip_y)
+                                                         flip_x = application.flip_x,
+                                                         flip_y = application.flip_y)
 
     # schedule the next set of images; do this even if off_decimation
-    if not iframe in Ncameras_seen_iframe:
-        Ncameras_seen_iframe[iframe] = 1
+    if not iframe in application.Ncameras_seen_iframe:
+        application.Ncameras_seen_iframe[iframe] = 1
     else:
-        Ncameras_seen_iframe[iframe] += 1
+        application.Ncameras_seen_iframe[iframe] += 1
 
     # I need a Ncameras_seen_iframe to be a dict instead of a count for the
     # last frame, because in a free-runnning mode, I may get frames out of
     # the usual expected order
-    if Ncameras_seen_iframe[iframe] >= Ncameras:
+    if application.Ncameras_seen_iframe[iframe] >= Ncameras:
         # Every camera reported back. Finish up and ask for another frame
-        del Ncameras_seen_iframe[iframe]
+        del application.Ncameras_seen_iframe[iframe]
 
-        if not off_decimation and time_slider_widget is not None:
-            time_slider_widget.maximum(iframe)
+        if not off_decimation and application.time_slider_widget is not None:
+            application.time_slider_widget.maximum(iframe)
 
             if time_slider_at_max:
                 # We were at the end of the time slider. Update us so that we're
                 # still at the end
-                time_slider_widget.value(iframe)
+                application.time_slider_widget.value(iframe)
                 time_slider_update_label(iframe             = iframe,
                                          time               = timestamp,
-                                         time_slider_widget = time_slider_widget,
-                                         utcoffset_sec      = utcoffset_sec,
-                                         tzname             = tzname)
+                                         time_slider_widget = application.time_slider_widget,
+                                         utcoffset_sec      = application.utcoffset_sec,
+                                         tzname             = application.tzname)
             else:
                 time_slider_update_label(iframe             = time_slider_now,
                                          time               = logged_images[time_slider_now]['time'][0],
-                                         time_slider_widget = time_slider_widget,
-                                         utcoffset_sec      = utcoffset_sec,
-                                         tzname             = tzname)
+                                         time_slider_widget = application.time_slider_widget,
+                                         utcoffset_sec      = application.utcoffset_sec,
+                                         tzname             = application.tzname)
                 # The bounds changed, so the handle should be redrawn
-                time_slider_widget.redraw()
+                application.time_slider_widget.redraw()
 
         def request_image_set():
-            for image_view_group in image_view_groups:
+            for image_view_group in application.image_view_groups:
                 image_view_group.camera.request()
         schedule_next_frame(request_image_set,
-                            image_view_groups[0].camera.timestamp_request_us/1e6, period)
+                            application.image_view_groups[0].camera.timestamp_request_us/1e6, application.period)
 
 
 
@@ -1153,16 +1143,11 @@ def time_slider_select(*,
                        logdir_read,
                        image_path_prefix,
                        image_directory,
-                       # usually will come from **fltk_application_context
-                       image_view_groups,
-                       time_slider_widget,
-                       flip_x,
-                       flip_y,
-                       utcoffset_sec,
-                       tzname,
+
+                       application,
                        # other stuff from the contexts that I don't need here
                        **kwargs):
-    i_iframe = round(time_slider_widget.value())
+    i_iframe = round(application.time_slider_widget.value())
 
     try:
         record = logged_images[i_iframe]
@@ -1176,26 +1161,26 @@ def time_slider_select(*,
 
     time_slider_update_label(iframe             = iframes[0],
                              time               = times[0],
-                             time_slider_widget = time_slider_widget,
-                             utcoffset_sec      = utcoffset_sec,
-                             tzname             = tzname)
+                             time_slider_widget = application.time_slider_widget,
+                             utcoffset_sec      = application.utcoffset_sec,
+                             tzname             = application.tzname)
 
     update_all_images_from_replay(logged_images     = logged_images,
                                   logdir_write      = logdir_write,
                                   logdir_read       = logdir_read,
                                   image_path_prefix = image_path_prefix,
                                   image_directory   = image_directory,
-                                  image_view_groups = image_view_groups,
-                                  flip_x            = flip_x,
-                                  flip_y            = flip_y,
-                                  time_slider_widget=time_slider_widget)
+                                  image_view_groups = application.image_view_groups,
+                                  flip_x            = application.flip_x,
+                                  flip_y            = application.flip_y,
+                                  time_slider_widget=application.time_slider_widget)
 
     # if live-updating we color the slider green
     if logdir_write is not None:
-        if int(time_slider_widget.value()) == int(time_slider_widget.maximum()):
-            time_slider_widget.color(FL_GREEN)
+        if int(application.time_slider_widget.value()) == int(application.time_slider_widget.maximum()):
+            application.time_slider_widget.color(FL_GREEN)
         else:
-            time_slider_widget.color(FL_BACKGROUND_COLOR)
+            application.time_slider_widget.color(FL_BACKGROUND_COLOR)
 
 
 def handle_event_image_widget__e(image_view_group,
@@ -1208,11 +1193,9 @@ def handle_event_image_widget__e(image_view_group,
                                  logdir_read,
                                  image_path_prefix,
                                  image_directory,
-                                 # usually will come from **fltk_application_context
-                                 image_view_groups,
-                                 flip_x,
-                                 flip_y,
-                                 time_slider_widget,
+
+                                 application,
+
                                  # other stuff from the contexts that I don't need here
                                  **kwargs
                                  ):
@@ -1231,297 +1214,294 @@ def handle_event_image_widget__e(image_view_group,
                                               logdir_read       = logdir_read,
                                               image_path_prefix = image_path_prefix,
                                               image_directory   = image_directory,
-                                              image_view_groups = image_view_groups,
-                                              flip_x            = flip_x,
-                                              flip_y            = flip_y,
-                                              time_slider_widget=time_slider_widget)
+                                              image_view_groups = application.image_view_groups,
+                                              flip_x            = application.flip_x,
+                                              flip_y            = application.flip_y,
+                                              time_slider_widget=application.time_slider_widget)
             return 1
 
     return None # Use parent's return code
 
 
-def create_gui_elements__default(*,
-                                 fltk_application_context,
-                                 log_readwrite_context,
-                                 W,
-                                 H,
-                                 H_footer,
-                                 title,
-                                 unlock_panzoom,
-                                 features,
-                                 cb_displayed_image,
-                                 cb_status_value):
-
-    H_footers = H_footer
-    if log_readwrite_context.get('logged_images') is not None:
-        H_footers += 2*H_footer
-
-    kwargs = dict(fltk_application_context = fltk_application_context,
-                  log_readwrite_context      = log_readwrite_context,
-                  W                          = W,
-                  H                          = H,
-                  H_image_views              = H - H_footers,
-                  W_image_views              = W,
-                  H_footer                   = H_footer,
-                  title                      = title,
-                  unlock_panzoom             = unlock_panzoom,
-                  features                   = features,
-                  cb_displayed_image         = cb_displayed_image,
-                  cb_status_value            = cb_status_value)
-
-    create_gui_window     (**kwargs)
-    create_gui_time_slider(**kwargs)
-    create_gui_status     (**kwargs)
-    create_gui_image_views(**kwargs)
-    finish_gui_window     (**kwargs)
 
 
-def create_gui_window(*,
-                      fltk_application_context,
-                      W,
-                      H,
-                      title,
-                      # extra uneeded stuff
-                      **kwargs):
-    fltk_application_context['window'] = Fl_Window(W,H, title)
 
 
-def create_gui_time_slider(*,
-                           fltk_application_context,
-                           log_readwrite_context,
-                           W,
-                           H_image_views,
-                           H_footer,
-                           # extra uneeded stuff
-                           **kwargs):
+class Fl_application:
 
-    logged_images     = log_readwrite_context.get('logged_images')
-    replay_from_frame = log_readwrite_context.get('replay_from_frame', 0)
+    def __init__(self,
+                 camera_params_noname,
+                 camera_names,
+                 *,
+                 utcoffset_hours = None,
+                 W               = 1280,
+                 H               = 1024,
+                 H_footer        = 30,
+                 title = "mrcam stream",
+                 flip_x            = False,
+                 flip_y            = False,
+                 unlock_panzoom    = False,
+                 features          = (),
+                 period            = 1.0,
+                 # usually will come from **log_readwrite_context
+                 logged_images     = None,
+                 logdir_write      = None,
+                 logdir_read       = None,
+                 image_path_prefix = None,
+                 image_directory   = None,
+                 file_log          = None,
+                 replay_from_frame = 0,
+                 jpg               = False,
 
-    if logged_images is not None:
-        time_slider_widget = \
-            Fl_Slider(0, H_image_views,
-                      W,H_footer)
-        time_slider_widget.align(FL_ALIGN_BOTTOM)
-        time_slider_widget.type(FL_HORIZONTAL)
-        time_slider_widget.step(1)
-        if len(logged_images) > 0:
-            time_slider_widget.bounds(0, len(logged_images)-1)
-            time_slider_widget.value(replay_from_frame)
+                 cb_displayed_image     = displayed_image__default,
+                 cb_status_value        = status_value__default,
+                 # other stuff from the contexts that I don't need here
+                 **kwargs
+                 ):
+
+        Ncameras = len(camera_names)
+
+        self.cameras                  = [None] * Ncameras
+        self.image_view_groups        = [None] * Ncameras
+        self.flip_x                   = flip_x
+        self.flip_y                   = flip_y
+        self.period                   = period
+        self.Ncameras_seen_iframe     = dict()
+        self.logged_image_from_iframe = dict()
+        # [False] and not False because I want this passed by reference to
+        # functions. It should be modifiable.
+        self.do_equalize_fieldscale   = [False]
+
+        if logdir_read is None:
+            # I init each camera. If we're sending the TTYS0 trigger signal, I want all
+            # the cameras to be ready when the trigger comes in. Thus the LAST camera
+            # will send the trigger; I set the rest to EXTERNAL triggering in that case
+            camera_params_noname = dict(camera_params_noname) # make a copy
+            for i,name in reversed(list(enumerate(camera_names))):
+                self.cameras[i] = \
+                    mrcam.camera(name = name,
+                                 **camera_params_noname)
+
+                if camera_params_noname['trigger'] == 'HARDWARE_TTYS0':
+                    camera_params_noname['trigger'] = 'HARDWARE_EXTERNAL'
+
+
+
+        if utcoffset_hours is not None:
+            self.utcoffset_sec = utcoffset_hours*3600
+            self.tzname        = f"{'-' if utcoffset_hours<0 else ''}{int(abs(utcoffset_hours)):02d}:{round( (abs(utcoffset_hours) % 1)*60 ):02d}"
         else:
-            time_slider_widget.bounds(0, 0)
-            time_slider_widget.value(0)
-        time_slider_widget.callback( \
-            lambda *args: \
-                time_slider_select(**log_readwrite_context,
-                                   **fltk_application_context))
-    else:
-        time_slider_widget = None
-    fltk_application_context['time_slider_widget'] = time_slider_widget
+            import time
+            t = time.localtime()
+            self.utcoffset_sec = t.tm_gmtoff
+            self.tzname        = t.tm_zone
 
 
-def create_gui_status(*,
-                      fltk_application_context,
-                      W,
-                      H,
-                      H_footer,
-                      # extra uneeded stuff
-                      **kwargs):
-    status_widget = Fl_Output(0, H-H_footer,
-                              W, H_footer)
-    status_widget.value('')
+        self.create_gui_elements(
+            W                          = W,
+            H                          = H,
+            H_footer                   = H_footer,
+            title                      = title,
+            unlock_panzoom             = unlock_panzoom,
+            features                   = features,
+            cb_displayed_image         = cb_displayed_image,
+            cb_status_value            = cb_status_value,
+            log_readwrite_context      = dict( logged_images     = logged_images,
+                                               logdir_write      = logdir_write,
+                                               logdir_read       = logdir_read,
+                                               image_path_prefix = image_path_prefix,
+                                               image_directory   = image_directory,
+                                               file_log          = file_log,
+                                               replay_from_frame = replay_from_frame,
+                                               jpg               = jpg,
+                                              ))
 
-    # I want the status widget to be output-only and not user-focusable. This will
-    # allow keyboard input to not be sent to THIS status widget, so that left/right
-    # and 'u' go to the time slider and image windows respectively.
-    status_widget.visible_focus(0)
-    fltk_application_context['status_widget'] = status_widget
+
+        for icam in range(Ncameras):
+            if self.image_view_groups[icam].camera is not None:
+                self.image_view_groups[icam].set_up_image_capture(# don't auto-recur. I do that myself,
+                                                                    # making sure ALL the cameras are processed
+                                                                    period         = None,
+                                                                    flip_x         = flip_x,
+                                                                    flip_y         = flip_y,
+                                                                    ### image_callback__cookie
+                                                                    icam = icam,
+                                                                    # pieces of the log_readwrite_context
+                                                                    logged_images = logged_images,
+                                                                    logdir_write  = logdir_write,
+                                                                    file_log      = file_log,
+                                                                    jpg           = jpg,
+                                                                    application   = self)
+        self.window.show()
+
+        if logdir_read is None:
+            # request the initial frame; will recur in image_callback
+            for image_view_group in self.image_view_groups:
+                image_view_group.camera.request()
+        else:
+            time_slider_select(logged_images     = logged_images,
+                               logdir_write      = logdir_write,
+                               logdir_read       = logdir_read,
+                               image_path_prefix = image_path_prefix,
+                               image_directory   = image_directory,
+                               application       = self)
 
 
-def create_gui_image_views(*,
-                           fltk_application_context,
-                           log_readwrite_context,
-                           W_image_views,
-                           H_image_views,
-                           unlock_panzoom,
-                           features,
-                           cb_displayed_image,
-                           cb_status_value,
-                           # extra uneeded stuff
-                           **kwargs):
+    def create_gui_elements(self,
+                            *,
+                            log_readwrite_context,
+                            W,
+                            H,
+                            H_footer,
+                            title,
+                            unlock_panzoom,
+                            features,
+                            cb_displayed_image,
+                            cb_status_value):
 
-    Ncameras = len(fltk_application_context['image_view_groups'])
-    Ngrid = math.ceil(math.sqrt(Ncameras))
-    Wgrid = Ngrid
-    Hgrid = math.ceil(Ncameras/Wgrid)
-    w_image = W_image_views // Wgrid
-    h_image = H_image_views // Hgrid
+        # default implementation; meant to be overridden and extended
 
-    icam = 0
-    y0   = 0
-    image_views = Fl_Group(0, 0, W_image_views, H_image_views)
-    fltk_application_context['image_views'] = image_views
-    for i in range(Hgrid):
-        x0 = 0
+        H_footers = H_footer
+        if log_readwrite_context.get('logged_images') is not None:
+            H_footers += 2*H_footer
 
-        for j in range(Wgrid):
-            fltk_application_context['image_view_groups'][icam] = \
-                Fl_Image_View_Group(x0,y0,
-                                    w_image if j < Wgrid-1 else (W_image_views-x0),
-                                    h_image if i < Hgrid-1 else (H_image_views-y0),
-                                    camera          = fltk_application_context['cameras'][icam],
-                                    features        = features,
-                                    cb_handle_event_image_widget = (handle_event_image_widget__e,
-                                                                    # the cookie
-                                                                    dict(**log_readwrite_context,
-                                                                         **fltk_application_context)),
-                                    unlock_panzoom  = unlock_panzoom,
-                                    cb_displayed_image = cb_displayed_image,
-                                    cb_status_value    = cb_status_value,
-                                    **fltk_application_context)
-            x0   += w_image
-            icam += 1
+        kwargs = dict(log_readwrite_context      = log_readwrite_context,
+                      W                          = W,
+                      H                          = H,
+                      H_image_views              = H - H_footers,
+                      W_image_views              = W,
+                      H_footer                   = H_footer,
+                      title                      = title,
+                      unlock_panzoom             = unlock_panzoom,
+                      features                   = features,
+                      cb_displayed_image         = cb_displayed_image,
+                      cb_status_value            = cb_status_value)
 
+        self.create_gui_window     (**kwargs)
+        self.create_gui_time_slider(**kwargs)
+        self.create_gui_status     (**kwargs)
+        self.create_gui_image_views(**kwargs)
+        self.finish_gui_window     (**kwargs)
+
+
+    def create_gui_window(self,
+                          *,
+                          W,
+                          H,
+                          title,
+                          # extra uneeded stuff
+                          **kwargs):
+        # default implementation; meant to be overridden and extended
+        self.window = Fl_Window(W,H, title)
+
+
+    def create_gui_time_slider(self,
+                               *,
+                               log_readwrite_context,
+                               W,
+                               H_image_views,
+                               H_footer,
+                               # extra uneeded stuff
+                               **kwargs):
+        # default implementation; meant to be overridden and extended
+
+        logged_images     = log_readwrite_context.get('logged_images')
+        replay_from_frame = log_readwrite_context.get('replay_from_frame', 0)
+
+        if logged_images is not None:
+            self.time_slider_widget = \
+                Fl_Slider(0, H_image_views,
+                          W,H_footer)
+            self.time_slider_widget.align(FL_ALIGN_BOTTOM)
+            self.time_slider_widget.type(FL_HORIZONTAL)
+            self.time_slider_widget.step(1)
+            if len(logged_images) > 0:
+                self.time_slider_widget.bounds(0, len(logged_images)-1)
+                self.time_slider_widget.value(replay_from_frame)
+            else:
+                self.time_slider_widget.bounds(0, 0)
+                self.time_slider_widget.value(0)
+            self.time_slider_widget.callback( \
+                lambda *args: \
+                    time_slider_select(**log_readwrite_context,
+                                       application = self))
+        else:
+            self.time_slider_widget = None
+
+
+    def create_gui_status(self,
+                          *,
+                          W,
+                          H,
+                          H_footer,
+                          # extra uneeded stuff
+                          **kwargs):
+        # default implementation; meant to be overridden and extended
+        self.status_widget = Fl_Output(0, H-H_footer,
+                                       W, H_footer)
+        self.status_widget.value('')
+
+        # I want the status widget to be output-only and not user-focusable. This will
+        # allow keyboard input to not be sent to THIS status widget, so that left/right
+        # and 'u' go to the time slider and image windows respectively.
+        self.status_widget.visible_focus(0)
+
+
+    def create_gui_image_views(self,
+                               *,
+                               log_readwrite_context,
+                               W_image_views,
+                               H_image_views,
+                               unlock_panzoom,
+                               features,
+                               cb_displayed_image,
+                               cb_status_value,
+                               # extra uneeded stuff
+                               **kwargs):
+        # default implementation; meant to be overridden and extended
+
+        Ncameras = len(self.image_view_groups)
+        Ngrid = math.ceil(math.sqrt(Ncameras))
+        Wgrid = Ngrid
+        Hgrid = math.ceil(Ncameras/Wgrid)
+        w_image = W_image_views // Wgrid
+        h_image = H_image_views // Hgrid
+
+        icam = 0
+        y0   = 0
+        self.image_views = Fl_Group(0, 0, W_image_views, H_image_views)
+        for i in range(Hgrid):
+            x0 = 0
+
+            for j in range(Wgrid):
+                self.image_view_groups[icam] = \
+                    Fl_Image_View_Group(x0,y0,
+                                        w_image if j < Wgrid-1 else (W_image_views-x0),
+                                        h_image if i < Hgrid-1 else (H_image_views-y0),
+                                        camera          = self.cameras[icam],
+                                        features        = features,
+                                        cb_handle_event_image_widget = (handle_event_image_widget__e,
+                                                                        # the cookie
+                                                                        log_readwrite_context),
+                                        unlock_panzoom  = unlock_panzoom,
+                                        cb_displayed_image = cb_displayed_image,
+                                        cb_status_value    = cb_status_value,
+                                        application        = self)
+                x0   += w_image
+                icam += 1
+
+                if icam == Ncameras:
+                    break
             if icam == Ncameras:
                 break
-        if icam == Ncameras:
-            break
 
-        y0 += h_image
-    image_views.end()
+            y0 += h_image
+        self.image_views.end()
 
 
-def finish_gui_window(*,
-                      fltk_application_context,
-                      # extra uneeded stuff
-                      **kwargs):
-
-    window = fltk_application_context['window']
-
-    window.resizable(fltk_application_context['image_views'])
-    window.end()
-
-
-
-
-def fltk_application_init(camera_params_noname,
-                          camera_names,
-                          *,
-                          utcoffset_hours = None,
-                          W               = 1280,
-                          H               = 1024,
-                          H_footer        = 30,
-                          title = "mrcam stream",
-                          flip_x            = False,
-                          flip_y            = False,
-                          unlock_panzoom    = False,
-                          features          = (),
-                          period            = 1.0,
-                          # usually will come from **log_readwrite_context
-                          logged_images     = None,
-                          logdir_write      = None,
-                          logdir_read       = None,
-                          image_path_prefix = None,
-                          image_directory   = None,
-                          file_log          = None,
-                          replay_from_frame = 0,
-                          jpg               = False,
-
-                          cb_create_gui_elements = create_gui_elements__default,
-                          cb_displayed_image     = displayed_image__default,
-                          cb_status_value        = status_value__default,
-                          # other stuff from the contexts that I don't need here
-                          **kwargs
-                          ):
-
-    Ncameras = len(camera_names)
-    ctx = dict(cameras                = [None] * Ncameras,
-               image_view_groups      = [None] * Ncameras,
-               flip_x                 = flip_x,
-               flip_y                 = flip_y,
-               period                 = period,
-
-               Ncameras_seen_iframe     = dict(),
-               logged_image_from_iframe = dict(),
-
-               # [False] and not False because I want this passed by reference
-               # to functions. It should be modifiable.
-               do_equalize_fieldscale = [False],
-               )
-
-    if logdir_read is None:
-        # I init each camera. If we're sending the TTYS0 trigger signal, I want all
-        # the cameras to be ready when the trigger comes in. Thus the LAST camera
-        # will send the trigger; I set the rest to EXTERNAL triggering in that case
-        camera_params_noname = dict(camera_params_noname) # make a copy
-        for i,name in reversed(list(enumerate(camera_names))):
-            ctx['cameras'][i] = \
-                mrcam.camera(name = name,
-                             **camera_params_noname)
-
-            if camera_params_noname['trigger'] == 'HARDWARE_TTYS0':
-                camera_params_noname['trigger'] = 'HARDWARE_EXTERNAL'
-
-
-
-    if utcoffset_hours is not None:
-        ctx['utcoffset_sec'] = utcoffset_hours*3600
-        ctx['tzname']        = f"{'-' if utcoffset_hours<0 else ''}{int(abs(utcoffset_hours)):02d}:{round( (abs(utcoffset_hours) % 1)*60 ):02d}"
-    else:
-        import time
-        t = time.localtime()
-        ctx['utcoffset_sec'] = t.tm_gmtoff
-        ctx['tzname']        = t.tm_zone
-
-
-    cb_create_gui_elements(
-      fltk_application_context   = ctx,
-      W                          = W,
-      H                          = H,
-      H_footer                   = H_footer,
-      title                      = title,
-      unlock_panzoom             = unlock_panzoom,
-      features                   = features,
-      cb_displayed_image         = cb_displayed_image,
-      cb_status_value            = cb_status_value,
-      log_readwrite_context      = dict( logged_images     = logged_images,
-                                         logdir_write      = logdir_write,
-                                         logdir_read       = logdir_read,
-                                         image_path_prefix = image_path_prefix,
-                                         image_directory   = image_directory,
-                                         file_log          = file_log,
-                                         replay_from_frame = replay_from_frame,
-                                         jpg               = jpg,
-                                        ))
-
-
-    for icam in range(Ncameras):
-        if ctx['image_view_groups'][icam].camera is not None:
-            ctx['image_view_groups'][icam].set_up_image_capture(# don't auto-recur. I do that myself,
-                                                                # making sure ALL the cameras are processed
-                                                                period         = None,
-                                                                flip_x         = flip_x,
-                                                                flip_y         = flip_y,
-                                                                ### image_callback__cookie
-                                                                icam = icam,
-                                                                # pieces of the log_readwrite_context
-                                                                logged_images = logged_images,
-                                                                logdir_write  = logdir_write,
-                                                                file_log      = file_log,
-                                                                jpg           = jpg,
-                                                                **ctx)
-    ctx['window'].show()
-
-    if logdir_read is None:
-        # request the initial frame; will recur in image_callback
-        for image_view_group in ctx['image_view_groups']:
-            image_view_group.camera.request()
-    else:
-        time_slider_select(logged_images     = logged_images,
-                           logdir_write      = logdir_write,
-                           logdir_read       = logdir_read,
-                           image_path_prefix = image_path_prefix,
-                           image_directory   = image_directory,
-                           **ctx)
-
-    return ctx
+    def finish_gui_window(self,
+                          # extra uneeded stuff
+                          **kwargs):
+        # default implementation; meant to be overridden and extended
+        self.window.resizable(self.image_views)
+        self.window.end()
