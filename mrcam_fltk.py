@@ -53,8 +53,14 @@ def add_common_cmd_options(parser,
                         ONLY: the captured image data is unchanged. The argument
                         is a comma-separated string of "x" and/or "y"''')
     parser.add_argument('--dims',
-                        help='''Imager dimensions given as WIDTH,HEIGHT. Required for cameras where this
-                        cannot be auto-detected''')
+                        action = 'append', # accept multiple instances of this option
+                        help='''Imager dimensions given as WIDTH,HEIGHT.
+                        Required for cameras where this cannot be auto-detected.
+                        If given once, this is applied to ALL the cameras. If
+                        given multiple times, the different dims are applied to
+                        the cameras, in order. Pass '-' to mean "auto-detect
+                        dimensions. If fewer --dims are given than cameras, the
+                        remaining cameras will be auto-detected"''')
     parser.add_argument('--Nbuffers',
                         type    = int,
                         default = 10,
@@ -168,25 +174,39 @@ def parse_args_postprocess(args,
                             *,
                             single_camera = False):
     if args.dims is not None:
-        errmsg = f"--dims MUST be followed by integer dimensions given by 'WIDTH,HEIGHT'. Couldn't parse '{args.dims}' that way"
-        m = re.match('([0-9]+),([0-9]+)$', args.dims)
-        if m is None:
-            print(errmsg, file = sys.stderr)
-            sys.exit(1)
 
-        try: w = int(m.group(1))
-        except Exception:
-            print(errmsg, file = sys.stderr)
-            sys.exit(1)
-        try: h = int(m.group(2))
-        except Exception:
-            print(errmsg, file = sys.stderr)
-            sys.exit(1)
-        if w <= 0 or h <= 0:
-            print(errmsg, file = sys.stderr)
-            sys.exit(1)
+        def massage_dim(dim):
+            if dim == '-':
+                return None
 
-        args.dims = (w,h)
+            errmsg = f"--dims MUST be followed by '-' or integer dimensions given by 'WIDTH,HEIGHT'. Couldn't parse '{dim}' that way"
+            m = re.match('([0-9]+),([0-9]+)$', dim)
+            if m is None:
+                print(errmsg, file = sys.stderr)
+                sys.exit(1)
+
+            try: w = int(m.group(1))
+            except Exception:
+                print(errmsg, file = sys.stderr)
+                sys.exit(1)
+            try: h = int(m.group(2))
+            except Exception:
+                print(errmsg, file = sys.stderr)
+                sys.exit(1)
+            if w <= 0 or h <= 0:
+                print(errmsg, file = sys.stderr)
+                sys.exit(1)
+
+            return (w,h)
+
+        if type(args.camera) == list: Ncameras = len(args.camera)
+        else:                         Ncameras = 1
+        args.dims = [massage_dim(dim) for dim in args.dims]
+        if len(args.dims) <= Ncameras:
+            args.dims += [None] * (Ncameras - len(args.dims))
+        else:
+            print("Received more --dims than cameras", file=sys.stderr)
+            sys.exit(1)
 
     if args.features is not None:
         args.features = [ f for f in args.features.split(',') if len(f) ] # filter out empty features
@@ -205,21 +225,20 @@ def parse_args_postprocess(args,
     args.flip_x = 'x' in args.display_flip or 'xy' in args.display_flip
     args.flip_y = 'y' in args.display_flip or 'xy' in args.display_flip
 
-    ### args.camera_params_noname is a subset of args.__dict__. That subset is
-    ### camera parameters passed directly to mrcam.camera()
+    ### args.camera_params_noname_nodims is a subset of args.__dict__. That
+    ### subset is camera parameters passed directly to mrcam.camera()
     # These must match keywords[] in camera_init() in mrcam-pywrap.c WITHOUT the
     # "name" field
-    camera_param_noname_keys = \
+    camera_param_noname_nodims_keys = \
         ("pixfmt",
          "acquisition_mode",
          "trigger",
          "time_decimation_factor",
-         "dims",
          "Nbuffers",
          "verbose")
-    args.camera_params_noname = dict()
-    for k in camera_param_noname_keys:
-        args.camera_params_noname[k] = getattr(args, k, None)
+    args.camera_params_noname_nodims = dict()
+    for k in camera_param_noname_nodims_keys:
+        args.camera_params_noname_nodims[k] = getattr(args, k, None)
 
     if args.image_path_prefix is not None and \
        args.image_directory   is not None:

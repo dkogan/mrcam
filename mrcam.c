@@ -238,6 +238,9 @@ init_stream(mrcam_t* ctx)
 
     try_arv_and( *stream = arv_camera_create_stream(*camera,
                                                     callback_arv, ctx,
+#ifdef ARAVIS_0_10
+                                                    NULL,
+#endif
                                                     &error),
                  ARV_IS_STREAM(*stream) );
 
@@ -360,8 +363,17 @@ bool mrcam_init(// out
         height = (int)_height;
     }
 
-    try_arv(arv_camera_set_integer(*camera, "Width",  width,  &error));
-    try_arv(arv_camera_set_integer(*camera, "Height", height, &error));
+    // Some cameras cannot allow the width/height to be set, and I only do that if they're not already right
+    {
+        int width_now;
+        int height_now;
+        try_arv( width_now  = arv_camera_get_integer(*camera, "Width",  &error) );
+        try_arv( height_now = arv_camera_get_integer(*camera, "Height", &error) );
+        if(width != width_now)
+            try_arv(arv_camera_set_integer(*camera, "Width",  width,  &error));
+        if(height != height_now)
+            try_arv(arv_camera_set_integer(*camera, "Height", height, &error));
+    }
 
     ArvPixelFormat arv_pixfmt = pixfmt__ArvPixelFormat(ctx->pixfmt);
     if(arv_pixfmt == 0)
@@ -1007,11 +1019,19 @@ bool mrcam_request( // in
     {
         gint n_input_buffers;
         gint n_output_buffers;
+        gint n_buffer_filling = -1;
+#ifndef ARAVIS_0_10
         arv_stream_get_n_buffers (*stream,
                                   &n_input_buffers,
                                   &n_output_buffers);
-        MSG("n_input_buffers,n_output_buffers = %d,%d",
-            n_input_buffers,n_output_buffers);
+#else
+        arv_stream_get_n_owned_buffers(*stream,
+                                       &n_input_buffers,
+                                       &n_output_buffers,
+                                       &n_buffer_filling);
+#endif
+        MSG("n_input_buffers,n_output_buffers,n_buffer_filling = %d,%d,%d",
+            n_input_buffers,n_output_buffers,n_buffer_filling);
     }
 
     if(!ctx->acquiring)
