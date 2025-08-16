@@ -425,7 +425,7 @@ class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
                      for g in self.locked_panzoom_groups )
 
 
-h_status         = 20
+
 h_control        = 30
 h_control_footer = 30 # for the label below the widget; needed for some widgets only
 
