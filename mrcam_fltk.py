@@ -1419,7 +1419,6 @@ class Fl_application:
                 try:
                     image = mrcal.load_image(path)
                 except:
-                    print(f"Couldn't read image at '{path}'", file=sys.stderr)
                     image = None
 
             self.image_view_groups[icam].update_image_widget( image,
