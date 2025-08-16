@@ -39,16 +39,6 @@ args = parse_args()
 
 from fltk import *
 
-
-log_readwrite_context = \
-    mrcam.log_readwrite_init(args.camera,
-                             logdir_write      = args.logdir,
-                             logdir_read       = args.replay,
-                             replay_from_frame = args.replay_from_frame,
-                             jpg               = args.jpg,
-                             image_path_prefix = args.image_path_prefix,
-                             image_directory   = args.image_directory)
-
 fltk_application = \
     mrcam.Fl_application(args.camera_params_noname_nodims,
                          args.camera,
@@ -59,6 +49,13 @@ fltk_application = \
                          unlock_panzoom    = args.unlock_panzoom,
                          features          = args.features,
                          period            = args.period,
-                         **log_readwrite_context)
+
+                         # logging stuff
+                         logdir_write      = args.logdir,
+                         logdir_read       = args.replay,
+                         replay_from_frame = args.replay_from_frame,
+                         jpg               = args.jpg,
+                         image_path_prefix = args.image_path_prefix,
+                         image_directory   = args.image_directory)
 
 Fl.run()

@@ -776,141 +776,6 @@ class Fl_Image_View_Group(Fl_Group):
             self.camera.request()
 
 
-def log_readwrite_init(camera_names,
-                       *,
-                       logdir_read       = None,
-                       replay_from_frame = 0,
-                       logdir_write      = None,
-                       jpg               = False,
-                       image_path_prefix = None,
-                       image_directory   = None):
-
-    ctx = dict(logdir_read       = logdir_read,
-               replay_from_frame = replay_from_frame,
-               logdir_write      = logdir_write,
-               jpg               = jpg,
-               image_path_prefix = image_path_prefix,
-               image_directory   = image_directory)
-
-
-
-    if logdir_read is not None and \
-       logdir_write is not None:
-        raise Exception("logdir_read and logdir_write are exclusive. parse_args_postprocess() should have checked this")
-
-    Ncameras = len(camera_names)
-
-    if logdir_read is not None:
-
-        ### we're reading a log
-
-        # I need at least vnlog 1.38 to support structured dtypes in vnlog.slurp().
-        # See
-        #   https://notes.secretsauce.net/notes/2024/07/02_vnlogslurp-with-non-numerical-data.html
-        import vnlog
-
-        path = f"{logdir_read}/images.vnl"
-        max_len_imagepath = 128
-
-        dtype = np.dtype([ ('time',      float),
-                           ('iframe',    np.int32),
-                           ('icam',      np.int8),
-                           ('imagepath', f'U{max_len_imagepath}'),
-                          ])
-        log = vnlog.slurp(path, dtype=dtype)
-
-        # I have the whole log. I cut it down to include ONLY the cameras that were
-        # requested
-        i = np.min( np.abs(nps.dummy(np.array(camera_names), -1) - \
-                           log['icam']),
-                    axis=-2) == 0
-        log = log[i]
-
-        if log.size == 0:
-            print(f"The requested cameras {camera_names=} don't have any data in the log {path}",
-                  file = sys.stderr)
-            sys.exit(1)
-
-        if max(len(s) for s in log['imagepath']) >= max_len_imagepath:
-            print(f"Image paths in {path} are longer than the statically-defined value of {max_len_imagepath=}. Increase max_len_imagepath, or make the code more general", file=sys.stderr)
-            sys.exit(1)
-
-        # While the tool is running I want to be able to access the images in O(1),
-        # so I pre-sort the log now to make that possible. For each constant iframe
-        # I want a monotonically-increasing icam
-        log = np.sort(log, order=('iframe','icam'))
-
-        # I should have dense data over frames and cameras. I try to reshape it in
-        # that way, and confirm that everything lines up
-        Nframes  = len(log) // Ncameras
-        if Nframes*Ncameras != len(log):
-            print(f"The log {path} does not contain all dense combinations of {Ncameras=} and {Nframes=}. For the requested cameras it has {len(log)} entries",
-                  file = sys.stderr)
-            for icam in camera_names:
-                print(f"  Requested camera {icam} has {np.count_nonzero(log['icam']==icam)} observed frames",
-                      file = sys.stderr)
-            print("These should all be idendical",
-                  file=sys.stderr)
-            sys.exit(1)
-
-        if not (replay_from_frame >= 0 and \
-                replay_from_frame < Nframes):
-            print(f"We have {Nframes=} in the log '{path}', so --replay-from-frame must be in [0,{Nframes-1}], but we have --replay-from-frames {replay_from_frame}",
-                  file = sys.stderr)
-            sys.exit(1)
-
-        log = log.reshape((Nframes,Ncameras))
-        if np.any(log['icam'] - log['icam'][0,:]):
-            print(f"The log {path} does not contain the same set of cameras in each frame",
-                  file = sys.stderr)
-            sys.exit(1)
-        if np.any( np.sort(camera_names) - log['icam'][0,:] ):
-            print(f"The log {path} does not contain exactly the cameras requested in {camera_names=}",
-                  file = sys.stderr)
-            sys.exit(1)
-        if np.any(log['iframe'] - log['iframe'][:,(0,)]):
-            print(f"The log {path} does not contain the same set of frames observing each camera",
-                  file = sys.stderr)
-            sys.exit(1)
-
-        # Great. We have a dense set. We're done!
-        ctx['logged_images'] = log
-    elif logdir_write is not None:
-        ### we're writing a log
-        if not os.path.isdir(logdir_write):
-            if os.path.exists(logdir_write):
-                print(f"Error: requested logdir_write '{logdir_write}' is a FILE on disk. It should be a directory (that we will write to) or it shouldn't exist (we will create the directory)",
-                      file=sys.stderr)
-                sys.exit(1)
-            try:
-                os.mkdir(logdir_write)
-            except Exception as e:
-                print(f"Error: could not mkdir requested logdir_write '{logdir_write}': {e}",
-                      file=sys.stderr)
-                sys.exit(1)
-
-        path = f"{logdir_write}/images.vnl"
-        try:
-            file_log = open(path, "w")
-        except Exception as e:
-            print(f"Error opening log file '{path}' for writing: {e}",
-                  file=sys.stderr)
-            sys.exit(1)
-
-        for i,c in enumerate(camera_names):
-            if c is not None:
-                print(f"## Camera {i}: {c}", file=file_log)
-        write_logline("# time iframe icam imagepath",
-                      file_log = file_log);
-
-        ctx['file_log'] = file_log
-        # I can replay this log as I write it. 'logged_images' is set for both
-        # reading and writing
-        ctx['logged_images'] = []
-
-    return ctx
-
-
 def write_logline(l,
                   *,
                   # usually will come from **log_readwrite_context
@@ -1243,23 +1108,30 @@ class Fl_application:
                  unlock_panzoom    = False,
                  features          = (),
                  period            = 1.0,
-                 # usually will come from **log_readwrite_context
-                 logged_images     = None,
-                 logdir_write      = None,
-                 logdir_read       = None,
-                 image_path_prefix = None,
-                 image_directory   = None,
-                 file_log          = None,
-                 replay_from_frame = 0,
-                 jpg               = False,
 
-                 cb_displayed_image     = displayed_image__default,
-                 cb_status_value        = status_value__default,
+                 # logging stuff
+                 logdir_write,
+                 logdir_read,
+                 replay_from_frame,
+                 jpg,
+                 image_path_prefix,
+                 image_directory,
+
+                 cb_displayed_image = displayed_image__default,
+                 cb_status_value    = status_value__default,
                  # other stuff from the contexts that I don't need here
                  **kwargs
                  ):
 
         Ncameras = len(camera_names)
+
+        self.log_readwrite_init(camera_names,
+                                logdir_write      = logdir_write,
+                                logdir_read       = logdir_read,
+                                replay_from_frame = replay_from_frame,
+                                jpg               = jpg,
+                                image_path_prefix = image_path_prefix,
+                                image_directory   = image_directory)
 
         self.cameras                  = [None] * Ncameras
         self.image_view_groups        = [None] * Ncameras
@@ -1306,12 +1178,12 @@ class Fl_application:
             features                   = features,
             cb_displayed_image         = cb_displayed_image,
             cb_status_value            = cb_status_value,
-            log_readwrite_context      = dict( logged_images     = logged_images,
+            log_readwrite_context      = dict( logged_images     = self.logged_images,
                                                logdir_write      = logdir_write,
                                                logdir_read       = logdir_read,
                                                image_path_prefix = image_path_prefix,
                                                image_directory   = image_directory,
-                                               file_log          = file_log,
+                                               file_log          = self.file_log,
                                                replay_from_frame = replay_from_frame,
                                                jpg               = jpg,
                                               ))
@@ -1327,9 +1199,9 @@ class Fl_application:
                                                                     ### image_callback__cookie
                                                                     icam = icam,
                                                                     # pieces of the log_readwrite_context
-                                                                    logged_images = logged_images,
+                                                                    logged_images = self.logged_images,
                                                                     logdir_write  = logdir_write,
-                                                                    file_log      = file_log,
+                                                                    file_log      = self.file_log,
                                                                     jpg           = jpg,
                                                                     application   = self)
         self.window.show()
@@ -1339,12 +1211,151 @@ class Fl_application:
             for image_view_group in self.image_view_groups:
                 image_view_group.camera.request()
         else:
-            time_slider_select(logged_images     = logged_images,
+            time_slider_select(logged_images     = self.logged_images,
                                logdir_write      = logdir_write,
                                logdir_read       = logdir_read,
                                image_path_prefix = image_path_prefix,
                                image_directory   = image_directory,
                                application       = self)
+
+
+
+    def log_readwrite_init(self,
+                           camera_names,
+                           *,
+                           logdir_read,
+                           replay_from_frame,
+                           logdir_write,
+                           jpg,
+                           image_path_prefix,
+                           image_directory):
+
+        self.logdir_read       = logdir_read
+        self.replay_from_frame = replay_from_frame
+        self.logdir_write      = logdir_write
+        self.jpg               = jpg
+        self.image_path_prefix = image_path_prefix
+        self.image_directory   = image_directory
+
+        # default
+        self.file_log = None
+
+
+        if logdir_read is not None and \
+           logdir_write is not None:
+            raise Exception("logdir_read and logdir_write are exclusive. parse_args_postprocess() should have checked this")
+
+        Ncameras = len(camera_names)
+
+        if logdir_read is not None:
+
+            ### we're reading a log
+
+            # I need at least vnlog 1.38 to support structured dtypes in vnlog.slurp().
+            # See
+            #   https://notes.secretsauce.net/notes/2024/07/02_vnlogslurp-with-non-numerical-data.html
+            import vnlog
+
+            path = f"{logdir_read}/images.vnl"
+            max_len_imagepath = 128
+
+            dtype = np.dtype([ ('time',      float),
+                               ('iframe',    np.int32),
+                               ('icam',      np.int8),
+                               ('imagepath', f'U{max_len_imagepath}'),
+                              ])
+            log = vnlog.slurp(path, dtype=dtype)
+
+            # I have the whole log. I cut it down to include ONLY the cameras that were
+            # requested
+            i = np.min( np.abs(nps.dummy(np.array(camera_names), -1) - \
+                               log['icam']),
+                        axis=-2) == 0
+            log = log[i]
+
+            if log.size == 0:
+                print(f"The requested cameras {camera_names=} don't have any data in the log {path}",
+                      file = sys.stderr)
+                sys.exit(1)
+
+            if max(len(s) for s in log['imagepath']) >= max_len_imagepath:
+                print(f"Image paths in {path} are longer than the statically-defined value of {max_len_imagepath=}. Increase max_len_imagepath, or make the code more general", file=sys.stderr)
+                sys.exit(1)
+
+            # While the tool is running I want to be able to access the images in O(1),
+            # so I pre-sort the log now to make that possible. For each constant iframe
+            # I want a monotonically-increasing icam
+            log = np.sort(log, order=('iframe','icam'))
+
+            # I should have dense data over frames and cameras. I try to reshape it in
+            # that way, and confirm that everything lines up
+            Nframes  = len(log) // Ncameras
+            if Nframes*Ncameras != len(log):
+                print(f"The log {path} does not contain all dense combinations of {Ncameras=} and {Nframes=}. For the requested cameras it has {len(log)} entries",
+                      file = sys.stderr)
+                for icam in camera_names:
+                    print(f"  Requested camera {icam} has {np.count_nonzero(log['icam']==icam)} observed frames",
+                          file = sys.stderr)
+                print("These should all be idendical",
+                      file=sys.stderr)
+                sys.exit(1)
+
+            if not (replay_from_frame >= 0 and \
+                    replay_from_frame < Nframes):
+                print(f"We have {Nframes=} in the log '{path}', so --replay-from-frame must be in [0,{Nframes-1}], but we have --replay-from-frames {replay_from_frame}",
+                      file = sys.stderr)
+                sys.exit(1)
+
+            log = log.reshape((Nframes,Ncameras))
+            if np.any(log['icam'] - log['icam'][0,:]):
+                print(f"The log {path} does not contain the same set of cameras in each frame",
+                      file = sys.stderr)
+                sys.exit(1)
+            if np.any( np.sort(camera_names) - log['icam'][0,:] ):
+                print(f"The log {path} does not contain exactly the cameras requested in {camera_names=}",
+                      file = sys.stderr)
+                sys.exit(1)
+            if np.any(log['iframe'] - log['iframe'][:,(0,)]):
+                print(f"The log {path} does not contain the same set of frames observing each camera",
+                      file = sys.stderr)
+                sys.exit(1)
+
+            # Great. We have a dense set. We're done!
+            self.logged_images = log
+
+        elif logdir_write is not None:
+            ### we're writing a log
+            if not os.path.isdir(logdir_write):
+                if os.path.exists(logdir_write):
+                    print(f"Error: requested logdir_write '{logdir_write}' is a FILE on disk. It should be a directory (that we will write to) or it shouldn't exist (we will create the directory)",
+                          file=sys.stderr)
+                    sys.exit(1)
+                try:
+                    os.mkdir(logdir_write)
+                except Exception as e:
+                    print(f"Error: could not mkdir requested logdir_write '{logdir_write}': {e}",
+                          file=sys.stderr)
+                    sys.exit(1)
+
+            path = f"{logdir_write}/images.vnl"
+            try:
+                self.file_log = open(path, "w")
+            except Exception as e:
+                print(f"Error opening log file '{path}' for writing: {e}",
+                      file=sys.stderr)
+                sys.exit(1)
+
+            for i,c in enumerate(camera_names):
+                if c is not None:
+                    print(f"## Camera {i}: {c}", file=self.file_log)
+            write_logline("# time iframe icam imagepath",
+                          file_log = self.file_log);
+
+            # I can replay this log as I write it. 'logged_images' is set for both
+            # reading and writing
+            self.logged_images = []
+
+
 
 
     def create_gui_elements(self,
