@@ -771,15 +771,6 @@ class Fl_Image_View_Group(Fl_Group):
             self.camera.request()
 
 
-def write_logline(l,
-                  *,
-                  # usually will come from **log_readwrite_context
-                  file_log,
-                  # other stuff from the contexts that I don't need here
-                  **kwargs):
-    if file_log is not None:
-        print(l,file=file_log)
-        file_log.flush()
 
 
 
@@ -1045,8 +1036,7 @@ class Fl_application:
             for i,c in enumerate(camera_names):
                 if c is not None:
                     print(f"## Camera {i}: {c}", file=self.file_log)
-            write_logline("# time iframe icam imagepath",
-                          file_log = self.file_log);
+            self.write_logline("# time iframe icam imagepath")
 
             # I can replay this log as I write it. 'logged_images' is set for both
             # reading and writing
@@ -1345,11 +1335,9 @@ we will do that ourselves, set frame['buffer'] to None)
                 path = f"{self.logdir_write}/{filename}"
 
                 if image is None:
-                    write_logline(f"{timestamp:.3f} {iframe} {icam} -",
-                                  file_log = self.file_log);
+                    self.write_logline(f"{timestamp:.3f} {iframe} {icam} -")
                 else:
-                    write_logline(f"{timestamp:.3f} {iframe} {icam} {filename}",
-                                  file_log = self.file_log);
+                    self.write_logline(f"{timestamp:.3f} {iframe} {icam} {filename}")
 
                     self.image_view_groups[icam].camera. \
                         async_save_image_and_push_buffer(path,image,frame['buffer'])
@@ -1400,3 +1388,9 @@ we will do that ourselves, set frame['buffer'] to None)
                     image_view_group.camera.request()
             schedule_next_frame(request_image_set,
                                 self.image_view_groups[0].camera.timestamp_request_us/1e6, self.period)
+
+
+    def write_logline(self,l):
+        if self.file_log is not None:
+            print(l,file=self.file_log)
+            self.file_log.flush()
