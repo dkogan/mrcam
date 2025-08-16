@@ -528,9 +528,8 @@ class Fl_Image_View_Group(Fl_Group):
                     self.status_widget.value( self.status_value(None, None) )
 
             if cb_handle_event_image_widget is not None:
-                return cb_handle_event_image_widget[0](self,event,
-                                                       application = application,
-                                                       **cb_handle_event_image_widget[1])
+                return cb_handle_event_image_widget(self,event,
+                                                    application = application)
 
             return None # Use parent's return code
 
@@ -953,117 +952,10 @@ def time_slider_update_label(*,
     t = datetime.datetime.fromtimestamp(t, datetime.UTC)
     time_slider_widget.label(f"iframe={iframe}/{int(time_slider_widget.maximum())} timestamp={time:.03f} {t.strftime('%Y-%m-%d %H:%M:%S')} {tzname}")
 
-
-def update_all_images_from_replay(*,
-                                  # usually will come from **log_readwrite_context
-                                  logged_images,
-                                  logdir_write      = None,
-                                  logdir_read       = None,
-                                  image_path_prefix = None,
-                                  image_directory   = None,
-                                  # usually will come from **fltk_application_context
-                                  image_view_groups,
-                                  flip_x,
-                                  flip_y,
-                                  time_slider_widget,
-                                  # other stuff from the contexts that I don't need here
-                                  **kwargs):
-    i_iframe = round(time_slider_widget.value())
-
-    try:
-        record = logged_images[i_iframe]
-    except IndexError:
-        print(f"WARNING: {i_iframe=} is out-of-bounds in logged_images: {len(logged_images)=}. This is a bug")
-        return
-
-    Ncameras = len(image_view_groups)
-    for icam in range(Ncameras):
-        path = complete_path(record['imagepath'][icam],
-                             logdir_write      = logdir_write,
-                             logdir_read       = logdir_read,
-                             image_path_prefix = image_path_prefix,
-                             image_directory   = image_directory)
-        if path is None:
-            image = None # write an all-black image
-
-        else:
-            try:
-                image = mrcal.load_image(path)
-            except:
-                print(f"Couldn't read image at '{path}'", file=sys.stderr)
-                image = None
-
-        image_view_groups[icam].update_image_widget( image,
-                                                     iframe = record['iframe'][icam],
-                                                     icam   = icam,
-                                                     flip_x = flip_x,
-                                                     flip_y = flip_y)
-
-
-
-def time_slider_select(*,
-                       # usually will come from **log_readwrite_context
-                       logged_images,
-                       logdir_write,
-                       logdir_read,
-                       image_path_prefix,
-                       image_directory,
-
-                       application,
-                       # other stuff from the contexts that I don't need here
-                       **kwargs):
-    i_iframe = round(application.time_slider_widget.value())
-
-    try:
-        record = logged_images[i_iframe]
-    except IndexError:
-        print(f"WARNING: {i_iframe=} is out-of-bounds in logged_images: {len(logged_images)=}. This is a bug")
-        return
-
-    # shape (Ncameras,); all of these
-    times   = record['time']
-    iframes = record['iframe']
-
-    time_slider_update_label(iframe             = iframes[0],
-                             time               = times[0],
-                             time_slider_widget = application.time_slider_widget,
-                             utcoffset_sec      = application.utcoffset_sec,
-                             tzname             = application.tzname)
-
-    update_all_images_from_replay(logged_images     = logged_images,
-                                  logdir_write      = logdir_write,
-                                  logdir_read       = logdir_read,
-                                  image_path_prefix = image_path_prefix,
-                                  image_directory   = image_directory,
-                                  image_view_groups = application.image_view_groups,
-                                  flip_x            = application.flip_x,
-                                  flip_y            = application.flip_y,
-                                  time_slider_widget=application.time_slider_widget)
-
-    # if live-updating we color the slider green
-    if logdir_write is not None:
-        if int(application.time_slider_widget.value()) == int(application.time_slider_widget.maximum()):
-            application.time_slider_widget.color(FL_GREEN)
-        else:
-            application.time_slider_widget.color(FL_BACKGROUND_COLOR)
-
-
 def handle_event_image_widget__e(image_view_group,
                                  event,
                                  *,
-                                 # user-passed cookie
-                                 # usually will come from **log_readwrite_context
-                                 logged_images,
-                                 logdir_write,
-                                 logdir_read,
-                                 image_path_prefix,
-                                 image_directory,
-
-                                 application,
-
-                                 # other stuff from the contexts that I don't need here
-                                 **kwargs
-                                 ):
+                                 application):
     if event == FL_KEYUP:
         if Fl.event_key() == ord('e') or \
            Fl.event_key() == ord('E'):
@@ -1074,15 +966,7 @@ def handle_event_image_widget__e(image_view_group,
             # view. Otherwise I simply wait for the next frame to come in.
             # Hopefully that should be quick-enough
             if logged_images is not None:
-                update_all_images_from_replay(logged_images     = logged_images,
-                                              logdir_write      = logdir_write,
-                                              logdir_read       = logdir_read,
-                                              image_path_prefix = image_path_prefix,
-                                              image_directory   = image_directory,
-                                              image_view_groups = application.image_view_groups,
-                                              flip_x            = application.flip_x,
-                                              flip_y            = application.flip_y,
-                                              time_slider_widget=application.time_slider_widget)
+                application.update_all_images_from_replay()
             return 1
 
     return None # Use parent's return code
@@ -1177,16 +1061,7 @@ class Fl_application:
             unlock_panzoom             = unlock_panzoom,
             features                   = features,
             cb_displayed_image         = cb_displayed_image,
-            cb_status_value            = cb_status_value,
-            log_readwrite_context      = dict( logged_images     = self.logged_images,
-                                               logdir_write      = logdir_write,
-                                               logdir_read       = logdir_read,
-                                               image_path_prefix = image_path_prefix,
-                                               image_directory   = image_directory,
-                                               file_log          = self.file_log,
-                                               replay_from_frame = replay_from_frame,
-                                               jpg               = jpg,
-                                              ))
+            cb_status_value            = cb_status_value)
 
 
         for icam in range(Ncameras):
@@ -1211,12 +1086,7 @@ class Fl_application:
             for image_view_group in self.image_view_groups:
                 image_view_group.camera.request()
         else:
-            time_slider_select(logged_images     = self.logged_images,
-                               logdir_write      = logdir_write,
-                               logdir_read       = logdir_read,
-                               image_path_prefix = image_path_prefix,
-                               image_directory   = image_directory,
-                               application       = self)
+            self.time_slider_select()
 
 
 
@@ -1238,8 +1108,8 @@ class Fl_application:
         self.image_directory   = image_directory
 
         # default
-        self.file_log = None
-
+        self.file_log      = None
+        self.logged_images = None
 
         if logdir_read is not None and \
            logdir_write is not None:
@@ -1360,7 +1230,6 @@ class Fl_application:
 
     def create_gui_elements(self,
                             *,
-                            log_readwrite_context,
                             W,
                             H,
                             H_footer,
@@ -1373,11 +1242,10 @@ class Fl_application:
         # default implementation; meant to be overridden and extended
 
         H_footers = H_footer
-        if log_readwrite_context.get('logged_images') is not None:
+        if self.logged_images is not None:
             H_footers += 2*H_footer
 
-        kwargs = dict(log_readwrite_context      = log_readwrite_context,
-                      W                          = W,
+        kwargs = dict(W                          = W,
                       H                          = H,
                       H_image_views              = H - H_footers,
                       W_image_views              = W,
@@ -1408,34 +1276,28 @@ class Fl_application:
 
     def create_gui_time_slider(self,
                                *,
-                               log_readwrite_context,
                                W,
                                H_image_views,
                                H_footer,
                                # extra uneeded stuff
                                **kwargs):
         # default implementation; meant to be overridden and extended
-
-        logged_images     = log_readwrite_context.get('logged_images')
-        replay_from_frame = log_readwrite_context.get('replay_from_frame', 0)
-
-        if logged_images is not None:
+        if self.logged_images is not None:
             self.time_slider_widget = \
                 Fl_Slider(0, H_image_views,
                           W,H_footer)
             self.time_slider_widget.align(FL_ALIGN_BOTTOM)
             self.time_slider_widget.type(FL_HORIZONTAL)
             self.time_slider_widget.step(1)
-            if len(logged_images) > 0:
-                self.time_slider_widget.bounds(0, len(logged_images)-1)
-                self.time_slider_widget.value(replay_from_frame)
+            if len(self.logged_images) > 0:
+                self.time_slider_widget.bounds(0, len(self.logged_images)-1)
+                self.time_slider_widget.value(self.replay_from_frame)
             else:
                 self.time_slider_widget.bounds(0, 0)
                 self.time_slider_widget.value(0)
             self.time_slider_widget.callback( \
                 lambda *args: \
-                    time_slider_select(**log_readwrite_context,
-                                       application = self))
+                    self.time_slider_select())
         else:
             self.time_slider_widget = None
 
@@ -1460,7 +1322,6 @@ class Fl_application:
 
     def create_gui_image_views(self,
                                *,
-                               log_readwrite_context,
                                W_image_views,
                                H_image_views,
                                unlock_panzoom,
@@ -1491,9 +1352,7 @@ class Fl_application:
                                         h_image if i < Hgrid-1 else (H_image_views-y0),
                                         camera          = self.cameras[icam],
                                         features        = features,
-                                        cb_handle_event_image_widget = (handle_event_image_widget__e,
-                                                                        # the cookie
-                                                                        log_readwrite_context),
+                                        cb_handle_event_image_widget = handle_event_image_widget__e,
                                         unlock_panzoom  = unlock_panzoom,
                                         cb_displayed_image = cb_displayed_image,
                                         cb_status_value    = cb_status_value,
@@ -1516,3 +1375,66 @@ class Fl_application:
         # default implementation; meant to be overridden and extended
         self.window.resizable(self.image_views)
         self.window.end()
+
+
+
+    def time_slider_select(self):
+        i_iframe = round(self.time_slider_widget.value())
+
+        try:
+            record = self.logged_images[i_iframe]
+        except IndexError:
+            print(f"WARNING: {i_iframe=} is out-of-bounds in logged_images: {len(self.logged_images)=}. This is a bug")
+            return
+
+        # shape (Ncameras,); all of these
+        times   = record['time']
+        iframes = record['iframe']
+
+        time_slider_update_label(iframe             = iframes[0],
+                                 time               = times[0],
+                                 time_slider_widget = self.time_slider_widget,
+                                 utcoffset_sec      = self.utcoffset_sec,
+                                 tzname             = self.tzname)
+
+        self.update_all_images_from_replay()
+
+        # if live-updating we color the slider green
+        if self.logdir_write is not None:
+            if int(self.time_slider_widget.value()) == int(self.time_slider_widget.maximum()):
+                self.time_slider_widget.color(FL_GREEN)
+            else:
+                self.time_slider_widget.color(FL_BACKGROUND_COLOR)
+
+
+    def update_all_images_from_replay(self):
+        i_iframe = round(time_slider_widget.value())
+
+        try:
+            record = logged_images[i_iframe]
+        except IndexError:
+            print(f"WARNING: {i_iframe=} is out-of-bounds in logged_images: {len(logged_images)=}. This is a bug")
+            return
+
+        Ncameras = len(image_view_groups)
+        for icam in range(Ncameras):
+            path = complete_path(record['imagepath'][icam],
+                                 logdir_write      = logdir_write,
+                                 logdir_read       = logdir_read,
+                                 image_path_prefix = image_path_prefix,
+                                 image_directory   = image_directory)
+            if path is None:
+                image = None # write an all-black image
+
+            else:
+                try:
+                    image = mrcal.load_image(path)
+                except:
+                    print(f"Couldn't read image at '{path}'", file=sys.stderr)
+                    image = None
+
+            image_view_groups[icam].update_image_widget( image,
+                                                         iframe = record['iframe'][icam],
+                                                         icam   = icam,
+                                                         flip_x = flip_x,
+                                                         flip_y = flip_y)
