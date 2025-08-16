@@ -891,17 +891,11 @@ we will do that ourselves, set frame['buffer'] to None)
                 # We were at the end of the time slider. Update us so that we're
                 # still at the end
                 application.time_slider_widget.value(iframe)
-                time_slider_update_label(iframe             = iframe,
-                                         time               = timestamp,
-                                         time_slider_widget = application.time_slider_widget,
-                                         utcoffset_sec      = application.utcoffset_sec,
-                                         tzname             = application.tzname)
+                application.time_slider_update_label(iframe = iframe,
+                                                     time   = timestamp)
             else:
-                time_slider_update_label(iframe             = time_slider_now,
-                                         time               = logged_images[time_slider_now]['time'][0],
-                                         time_slider_widget = application.time_slider_widget,
-                                         utcoffset_sec      = application.utcoffset_sec,
-                                         tzname             = application.tzname)
+                application.time_slider_update_label(iframe = time_slider_now,
+                                                     time   = logged_images[time_slider_now]['time'][0])
                 # The bounds changed, so the handle should be redrawn
                 application.time_slider_widget.redraw()
 
@@ -942,16 +936,6 @@ def complete_path(path,
     return path
 
 
-def time_slider_update_label(*,
-                             iframe,
-                             time,
-                             time_slider_widget,
-                             utcoffset_sec,
-                             tzname):
-    t = int(time + utcoffset_sec)
-    t = datetime.datetime.fromtimestamp(t, datetime.UTC)
-    time_slider_widget.label(f"iframe={iframe}/{int(time_slider_widget.maximum())} timestamp={time:.03f} {t.strftime('%Y-%m-%d %H:%M:%S')} {tzname}")
-
 def handle_event_image_widget__e(image_view_group,
                                  event,
                                  *,
@@ -965,7 +949,7 @@ def handle_event_image_widget__e(image_view_group,
             # If I have a log (we're replaying or logging to disk) I update the
             # view. Otherwise I simply wait for the next frame to come in.
             # Hopefully that should be quick-enough
-            if logged_images is not None:
+            if application.logged_images is not None:
                 application.update_all_images_from_replay()
             return 1
 
@@ -1028,7 +1012,7 @@ class Fl_application:
         # functions. It should be modifiable.
         self.do_equalize_fieldscale   = [False]
 
-        if logdir_read is None:
+        if self.logdir_read is None:
             # I init each camera. If we're sending the TTYS0 trigger signal, I want all
             # the cameras to be ready when the trigger comes in. Thus the LAST camera
             # will send the trigger; I set the rest to EXTERNAL triggering in that case
@@ -1073,15 +1057,14 @@ class Fl_application:
                                                                     flip_y         = flip_y,
                                                                     ### image_callback__cookie
                                                                     icam = icam,
-                                                                    # pieces of the log_readwrite_context
                                                                     logged_images = self.logged_images,
-                                                                    logdir_write  = logdir_write,
+                                                                    logdir_write  = self.logdir_write,
                                                                     file_log      = self.file_log,
                                                                     jpg           = jpg,
                                                                     application   = self)
         self.window.show()
 
-        if logdir_read is None:
+        if self.logdir_read is None:
             # request the initial frame; will recur in image_callback
             for image_view_group in self.image_view_groups:
                 image_view_group.camera.request()
@@ -1391,11 +1374,8 @@ class Fl_application:
         times   = record['time']
         iframes = record['iframe']
 
-        time_slider_update_label(iframe             = iframes[0],
-                                 time               = times[0],
-                                 time_slider_widget = self.time_slider_widget,
-                                 utcoffset_sec      = self.utcoffset_sec,
-                                 tzname             = self.tzname)
+        self.time_slider_update_label(iframe = iframes[0],
+                                      time   = times[0])
 
         self.update_all_images_from_replay()
 
@@ -1406,23 +1386,32 @@ class Fl_application:
             else:
                 self.time_slider_widget.color(FL_BACKGROUND_COLOR)
 
+    def time_slider_update_label(self,
+                                 *,
+                                 iframe,
+                                 time):
+        t = int(time + self.utcoffset_sec)
+        t = datetime.datetime.fromtimestamp(t, datetime.UTC)
+        self.time_slider_widget.label(f"iframe={iframe}/{int(self.time_slider_widget.maximum())} timestamp={time:.03f} {t.strftime('%Y-%m-%d %H:%M:%S')} {self.tzname}")
+
+
 
     def update_all_images_from_replay(self):
-        i_iframe = round(time_slider_widget.value())
+        i_iframe = round(self.time_slider_widget.value())
 
         try:
-            record = logged_images[i_iframe]
+            record = self.logged_images[i_iframe]
         except IndexError:
-            print(f"WARNING: {i_iframe=} is out-of-bounds in logged_images: {len(logged_images)=}. This is a bug")
+            print(f"WARNING: {i_iframe=} is out-of-bounds in logged_images: {len(self.logged_images)=}. This is a bug")
             return
 
-        Ncameras = len(image_view_groups)
+        Ncameras = len(self.image_view_groups)
         for icam in range(Ncameras):
             path = complete_path(record['imagepath'][icam],
-                                 logdir_write      = logdir_write,
-                                 logdir_read       = logdir_read,
-                                 image_path_prefix = image_path_prefix,
-                                 image_directory   = image_directory)
+                                 logdir_write      = self.logdir_write,
+                                 logdir_read       = self.logdir_read,
+                                 image_path_prefix = self.image_path_prefix,
+                                 image_directory   = self.image_directory)
             if path is None:
                 image = None # write an all-black image
 
@@ -1433,8 +1422,8 @@ class Fl_application:
                     print(f"Couldn't read image at '{path}'", file=sys.stderr)
                     image = None
 
-            image_view_groups[icam].update_image_widget( image,
-                                                         iframe = record['iframe'][icam],
-                                                         icam   = icam,
-                                                         flip_x = flip_x,
-                                                         flip_y = flip_y)
+            self.image_view_groups[icam].update_image_widget( image,
+                                                              iframe = record['iframe'][icam],
+                                                              icam   = icam,
+                                                              flip_x = self.flip_x,
+                                                              flip_y = self.flip_y)
