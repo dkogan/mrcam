@@ -475,6 +475,7 @@ class Fl_Image_View_Group(Fl_Group):
                  x,y,w,h,
                  *,
                  camera,
+                 icam,
                  # iterable of strings. Might contain regex; might contain
                  # annotations such as [log] (applied to all regex matches). Any
                  # feature name that doesn't exist EXACTLY as given will be
@@ -482,7 +483,6 @@ class Fl_Image_View_Group(Fl_Group):
                  features          = (),
                  unlock_panzoom,
                  # (function,cookie)
-                 cb_handle_event_image_widget = None,
                  cb_displayed_image           = displayed_image__default,
                  cb_status_value              = status_value__default,
 
@@ -492,13 +492,13 @@ class Fl_Image_View_Group(Fl_Group):
 
         super().__init__(x,y,w,h)
 
-        self.displayed_image = cb_displayed_image
-        self.status_value    = cb_status_value
+        self.displayed_image        = cb_displayed_image
+        self.status_value           = cb_status_value
+        self.do_equalize_fieldscale = False
 
         self.camera = camera
         self.iframe = 0
-
-        self.do_equalize_fieldscale = application.do_equalize_fieldscale
+        self.icam   = icam
 
         if features: w_controls = 300
         else:        w_controls = 0
@@ -527,9 +527,7 @@ class Fl_Image_View_Group(Fl_Group):
                 except:
                     self.status_widget.value( self.status_value(None, None) )
 
-            if cb_handle_event_image_widget is not None:
-                return cb_handle_event_image_widget(self,event,
-                                                    application = application)
+            application.handle_event_image_widget(event, self)
 
             return None # Use parent's return code
 
@@ -718,7 +716,6 @@ class Fl_Image_View_Group(Fl_Group):
                             image,
                             *,
                             iframe,
-                            icam,
                             flip_x,
                             flip_y):
 
@@ -728,8 +725,8 @@ class Fl_Image_View_Group(Fl_Group):
         image_data = \
             self.displayed_image(image,
                                  iframe                 = iframe,
-                                 icam                   = icam,
-                                 do_equalize_fieldscale = self.do_equalize_fieldscale[0])
+                                 icam                   = self.icam,
+                                 do_equalize_fieldscale = self.do_equalize_fieldscale)
         self.image_widget.update_image(image_data = image_data,
                                        flip_x     = flip_x,
                                        flip_y     = flip_y)
@@ -743,10 +740,9 @@ class Fl_Image_View_Group(Fl_Group):
                              # if given, we automatically recur. Otherwise it is
                              # expected that the image_callback will request the
                              # next set of frames, if needed
-                             period                   = None,
-                             flip_x                   = False,
-                             flip_y                   = False,
-                             **image_callback__cookie):
+                             period = None,
+                             icam,
+                             application):
 
         if self.camera is None:
             return
@@ -755,9 +751,9 @@ class Fl_Image_View_Group(Fl_Group):
 
             frame = self.camera.requested_image()
 
-            image_received_from_mrcam(iframe = self.iframe,
-                                      frame  = frame,
-                                      **image_callback__cookie)
+            application.image_received_from_mrcam(iframe = self.iframe,
+                                                  frame  = frame,
+                                                  icam   = icam)
             self.camera.push_buffer(frame['buffer']) # no-op if the buffer is None
             if not frame['off_decimation']:
                 self.iframe += 1
@@ -784,126 +780,6 @@ def write_logline(l,
     if file_log is not None:
         print(l,file=file_log)
         file_log.flush()
-
-
-def image_received_from_mrcam(*,
-                              iframe,
-                              frame, # dict from requested_image()
-
-                              # All these are the cookie given to set_up_image_capture()
-                              icam,
-                              # usually will come from **log_readwrite_context
-                              logged_images,
-                              logdir_write,
-                              file_log,
-                              jpg,
-                              application,
-                              # other stuff from the contexts that I don't need here
-                              **kwargs):
-    r'''Process the image
-
-On return, we will push_buffer(frame['buffer']). If we do not want that (i.e. if
-we will do that ourselves, set frame['buffer'] to None)
-
-    '''
-
-    Ncameras = len(application.image_view_groups)
-
-    extension      = "jpg" if jpg else "png"
-
-    image          = frame['image']
-    timestamp      = frame['timestamp']
-    buffer         = frame['buffer']
-    off_decimation = frame['off_decimation']
-
-    if not off_decimation:
-        if image is None:
-            print("Error capturing the image. I will try again",
-                  file=sys.stderr)
-
-        time_slider_at_max = False
-        if logdir_write is not None:
-
-            time_slider_now = int(application.time_slider_widget.value())
-            time_slider_at_max = \
-                time_slider_now == int(application.time_slider_widget.maximum())
-
-            if not iframe in application.logged_image_from_iframe:
-                # Started this set of cameras. Add empty record; fill it in as I get
-                # frames.
-                #
-                # It is very strange to have a list of iframes here: each iframe
-                # in the list will be the same. I do that because that's what I
-                # get when I read logs, and I want to use the same code path
-                # for the read- and write-log cases. This could be simplified if
-                # I adjust the results in log_readwrite_init() to remove the
-                # duplicated iframes
-                application.logged_image_from_iframe[iframe] = dict(time      = [None] * Ncameras,
-                                                        imagepath = [None] * Ncameras,
-                                                        iframe    = [None] * Ncameras)
-                logged_images.append( application.logged_image_from_iframe[iframe] )
-
-            # write image to disk
-            filename = f"frame{iframe:05d}-cam{icam}.{extension}"
-            path = f"{logdir_write}/{filename}"
-
-            if image is None:
-                write_logline(f"{timestamp:.3f} {iframe} {icam} -",
-                              file_log = file_log);
-            else:
-                write_logline(f"{timestamp:.3f} {iframe} {icam} {filename}",
-                              file_log = file_log);
-
-                application.image_view_groups[icam].camera. \
-                    async_save_image_and_push_buffer(path,image,frame['buffer'])
-                frame['buffer'] = None # indicate that the caller should NOT re-push the buffer
-
-            application.logged_image_from_iframe[iframe]['time'     ][icam] = timestamp
-            application.logged_image_from_iframe[iframe]['iframe'   ][icam] = iframe
-            if image is not None:
-                application.logged_image_from_iframe[iframe]['imagepath'][icam] = path
-                # Otherwise, leave at None
-
-        if logdir_write is None or time_slider_at_max:
-            application.image_view_groups[icam].update_image_widget( image  = image,
-                                                         iframe = iframe,
-                                                         icam   = icam,
-                                                         flip_x = application.flip_x,
-                                                         flip_y = application.flip_y)
-
-    # schedule the next set of images; do this even if off_decimation
-    if not iframe in application.Ncameras_seen_iframe:
-        application.Ncameras_seen_iframe[iframe] = 1
-    else:
-        application.Ncameras_seen_iframe[iframe] += 1
-
-    # I need a Ncameras_seen_iframe to be a dict instead of a count for the
-    # last frame, because in a free-runnning mode, I may get frames out of
-    # the usual expected order
-    if application.Ncameras_seen_iframe[iframe] >= Ncameras:
-        # Every camera reported back. Finish up and ask for another frame
-        del application.Ncameras_seen_iframe[iframe]
-
-        if not off_decimation and application.time_slider_widget is not None:
-            application.time_slider_widget.maximum(iframe)
-
-            if time_slider_at_max:
-                # We were at the end of the time slider. Update us so that we're
-                # still at the end
-                application.time_slider_widget.value(iframe)
-                application.time_slider_update_label(iframe = iframe,
-                                                     time   = timestamp)
-            else:
-                application.time_slider_update_label(iframe = time_slider_now,
-                                                     time   = logged_images[time_slider_now]['time'][0])
-                # The bounds changed, so the handle should be redrawn
-                application.time_slider_widget.redraw()
-
-        def request_image_set():
-            for image_view_group in application.image_view_groups:
-                image_view_group.camera.request()
-        schedule_next_frame(request_image_set,
-                            application.image_view_groups[0].camera.timestamp_request_us/1e6, application.period)
 
 
 
@@ -934,30 +810,6 @@ def complete_path(path,
         raise Exception("We're replaying but both logdir and replay are None. This is a bug")
 
     return path
-
-
-def handle_event_image_widget__e(image_view_group,
-                                 event,
-                                 *,
-                                 application):
-    if event == FL_KEYUP:
-        if Fl.event_key() == ord('e') or \
-           Fl.event_key() == ord('E'):
-            # Toggle the value shared between ALL the image_view_groups
-            image_view_group.do_equalize_fieldscale[0] = \
-                not image_view_group.do_equalize_fieldscale[0]
-            # If I have a log (we're replaying or logging to disk) I update the
-            # view. Otherwise I simply wait for the next frame to come in.
-            # Hopefully that should be quick-enough
-            if application.logged_images is not None:
-                application.update_all_images_from_replay()
-            return 1
-
-    return None # Use parent's return code
-
-
-
-
 
 
 class Fl_application:
@@ -1008,9 +860,6 @@ class Fl_application:
         self.period                   = period
         self.Ncameras_seen_iframe     = dict()
         self.logged_image_from_iframe = dict()
-        # [False] and not False because I want this passed by reference to
-        # functions. It should be modifiable.
-        self.do_equalize_fieldscale   = [False]
 
         if self.logdir_read is None:
             # I init each camera. If we're sending the TTYS0 trigger signal, I want all
@@ -1051,17 +900,10 @@ class Fl_application:
         for icam in range(Ncameras):
             if self.image_view_groups[icam].camera is not None:
                 self.image_view_groups[icam].set_up_image_capture(# don't auto-recur. I do that myself,
-                                                                    # making sure ALL the cameras are processed
-                                                                    period         = None,
-                                                                    flip_x         = flip_x,
-                                                                    flip_y         = flip_y,
-                                                                    ### image_callback__cookie
-                                                                    icam = icam,
-                                                                    logged_images = self.logged_images,
-                                                                    logdir_write  = self.logdir_write,
-                                                                    file_log      = self.file_log,
-                                                                    jpg           = jpg,
-                                                                    application   = self)
+                                                                  # making sure ALL the cameras are processed
+                                                                  icam        = icam,
+                                                                  period      = None,
+                                                                  application = self)
         self.window.show()
 
         if self.logdir_read is None:
@@ -1333,13 +1175,13 @@ class Fl_application:
                     Fl_Image_View_Group(x0,y0,
                                         w_image if j < Wgrid-1 else (W_image_views-x0),
                                         h_image if i < Hgrid-1 else (H_image_views-y0),
-                                        camera          = self.cameras[icam],
-                                        features        = features,
-                                        cb_handle_event_image_widget = handle_event_image_widget__e,
-                                        unlock_panzoom  = unlock_panzoom,
-                                        cb_displayed_image = cb_displayed_image,
-                                        cb_status_value    = cb_status_value,
-                                        application        = self)
+                                        camera                       = self.cameras[icam],
+                                        icam                         = icam,
+                                        features                     = features,
+                                        unlock_panzoom               = unlock_panzoom,
+                                        cb_displayed_image           = cb_displayed_image,
+                                        cb_status_value              = cb_status_value,
+                                        application                  = self)
                 x0   += w_image
                 icam += 1
 
@@ -1423,6 +1265,136 @@ class Fl_application:
 
             self.image_view_groups[icam].update_image_widget( image,
                                                               iframe = record['iframe'][icam],
-                                                              icam   = icam,
                                                               flip_x = self.flip_x,
                                                               flip_y = self.flip_y)
+
+    def handle_event_image_widget(self,
+                                  event,
+                                  image_view_group):
+        # default implementation; meant to be overridden and extended
+
+        if event == FL_KEYUP:
+            if Fl.event_key() == ord('e') or \
+               Fl.event_key() == ord('E'):
+                # Toggle the value shared between ALL the image_view_groups
+                image_view_group.do_equalize_fieldscale = not image_view_group.do_equalize_fieldscale
+                # If I have a log (we're replaying or logging to disk) I update the
+                # view. Otherwise I simply wait for the next frame to come in.
+                # Hopefully that should be quick-enough
+                if self.logged_images is not None:
+                    self.update_all_images_from_replay()
+                return 1
+
+        return None # Use parent's return code
+
+
+    def image_received_from_mrcam(self,
+                                  *,
+                                  iframe,
+                                  frame, # dict from requested_image()
+
+                                  # All these are the cookie given to set_up_image_capture()
+                                  icam):
+        r'''Process the image
+
+On return, we will push_buffer(frame['buffer']). If we do not want that (i.e. if
+we will do that ourselves, set frame['buffer'] to None)
+
+        '''
+
+        Ncameras = len(self.image_view_groups)
+
+        extension      = "jpg" if self.jpg else "png"
+
+        image          = frame['image']
+        timestamp      = frame['timestamp']
+        buffer         = frame['buffer']
+        off_decimation = frame['off_decimation']
+
+        if not off_decimation:
+            if image is None:
+                print("Error capturing the image. I will try again",
+                      file=sys.stderr)
+
+            time_slider_at_max = False
+            if self.logdir_write is not None:
+
+                time_slider_now = int(self.time_slider_widget.value())
+                time_slider_at_max = \
+                    time_slider_now == int(self.time_slider_widget.maximum())
+
+                if not iframe in self.logged_image_from_iframe:
+                    # Started this set of cameras. Add empty record; fill it in as I get
+                    # frames.
+                    #
+                    # It is very strange to have a list of iframes here: each iframe
+                    # in the list will be the same. I do that because that's what I
+                    # get when I read logs, and I want to use the same code path
+                    # for the read- and write-log cases. This could be simplified if
+                    # I adjust the results in log_readwrite_init() to remove the
+                    # duplicated iframes
+                    self.logged_image_from_iframe[iframe] = dict(time      = [None] * Ncameras,
+                                                                        imagepath = [None] * Ncameras,
+                                                                        iframe    = [None] * Ncameras)
+                    self.logged_images.append( self.logged_image_from_iframe[iframe] )
+
+                # write image to disk
+                filename = f"frame{iframe:05d}-cam{icam}.{extension}"
+                path = f"{self.logdir_write}/{filename}"
+
+                if image is None:
+                    write_logline(f"{timestamp:.3f} {iframe} {icam} -",
+                                  file_log = self.file_log);
+                else:
+                    write_logline(f"{timestamp:.3f} {iframe} {icam} {filename}",
+                                  file_log = self.file_log);
+
+                    self.image_view_groups[icam].camera. \
+                        async_save_image_and_push_buffer(path,image,frame['buffer'])
+                    frame['buffer'] = None # indicate that the caller should NOT re-push the buffer
+
+                self.logged_image_from_iframe[iframe]['time'     ][icam] = timestamp
+                self.logged_image_from_iframe[iframe]['iframe'   ][icam] = iframe
+                if image is not None:
+                    self.logged_image_from_iframe[iframe]['imagepath'][icam] = path
+                    # Otherwise, leave at None
+
+            if self.logdir_write is None or time_slider_at_max:
+                self.image_view_groups[icam].update_image_widget( image  = image,
+                                                                  iframe = iframe,
+                                                                  flip_x = self.flip_x,
+                                                                  flip_y = self.flip_y)
+
+        # schedule the next set of images; do this even if off_decimation
+        if not iframe in self.Ncameras_seen_iframe:
+            self.Ncameras_seen_iframe[iframe] = 1
+        else:
+            self.Ncameras_seen_iframe[iframe] += 1
+
+        # I need a Ncameras_seen_iframe to be a dict instead of a count for the
+        # last frame, because in a free-runnning mode, I may get frames out of
+        # the usual expected order
+        if self.Ncameras_seen_iframe[iframe] >= Ncameras:
+            # Every camera reported back. Finish up and ask for another frame
+            del self.Ncameras_seen_iframe[iframe]
+
+            if not off_decimation and self.time_slider_widget is not None:
+                self.time_slider_widget.maximum(iframe)
+
+                if time_slider_at_max:
+                    # We were at the end of the time slider. Update us so that we're
+                    # still at the end
+                    self.time_slider_widget.value(iframe)
+                    self.time_slider_update_label(iframe = iframe,
+                                                         time   = timestamp)
+                else:
+                    self.time_slider_update_label(iframe = time_slider_now,
+                                                         time   = self.logged_images[time_slider_now]['time'][0])
+                    # The bounds changed, so the handle should be redrawn
+                    self.time_slider_widget.redraw()
+
+            def request_image_set():
+                for image_view_group in self.image_view_groups:
+                    image_view_group.camera.request()
+            schedule_next_frame(request_image_set,
+                                self.image_view_groups[0].camera.timestamp_request_us/1e6, self.period)
