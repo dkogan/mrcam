@@ -703,8 +703,9 @@ log_readwrite_context = \
                              image_directory   = args.image_directory)
 
 fltk_application_context = \
-    mrcam.fltk_application_init(args.camera_params_noname,
+    mrcam.fltk_application_init(args.camera_params_noname_nodims,
                                 args.camera,
+                                dims              = args.dims,
                                 replay            = args.replay,
                                 utcoffset_hours   = args.utcoffset_hours,
                                 flip_x            = args.flip_x,

@@ -815,9 +815,10 @@ def complete_path(path,
 class Fl_application:
 
     def __init__(self,
-                 camera_params_noname,
+                 camera_params_noname_nodims,
                  camera_names,
                  *,
+                 dims            = None,
                  utcoffset_hours = None,
                  W               = 1280,
                  H               = 1024,
@@ -865,14 +866,15 @@ class Fl_application:
             # I init each camera. If we're sending the TTYS0 trigger signal, I want all
             # the cameras to be ready when the trigger comes in. Thus the LAST camera
             # will send the trigger; I set the rest to EXTERNAL triggering in that case
-            camera_params_noname = dict(camera_params_noname) # make a copy
+            camera_params_noname_nodims = dict(camera_params_noname_nodims) # make a copy
             for i,name in reversed(list(enumerate(camera_names))):
                 self.cameras[i] = \
                     mrcam.camera(name = name,
-                                 **camera_params_noname)
+                                 dims = args.dims[i] if args.dims is not None else None,
+                                 **camera_params_noname_nodims)
 
-                if camera_params_noname['trigger'] == 'HARDWARE_TTYS0':
-                    camera_params_noname['trigger'] = 'HARDWARE_EXTERNAL'
+                if camera_params_noname_nodims['trigger'] == 'HARDWARE_TTYS0':
+                    camera_params_noname_nodims['trigger'] = 'HARDWARE_EXTERNAL'
 
 
 
