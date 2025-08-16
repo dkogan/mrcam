@@ -771,38 +771,6 @@ class Fl_Image_View_Group(Fl_Group):
             self.camera.request()
 
 
-
-
-
-def complete_path(path,
-                  *,
-                  # usually will come from **log_readwrite_context
-                  logdir_write      = None,
-                  logdir_read       = None,
-                  image_path_prefix = None,
-                  image_directory   = None):
-
-    if path is None or path == '-':
-        return None
-
-    if logdir_write is not None:
-        # We're logging; we already have the full path
-        return path
-
-    if image_path_prefix is not None:
-        return f"{image_path_prefix}/{path}"
-    if image_directory is not None:
-        return f"{image_directory}/{os.path.basename(path)}"
-    if path[0] != '/':
-        # The image filename has a relative path. I want it to be
-        # relative to the log directory
-        if logdir_read is not None:
-            return f"{logdir_read}/{path}"
-        raise Exception("We're replaying but both logdir and replay are None. This is a bug")
-
-    return path
-
-
 class Fl_application:
 
     def __init__(self,
@@ -1241,11 +1209,7 @@ class Fl_application:
 
         Ncameras = len(self.image_view_groups)
         for icam in range(Ncameras):
-            path = complete_path(record['imagepath'][icam],
-                                 logdir_write      = self.logdir_write,
-                                 logdir_read       = self.logdir_read,
-                                 image_path_prefix = self.image_path_prefix,
-                                 image_directory   = self.image_directory)
+            path = self.complete_path(record['imagepath'][icam])
             if path is None:
                 image = None # write an all-black image
 
@@ -1394,3 +1358,25 @@ we will do that ourselves, set frame['buffer'] to None)
         if self.file_log is not None:
             print(l,file=self.file_log)
             self.file_log.flush()
+
+
+    def complete_path(self, path):
+        if path is None or path == '-':
+            return None
+
+        if self.logdir_write is not None:
+            # We're logging; we already have the full path
+            return path
+
+        if self.image_path_prefix is not None:
+            return f"{self.image_path_prefix}/{path}"
+        if self.image_directory is not None:
+            return f"{self.image_directory}/{os.path.basename(path)}"
+        if path[0] != '/':
+            # The image filename has a relative path. I want it to be
+            # relative to the log directory
+            if self.logdir_read is not None:
+                return f"{self.logdir_read}/{path}"
+            raise Exception("We're replaying but both logdir and replay are None. This is a bug")
+
+        return path
