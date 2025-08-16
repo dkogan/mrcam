@@ -335,47 +335,6 @@ def schedule_next_frame(f, t0, period):
         Fl.add_timeout(time_sleep, lambda *args: f())
 
 
-def displayed_image__default(image,
-                             *,
-                             do_equalize_fieldscale = False,
-                             # extra stuff
-                             **kwargs):
-    if image is None:
-        return None
-
-    if image.itemsize == 1:
-        # 8-bit image. Display as is
-        return image
-
-    # Deep image. Display as a heat map
-    if image.ndim > 2:
-        raise Exception("high-depth color images not supported yet")
-
-    if not do_equalize_fieldscale:
-        q = 5
-        a_min = np.percentile(image, q = q)
-        a_max = np.percentile(image, q = 100-q)
-        return mrcal.apply_color_map(image,
-                                     a_min = a_min,
-                                     a_max = a_max)
-    else:
-        return mrcal.apply_color_map(mrcam.equalize_fieldscale(image),
-                                     a_min = 0,
-                                     a_max = 255)
-
-
-def status_value__default(q, pixel_value_text):
-    if q is not None:
-        if pixel_value_text is not None:
-            return f"{q[0]:.1f},{q[1]:.1f}{pixel_value_text}"
-        else:
-            return f"{q[0]:.1f},{q[1]:.1f}"
-    else:
-        return ""
-
-
-
-
 
 class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
     r'''An image-display class that can tie pan/zoom for sibling widgets'''
@@ -482,9 +441,6 @@ class Fl_Image_View_Group(Fl_Group):
                  # re-tried as a regex
                  features          = (),
                  unlock_panzoom,
-                 # (function,cookie)
-                 cb_displayed_image           = displayed_image__default,
-                 cb_status_value              = status_value__default,
 
                  application,
                  # other stuff from the contexts that I don't need here
@@ -492,8 +448,6 @@ class Fl_Image_View_Group(Fl_Group):
 
         super().__init__(x,y,w,h)
 
-        self.displayed_image        = cb_displayed_image
-        self.status_value           = cb_status_value
         self.do_equalize_fieldscale = False
 
         self.camera = camera
@@ -722,11 +676,7 @@ class Fl_Image_View_Group(Fl_Group):
         self.image_widget.image = image
 
         # Will be None if the image was None (i.e. the capture failed)
-        image_data = \
-            self.displayed_image(image,
-                                 iframe                 = iframe,
-                                 icam                   = self.icam,
-                                 do_equalize_fieldscale = self.do_equalize_fieldscale)
+        image_data = self.displayed_image(image)
         self.image_widget.update_image(image_data = image_data,
                                        flip_x     = flip_x,
                                        flip_y     = flip_y)
@@ -771,6 +721,45 @@ class Fl_Image_View_Group(Fl_Group):
             self.camera.request()
 
 
+    def status_value(self, q, pixel_value_text):
+        # default implementation; meant to be overridden and extended
+        if q is not None:
+            if pixel_value_text is not None:
+                return f"{q[0]:.1f},{q[1]:.1f}{pixel_value_text}"
+            else:
+                return f"{q[0]:.1f},{q[1]:.1f}"
+        else:
+            return ""
+
+
+    def displayed_image(self,
+                        image):
+        # default implementation; meant to be overridden and extended
+        if image is None:
+            return None
+
+        if image.itemsize == 1:
+            # 8-bit image. Display as is
+            return image
+
+        # Deep image. Display as a heat map
+        if image.ndim > 2:
+            raise Exception("high-depth color images not supported yet")
+
+        if not self.do_equalize_fieldscale:
+            q = 5
+            a_min = np.percentile(image, q = q)
+            a_max = np.percentile(image, q = 100-q)
+            return mrcal.apply_color_map(image,
+                                         a_min = a_min,
+                                         a_max = a_max)
+        else:
+            return mrcal.apply_color_map(mrcam.equalize_fieldscale(image),
+                                         a_min = 0,
+                                         a_max = 255)
+
+
+
 class Fl_application:
 
     def __init__(self,
@@ -796,9 +785,6 @@ class Fl_application:
                  jpg,
                  image_path_prefix,
                  image_directory,
-
-                 cb_displayed_image = displayed_image__default,
-                 cb_status_value    = status_value__default,
                  # other stuff from the contexts that I don't need here
                  **kwargs
                  ):
@@ -853,9 +839,7 @@ class Fl_application:
             H_footer                   = H_footer,
             title                      = title,
             unlock_panzoom             = unlock_panzoom,
-            features                   = features,
-            cb_displayed_image         = cb_displayed_image,
-            cb_status_value            = cb_status_value)
+            features                   = features)
 
 
         for icam in range(Ncameras):
@@ -1020,9 +1004,7 @@ class Fl_application:
                             H_footer,
                             title,
                             unlock_panzoom,
-                            features,
-                            cb_displayed_image,
-                            cb_status_value):
+                            features):
 
         # default implementation; meant to be overridden and extended
 
@@ -1037,9 +1019,7 @@ class Fl_application:
                       H_footer                   = H_footer,
                       title                      = title,
                       unlock_panzoom             = unlock_panzoom,
-                      features                   = features,
-                      cb_displayed_image         = cb_displayed_image,
-                      cb_status_value            = cb_status_value)
+                      features                   = features)
 
         self.create_gui_window     (**kwargs)
         self.create_gui_time_slider(**kwargs)
@@ -1111,8 +1091,6 @@ class Fl_application:
                                H_image_views,
                                unlock_panzoom,
                                features,
-                               cb_displayed_image,
-                               cb_status_value,
                                # extra uneeded stuff
                                **kwargs):
         # default implementation; meant to be overridden and extended
@@ -1139,8 +1117,6 @@ class Fl_application:
                                         icam                         = icam,
                                         features                     = features,
                                         unlock_panzoom               = unlock_panzoom,
-                                        cb_displayed_image           = cb_displayed_image,
-                                        cb_status_value              = cb_status_value,
                                         application                  = self)
                 x0   += w_image
                 icam += 1
