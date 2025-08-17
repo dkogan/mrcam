@@ -119,201 +119,174 @@ def sharpness(image):
                       borderType = cv2.BORDER_REFLECT)
     return nps.norm2(L.ravel())
 
-def update_sharpness(image,
-                     **kwargs):
-    global imagersize, plot_widget
-
-    if image is not None:
-        t = time.time()-t0
-
-        if imagersize is None:
-            imagersize = np.array((image.shape[1], image.shape[0]),)
-
-        for region in focus_regions:
-            roi  = region['roi']
-            region['data'] = nps.glue(region['data'],
-                                      np.array((t, sharpness(image[roi[0],roi[1]])),
-                                               dtype=float),
-                                      axis = -2)
-
-        if focus_regions:
-            plot_widget.plot(*[(region['data'] - np.array((t,0),),
-                                dict(tuplesize = -2,
-                                     _with     = f"lines lw 2 lc \"{region['color_string']}\"")) \
-                               for region in focus_regions])
-
-    else:
-        # Error occurred capturing the image. Let it go; hopefully the next one
-        # will work
-        pass
-
-    return mrcam.displayed_image__default(image, **kwargs)
 
 
-def handle_event_image_widget(image_view_group, event,
-                              **kwargs):
+class Fl_focus_image(mrcam.Fl_mrcam_image):
 
-    result = mrcam.handle_event_image_widget__e(image_view_group, event,
-                                                **kwargs)
-    if result is not None:
-        return result
+    def displayed_image(self,
+                        image):
 
+        # update_sharpness()
+        global imagersize, plot_widget
 
-    if event != FL_PUSH:
-        return None
+        if image is not None:
+            t = time.time()-t0
 
-    if Fl.event_button() != FL_RIGHT_MOUSE:
-        return None
+            if imagersize is None:
+                imagersize = np.array((image.shape[1], image.shape[0]),)
 
-    widget = image_view_group.image_widget
+            for region in focus_regions:
+                roi  = region['roi']
+                region['data'] = nps.glue(region['data'],
+                                          np.array((t, sharpness(image[roi[0],roi[1]])),
+                                                   dtype=float),
+                                          axis = -2)
 
-    try:
-        q = np.round(np.array(widget.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ))).astype(int)
-    except:
-        return None
+            if focus_regions:
+                plot_widget.plot(*[(region['data'] - np.array((t,0),),
+                                    dict(tuplesize = -2,
+                                         _with     = f"lines lw 2 lc \"{region['color_string']}\"")) \
+                                   for region in focus_regions])
 
-    if q is None:
-        return None
+        else:
+            # Error occurred capturing the image. Let it go; hopefully the next one
+            # will work
+            pass
 
+        return super().displayed_image(image)
 
-    global focus_regions
-    global imagersize
+    def handle(self, event):
 
-    q00 = q - args.radius
-    q11 = q + args.radius
-
-    if imagersize is None             or \
-       np.any(q00 < 0)                or \
-       np.any(q11 < 0)                or \
-       np.any(imagersize-1 - q00 < 0) or \
-       np.any(imagersize-1 - q11 < 0):
-        return None
-
-
-    # New region
-    focus_regions.append(dict())
-    region = focus_regions[-1]
-
-    region['roi'] = ( slice(q00[1],q11[1]),
-                      slice(q00[0],q11[0]) )
-    q01 = np.array((q00[0], q11[1]))
-    q10 = np.array((q11[0], q00[1]))
-
-    color_string = color_sequence_rgb[ (len(focus_regions)-1) %
-                                      len(color_sequence_rgb)]
-    color_array = color_array_from_string(color_string)
-    region_marking = dict(points = nps.cat(nps.cat(q00,q01),
-                                           nps.cat(q01,q11),
-                                           nps.cat(q11,q10),
-                                           nps.cat(q10,q00)).astype(np.float32),
-                          color_rgb = color_array )
-    region['region_marking'] = region_marking
-    region['color_string']   = color_string
-    widget.set_lines( *[r['region_marking'] for r in focus_regions] )
-
-    region['data'] = np.array(())
+        if not (event == FL_PUSH and \
+                Fl.event_button() == FL_RIGHT_MOUSE):
+            return super().handle(event)
 
 
-    return 1
+        try:
+            q = np.round(np.array(self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ))).astype(int)
+        except:
+            return 1
+
+        if q is None:
+            return 1
+
+
+        global focus_regions
+        global imagersize
+
+        q00 = q - args.radius
+        q11 = q + args.radius
+
+        if imagersize is None             or \
+           np.any(q00 < 0)                or \
+           np.any(q11 < 0)                or \
+           np.any(imagersize-1 - q00 < 0) or \
+           np.any(imagersize-1 - q11 < 0):
+            return 1
+
+
+        # New region
+        focus_regions.append(dict())
+        region = focus_regions[-1]
+
+        region['roi'] = ( slice(q00[1],q11[1]),
+                          slice(q00[0],q11[0]) )
+        q01 = np.array((q00[0], q11[1]))
+        q10 = np.array((q11[0], q00[1]))
+
+        color_string = color_sequence_rgb[ (len(focus_regions)-1) %
+                                          len(color_sequence_rgb)]
+        color_array = color_array_from_string(color_string)
+        region_marking = dict(points = nps.cat(nps.cat(q00,q01),
+                                               nps.cat(q01,q11),
+                                               nps.cat(q11,q10),
+                                               nps.cat(q10,q00)).astype(np.float32),
+                              color_rgb = color_array )
+        region['region_marking'] = region_marking
+        region['color_string']   = color_string
+        self.set_lines( *[r['region_marking'] for r in focus_regions] )
+
+        region['data'] = np.array(())
+
+
+        return 1
 
 
 
 
 
-def create_gui_elements(*,
-                        fltk_application_context,
-                        log_readwrite_context,
-                        W,
-                        H,
-                        H_footer,
-                        title,
+class Fl_focus_application(mrcam.Fl_mrcam_application):
+
+    def create_gui_body(self,
+                        *,
+                        W_image_views,
+                        H_image_views,
                         unlock_panzoom,
                         features,
-                        cb_displayed_image,
-                        cb_status_value):
+                        Fl_mrcam_image_group_custom,
+                        Fl_mrcam_image_custom,
+                        # extra uneeded stuff
+                               **kwargs):
 
-    global plot_widget
+        self.image_views = Fl_Group(0, 0, W_image_views, H_image_views)
 
-    H_footers = H_footer
-    if log_readwrite_context.get('logged_images') is not None:
-        H_footers += 2*H_footer
+        if True:
 
-    H_image_views = H - H_footers
-    W_image_views = W
+            self.image_view_groups[0] = \
+                mrcam.Fl_mrcam_image_group(
+                                    0,0,
+                                    W_image_views // 2,
+                                    H_image_views,
+                                    camera          = self.cameras[0],
+                                    features        = features,
+                                    unlock_panzoom  = unlock_panzoom,
+                                    application     = self,
+                                    Fl_mrcam_image_custom = Fl_focus_image)
 
-    kwargs = dict(fltk_application_context = fltk_application_context,
-                  log_readwrite_context    = log_readwrite_context,
-                  W                        = W,
-                  H                        = H,
-                  H_image_views            = H_image_views,
-                  W_image_views            = W_image_views,
-                  H_footer                 = H_footer,
-                  title                    = title,
-                  unlock_panzoom           = unlock_panzoom,
-                  features                 = features,
-                  cb_displayed_image       = cb_displayed_image,
-                  cb_status_value          = cb_status_value)
+            # plot_widget = Fl_Gnuplotlib_Window(W_image_views//2, 0,
+            #                                    W_image_views//2,
+            #                                    H_image_views,
+            #                                    ymin = 0,
+            #                                    _xrange=(-args.plot_history,0)
+            #                                    )
 
-    mrcam.create_gui_window     (**kwargs)
-    mrcam.create_gui_time_slider(**kwargs)
-    mrcam.create_gui_status     (**kwargs)
+            self.image_views.end()
 
-    W_image_views = kwargs['W_image_views']
-    H_image_views = kwargs['H_image_views']
-
-    image_views = Fl_Group(0, 0, W_image_views, H_image_views)
-    fltk_application_context['image_views'] = image_views
-    fltk_application_context['image_view_groups'][0] = \
-        mrcam.Fl_Image_View_Group(0,0,
-                            W_image_views // 2,
-                            H_image_views,
-                            camera          = fltk_application_context['cameras'][0],
-                            features        = features,
-                            cb_handle_event_image_widget = (handle_event_image_widget,
-                                                            # the cookie
-                                                            dict(**log_readwrite_context,
-                                                                 **fltk_application_context)),
-                            unlock_panzoom  = unlock_panzoom,
-                            cb_displayed_image = cb_displayed_image,
-                            **fltk_application_context)
-
-    plot_widget = Fl_Gnuplotlib_Window(W_image_views//2, 0,
-                                       W_image_views//2,
-                                       H_image_views,
-                                       ymin = 0,
-                                       _xrange=(-args.plot_history,0)
-                                       )
-    image_views.end()
-
-
-    mrcam.finish_gui_window     (**kwargs)
+        else:
+            self.image_view_groups[0] = \
+                Fl_mrcam_image_group_custom(0,0,
+                                            W_image_views,
+                                            H_image_views,
+                                            camera                       = self.cameras[0],
+                                            icam                         = 0,
+                                            features                     = features,
+                                            unlock_panzoom               = unlock_panzoom,
+                                            application                  = self,
+                                            Fl_mrcam_image_custom        = Fl_mrcam_image_custom)
+            self.image_views.end()
 
 
 
 
-log_readwrite_context = \
-    mrcam.log_readwrite_init(args.camera,
-                             logdir_write      = args.logdir,
-                             logdir_read       = args.replay,
-                             replay_from_frame = args.replay_from_frame,
-                             jpg               = args.jpg,
-                             image_path_prefix = args.image_path_prefix,
-                             image_directory   = args.image_directory)
+fltk_application = \
+    Fl_focus_application(args.camera_params_noname_nodims,
+                         args.camera,
+                         dims              = args.dims,
+                         utcoffset_hours   = args.utcoffset_hours,
+                         flip_x            = args.flip_x,
+                         flip_y            = args.flip_y,
+                         unlock_panzoom    = args.unlock_panzoom,
+                         features          = args.features,
+                         period            = args.period,
 
-fltk_application_context = \
-    mrcam.fltk_application_init(args.camera_params_noname_nodims,
-                                args.camera,
-                                dims              = args.dims,
-                                replay            = args.replay,
-                                utcoffset_hours   = args.utcoffset_hours,
-                                flip_x            = args.flip_x,
-                                flip_y            = args.flip_y,
-                                unlock_panzoom    = args.unlock_panzoom,
-                                features          = args.features,
-                                period            = args.period,
-                                title             = "mrcam focus tool",
-                                cb_create_gui_elements = create_gui_elements,
-                                cb_displayed_image     = update_sharpness,
-                                **log_readwrite_context)
+                         title             = "mrcam focus tool",
+
+                         # logging stuff
+                         logdir_write      = args.logdir,
+                         logdir_read       = args.replay,
+                         replay_from_frame = args.replay_from_frame,
+                         jpg               = args.jpg,
+                         image_path_prefix = args.image_path_prefix,
+                         image_directory   = args.image_directory)
 
 Fl.run()
