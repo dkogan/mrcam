@@ -528,7 +528,10 @@ class Fl_mrcam_image_group(Fl_Group):
                  features          = (),
                  unlock_panzoom,
 
-                 application):
+                 application,
+
+                 # Custom classes
+                 Fl_mrcam_image_custom = Fl_mrcam_image):
 
         super().__init__(x,y,w,h)
 
@@ -543,12 +546,12 @@ class Fl_mrcam_image_group(Fl_Group):
         self.status_widget = application.status_widget
 
         self.image_widget = \
-            Fl_mrcam_image(x, y,
-                                    w-w_controls, h,
-                                    locked_panzoom_groups = \
-                                      None if unlock_panzoom else \
-                                      application.image_view_groups,
-                                    application = application)
+            Fl_mrcam_image_custom(x, y,
+                                  w-w_controls, h,
+                                  locked_panzoom_groups = \
+                                    None if unlock_panzoom else \
+                                    application.image_view_groups,
+                                  application = application)
 
         # Need group to control resizing: I want to fix the sizes of the widgets in
         # the group, so I group.resizable(None) later
@@ -795,7 +798,12 @@ class Fl_mrcam_application:
                  replay_from_frame,
                  jpg,
                  image_path_prefix,
-                 image_directory):
+                 image_directory,
+
+                 # Custom classes
+                 Fl_mrcam_image_group_custom = Fl_mrcam_image_group,
+                 Fl_mrcam_image_custom       = Fl_mrcam_image
+                 ):
 
         Ncameras = len(camera_names)
 
@@ -1117,14 +1125,15 @@ class Fl_mrcam_application:
 
             for j in range(Wgrid):
                 self.image_view_groups[icam] = \
-                    Fl_mrcam_image_group(x0,y0,
-                                         w_image if j < Wgrid-1 else (W_image_views-x0),
-                                         h_image if i < Hgrid-1 else (H_image_views-y0),
-                                         camera                       = self.cameras[icam],
-                                         icam                         = icam,
-                                         features                     = features,
-                                         unlock_panzoom               = unlock_panzoom,
-                                         application                  = self)
+                    Fl_mrcam_image_group_custom(x0,y0,
+                                                w_image if j < Wgrid-1 else (W_image_views-x0),
+                                                h_image if i < Hgrid-1 else (H_image_views-y0),
+                                                camera                       = self.cameras[icam],
+                                                icam                         = icam,
+                                                features                     = features,
+                                                unlock_panzoom               = unlock_panzoom,
+                                                application                  = self,
+                                                Fl_mrcam_image_custom        = Fl_mrcam_image)
                 x0   += w_image
                 icam += 1
 
