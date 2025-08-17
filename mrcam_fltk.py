@@ -528,9 +528,7 @@ class Fl_mrcam_image_group(Fl_Group):
                  features          = (),
                  unlock_panzoom,
 
-                 application,
-                 # other stuff from the contexts that I don't need here
-                 **kwargs):
+                 application):
 
         super().__init__(x,y,w,h)
 
@@ -797,10 +795,7 @@ class Fl_mrcam_application:
                  replay_from_frame,
                  jpg,
                  image_path_prefix,
-                 image_directory,
-                 # other stuff from the contexts that I don't need here
-                 **kwargs
-                 ):
+                 image_directory):
 
         Ncameras = len(camera_names)
 
