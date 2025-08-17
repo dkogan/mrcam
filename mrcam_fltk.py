@@ -1046,7 +1046,7 @@ class Fl_mrcam_application:
         self.create_gui_window     (**kwargs)
         self.create_gui_time_slider(**kwargs)
         self.create_gui_status     (**kwargs)
-        self.create_gui_image_views(**kwargs)
+        self.create_gui_body       (**kwargs)
         self.finish_gui_window     (**kwargs)
 
 
@@ -1107,15 +1107,15 @@ class Fl_mrcam_application:
         self.status_widget.visible_focus(0)
 
 
-    def create_gui_image_views(self,
-                               *,
-                               W_image_views,
-                               H_image_views,
-                               unlock_panzoom,
-                               features,
-                               Fl_mrcam_image_group_custom,
-                               Fl_mrcam_image_custom,
-                               # extra uneeded stuff
+    def create_gui_body(self,
+                        *,
+                        W_image_views,
+                        H_image_views,
+                        unlock_panzoom,
+                        features,
+                        Fl_mrcam_image_group_custom,
+                        Fl_mrcam_image_custom,
+                        # extra uneeded stuff
                                **kwargs):
         # default implementation; meant to be overridden and extended
 
