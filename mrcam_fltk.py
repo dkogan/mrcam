@@ -336,7 +336,7 @@ def schedule_next_frame(f, t0, period):
 
 
 
-class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
+class Fl_mrcam_image(Fl_Gl_Image_Widget):
     r'''An image-display class that can tie pan/zoom for sibling widgets'''
 
     def __init__(self,
@@ -515,7 +515,7 @@ class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
 h_control        = 30
 h_control_footer = 30 # for the label below the widget; needed for some widgets only
 
-class Fl_Image_View_Group(Fl_Group):
+class Fl_mrcam_image_group(Fl_Group):
     def __init__(self,
                  x,y,w,h,
                  *,
@@ -545,7 +545,7 @@ class Fl_Image_View_Group(Fl_Group):
         self.status_widget = application.status_widget
 
         self.image_widget = \
-            Fl_Gl_Image_with_handle(x, y,
+            Fl_mrcam_image(x, y,
                                     w-w_controls, h,
                                     locked_panzoom_groups = \
                                       None if unlock_panzoom else \
@@ -773,7 +773,7 @@ class Fl_Image_View_Group(Fl_Group):
 
 
 
-class Fl_application:
+class Fl_mrcam_application:
 
     def __init__(self,
                  camera_params_noname_nodims,
@@ -1122,14 +1122,14 @@ class Fl_application:
 
             for j in range(Wgrid):
                 self.image_view_groups[icam] = \
-                    Fl_Image_View_Group(x0,y0,
-                                        w_image if j < Wgrid-1 else (W_image_views-x0),
-                                        h_image if i < Hgrid-1 else (H_image_views-y0),
-                                        camera                       = self.cameras[icam],
-                                        icam                         = icam,
-                                        features                     = features,
-                                        unlock_panzoom               = unlock_panzoom,
-                                        application                  = self)
+                    Fl_mrcam_image_group(x0,y0,
+                                         w_image if j < Wgrid-1 else (W_image_views-x0),
+                                         h_image if i < Hgrid-1 else (H_image_views-y0),
+                                         camera                       = self.cameras[icam],
+                                         icam                         = icam,
+                                         features                     = features,
+                                         unlock_panzoom               = unlock_panzoom,
+                                         application                  = self)
                 x0   += w_image
                 icam += 1
 

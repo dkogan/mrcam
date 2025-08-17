@@ -40,23 +40,23 @@ args = parse_args()
 from fltk import *
 
 fltk_application = \
-    mrcam.Fl_application(args.camera_params_noname_nodims,
-                         args.camera,
-                         dims              = args.dims,
-                         replay            = args.replay,
-                         utcoffset_hours   = args.utcoffset_hours,
-                         flip_x            = args.flip_x,
-                         flip_y            = args.flip_y,
-                         unlock_panzoom    = args.unlock_panzoom,
-                         features          = args.features,
-                         period            = args.period,
+    mrcam.Fl_mrcam_application(args.camera_params_noname_nodims,
+                               args.camera,
+                               dims              = args.dims,
+                               replay            = args.replay,
+                               utcoffset_hours   = args.utcoffset_hours,
+                               flip_x            = args.flip_x,
+                               flip_y            = args.flip_y,
+                               unlock_panzoom    = args.unlock_panzoom,
+                               features          = args.features,
+                               period            = args.period,
 
-                         # logging stuff
-                         logdir_write      = args.logdir,
-                         logdir_read       = args.replay,
-                         replay_from_frame = args.replay_from_frame,
-                         jpg               = args.jpg,
-                         image_path_prefix = args.image_path_prefix,
-                         image_directory   = args.image_directory)
+                               # logging stuff
+                               logdir_write      = args.logdir,
+                               logdir_read       = args.replay,
+                               replay_from_frame = args.replay_from_frame,
+                               jpg               = args.jpg,
+                               image_path_prefix = args.image_path_prefix,
+                               image_directory   = args.image_directory)
 
 Fl.run()
