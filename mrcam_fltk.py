@@ -533,9 +533,10 @@ class Fl_Image_View_Group(Fl_Group):
 
         super().__init__(x,y,w,h)
 
-        self.camera = camera
-        self.iframe = 0
-        self.icam   = icam
+        self.camera      = camera
+        self.iframe      = 0
+        self.icam        = icam
+        self.application = application
 
         if features: w_controls = 300
         else:        w_controls = 0
@@ -730,8 +731,7 @@ class Fl_Image_View_Group(Fl_Group):
                              # expected that the image_callback will request the
                              # next set of frames, if needed
                              period = None,
-                             icam,
-                             application):
+                             icam):
 
         if self.camera is None:
             return
@@ -740,9 +740,9 @@ class Fl_Image_View_Group(Fl_Group):
 
             frame = self.camera.requested_image()
 
-            application.image_received_from_mrcam(iframe = self.iframe,
-                                                  frame  = frame,
-                                                  icam   = icam)
+            self.application.image_received_from_mrcam(iframe = self.iframe,
+                                                       frame  = frame,
+                                                       icam   = icam)
             self.camera.push_buffer(frame['buffer']) # no-op if the buffer is None
             if not frame['off_decimation']:
                 self.iframe += 1
@@ -858,9 +858,8 @@ class Fl_application:
             if self.image_view_groups[icam].camera is not None:
                 self.image_view_groups[icam].set_up_image_capture(# don't auto-recur. I do that myself,
                                                                   # making sure ALL the cameras are processed
-                                                                  icam        = icam,
-                                                                  period      = None,
-                                                                  application = self)
+                                                                  icam   = icam,
+                                                                  period = None)
         self.window.show()
 
         if self.logdir_read is None:
