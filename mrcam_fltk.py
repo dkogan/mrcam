@@ -387,10 +387,10 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
             except:
                 self.image_view_group.status_widget.value( self.image_view_group.status_value(None, None) )
 
-        return super().handle(event)
 
-
-    def handle(self, event):
+    def handle(self, event,
+               # a custom override might set this to false
+               call_super = True):
         # default implementation; meant to be overridden and extended
 
         self.try_handle_move(event)
@@ -409,7 +409,10 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
                 return super().handle(event) # to keep handling the events, so
                                              # that the other widgets see this
 
-        return super().handle(event)
+        if call_super:
+            return super().handle(event)
+        else:
+            return None
 
 
     def displayed_image(self,
