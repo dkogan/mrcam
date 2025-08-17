@@ -852,12 +852,14 @@ class Fl_mrcam_application:
 
 
         self.create_gui_elements(
-            W                          = W,
-            H                          = H,
-            H_footer                   = H_footer,
-            title                      = title,
-            unlock_panzoom             = unlock_panzoom,
-            features                   = features)
+            W                           = W,
+            H                           = H,
+            H_footer                    = H_footer,
+            title                       = title,
+            unlock_panzoom              = unlock_panzoom,
+            features                    = features,
+            Fl_mrcam_image_group_custom = Fl_mrcam_image_group_custom,
+            Fl_mrcam_image_custom       = Fl_mrcam_image_custom)
 
 
         for icam in range(Ncameras):
@@ -1020,7 +1022,9 @@ class Fl_mrcam_application:
                             H_footer,
                             title,
                             unlock_panzoom,
-                            features):
+                            features,
+                            Fl_mrcam_image_group_custom,
+                            Fl_mrcam_image_custom):
 
         # default implementation; meant to be overridden and extended
 
@@ -1028,14 +1032,16 @@ class Fl_mrcam_application:
         if self.logged_images is not None:
             H_footers += 2*H_footer
 
-        kwargs = dict(W                          = W,
-                      H                          = H,
-                      H_image_views              = H - H_footers,
-                      W_image_views              = W,
-                      H_footer                   = H_footer,
-                      title                      = title,
-                      unlock_panzoom             = unlock_panzoom,
-                      features                   = features)
+        kwargs = dict(W                           = W,
+                      H                           = H,
+                      H_image_views               = H - H_footers,
+                      W_image_views               = W,
+                      H_footer                    = H_footer,
+                      title                       = title,
+                      unlock_panzoom              = unlock_panzoom,
+                      features                    = features,
+                      Fl_mrcam_image_group_custom = Fl_mrcam_image_group_custom,
+                      Fl_mrcam_image_custom       = Fl_mrcam_image_custom)
 
         self.create_gui_window     (**kwargs)
         self.create_gui_time_slider(**kwargs)
@@ -1107,6 +1113,8 @@ class Fl_mrcam_application:
                                H_image_views,
                                unlock_panzoom,
                                features,
+                               Fl_mrcam_image_group_custom,
+                               Fl_mrcam_image_custom,
                                # extra uneeded stuff
                                **kwargs):
         # default implementation; meant to be overridden and extended
@@ -1134,7 +1142,7 @@ class Fl_mrcam_application:
                                                 features                     = features,
                                                 unlock_panzoom               = unlock_panzoom,
                                                 application                  = self,
-                                                Fl_mrcam_image_custom        = Fl_mrcam_image)
+                                                Fl_mrcam_image_custom        = Fl_mrcam_image_custom)
                 x0   += w_image
                 icam += 1
 
