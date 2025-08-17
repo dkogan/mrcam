@@ -523,7 +523,7 @@ class Fl_mrcam_image_group(Fl_Group):
                  x,y,w,h,
                  *,
                  camera,
-                 icam,
+                 icam = 0,
                  # iterable of strings. Might contain regex; might contain
                  # annotations such as [log] (applied to all regex matches). Any
                  # feature name that doesn't exist EXACTLY as given will be
@@ -735,8 +735,7 @@ class Fl_mrcam_image_group(Fl_Group):
                              # if given, we automatically recur. Otherwise it is
                              # expected that the image_callback will request the
                              # next set of frames, if needed
-                             period = None,
-                             icam):
+                             period = None):
 
         if self.camera is None:
             return
@@ -747,7 +746,7 @@ class Fl_mrcam_image_group(Fl_Group):
 
             self.application.image_received_from_mrcam(iframe = self.iframe,
                                                        frame  = frame,
-                                                       icam   = icam)
+                                                       icam   = self.icam)
             self.camera.push_buffer(frame['buffer']) # no-op if the buffer is None
             if not frame['off_decimation']:
                 self.iframe += 1
@@ -865,7 +864,6 @@ class Fl_mrcam_application:
             if self.image_view_groups[icam].camera is not None:
                 self.image_view_groups[icam].set_up_image_capture(# don't auto-recur. I do that myself,
                                                                   # making sure ALL the cameras are processed
-                                                                  icam   = icam,
                                                                   period = None)
         self.window.show()
 
