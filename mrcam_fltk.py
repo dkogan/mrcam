@@ -342,6 +342,7 @@ class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
     def __init__(self,
                  *args,
                  locked_panzoom_groups = None,
+                 # These may be None, to disable a few features
                  application           = None,
                  image_view_group      = None):
 
