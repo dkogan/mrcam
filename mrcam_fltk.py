@@ -341,12 +341,14 @@ class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
 
     def __init__(self,
                  *args,
-                 handler = None,
                  locked_panzoom_groups = None,
-                 **kwargs):
+                 application           = None,
+                 image_view_group      = None):
 
-        self.handler               = handler
-        self.locked_panzoom_groups = locked_panzoom_groups
+        self.do_equalize_fieldscale = False
+        self.locked_panzoom_groups  = locked_panzoom_groups
+        self.application            = application
+        self.image_view_group       = image_view_group
 
         # I want keyboard commands to work the same regardless of which widget
         # is focused. Specifically, I want the arrow keys to always end up in
@@ -358,15 +360,98 @@ class Fl_Gl_Image_with_handle(Fl_Gl_Image_Widget):
         # keyboard events. The other is to explicitly ignore the specific
         # keyboard events in a parent class. I do the former here because that's
         # simpler, and I don't need to process any keyboard events
-        x = super().__init__(*args, **kwargs)
+        x = super().__init__(*args)
         self.visible_focus(0)
         return x
 
-    def handle(self, event):
-        res = self.handler(self,event)
-        if res is not None:
-            return res
+    def try_handle_move(self, event):
+        if self.image_view_group is not None and \
+           event == FL_MOVE:
+            try:
+                q = self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), )
+
+                pixel_value_text = ''
+
+                if self.image_view_group.image_widget.image is not None:
+                    qint_x = round(q[0])
+                    qint_y = round(q[1])
+
+                    (image_height,image_width) = self.image_view_group.image_widget.image.shape[:2]
+                    if qint_x >= 0 and qint_x < image_width and \
+                       qint_y >= 0 and qint_y < image_height:
+
+                        pixel_value_text = f",{self.image_view_group.image_widget.image[qint_y,qint_x,...]}"
+
+                self.image_view_group.status_widget.value( self.image_view_group.status_value(q, pixel_value_text) )
+            except:
+                self.image_view_group.status_widget.value( self.image_view_group.status_value(None, None) )
+
         return super().handle(event)
+
+
+    def handle(self, event):
+        # default implementation; meant to be overridden and extended
+
+        self.try_handle_move(event)
+
+        if event == FL_KEYUP:
+            if Fl.event_key() == ord('e') or \
+               Fl.event_key() == ord('E'):
+                # Toggle the value shared between ALL the image_view_groups
+                self.do_equalize_fieldscale = not self.do_equalize_fieldscale
+                # If I have a log (we're replaying or logging to disk) I update the
+                # view. Otherwise I simply wait for the next frame to come in.
+                # Hopefully that should be quick-enough
+                if self.application is not None and \
+                   self.application.logged_images is not None:
+                    self.application.update_all_images_from_replay()
+                return super().handle(event) # to keep handling the events, so
+                                             # that the other widgets see this
+
+        return super().handle(event)
+
+
+    def displayed_image(self,
+                        image):
+        # default implementation; meant to be overridden and extended
+        if image is None:
+            return None
+
+        if image.itemsize == 1:
+            # 8-bit image. Display as is
+            return image
+
+        # Deep image. Display as a heat map
+        if image.ndim > 2:
+            raise Exception("high-depth color images not supported yet")
+
+        if not self.do_equalize_fieldscale:
+            q = 5
+            a_min = np.percentile(image, q = q)
+            a_max = np.percentile(image, q = 100-q)
+            return mrcal.apply_color_map(image,
+                                         a_min = a_min,
+                                         a_max = a_max)
+        else:
+            return mrcal.apply_color_map(mrcam.equalize_fieldscale(image),
+                                         a_min = 0,
+                                         a_max = 255)
+
+
+    def update(self,
+               image,
+               *,
+               iframe,
+               flip_x,
+               flip_y):
+
+        self.image = image
+
+        # Will be None if the image was None (i.e. the capture failed)
+        image_data = self.displayed_image(image)
+        self.update_image(image_data = image_data,
+                          flip_x     = flip_x,
+                          flip_y     = flip_y)
 
 
     def set_panzoom(self,
@@ -448,8 +533,6 @@ class Fl_Image_View_Group(Fl_Group):
 
         super().__init__(x,y,w,h)
 
-        self.do_equalize_fieldscale = False
-
         self.camera = camera
         self.iframe = 0
         self.icam   = icam
@@ -459,39 +542,13 @@ class Fl_Image_View_Group(Fl_Group):
 
         self.status_widget = application.status_widget
 
-
-        def handle_image_widget(self_image_widget, event):
-            if event == FL_MOVE:
-                try:
-                    q = self_image_widget.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), )
-
-                    pixel_value_text = ''
-
-                    if self.image_widget.image is not None:
-                        qint_x = round(q[0])
-                        qint_y = round(q[1])
-
-                        (image_height,image_width) = self.image_widget.image.shape[:2]
-                        if qint_x >= 0 and qint_x < image_width and \
-                           qint_y >= 0 and qint_y < image_height:
-
-                            pixel_value_text = f",{self.image_widget.image[qint_y,qint_x,...]}"
-
-                    self.status_widget.value( self.status_value(q, pixel_value_text) )
-                except:
-                    self.status_widget.value( self.status_value(None, None) )
-
-            application.handle_event_image_widget(event, self)
-
-            return None # Use parent's return code
-
         self.image_widget = \
             Fl_Gl_Image_with_handle(x, y,
                                     w-w_controls, h,
-                                    handler               = handle_image_widget,
                                     locked_panzoom_groups = \
                                       None if unlock_panzoom else \
-                                      application.image_view_groups)
+                                      application.image_view_groups,
+                                    application = application)
 
         # Need group to control resizing: I want to fix the sizes of the widgets in
         # the group, so I group.resizable(None) later
@@ -666,24 +723,6 @@ class Fl_Image_View_Group(Fl_Group):
             elif isinstance(value, str):
                 widget.value( widget.find_index(value) )
 
-    def update_image_widget(self,
-                            image,
-                            *,
-                            iframe,
-                            flip_x,
-                            flip_y):
-
-        self.image_widget.image = image
-
-        # Will be None if the image was None (i.e. the capture failed)
-        image_data = self.displayed_image(image)
-        self.image_widget.update_image(image_data = image_data,
-                                       flip_x     = flip_x,
-                                       flip_y     = flip_y)
-
-        if image_data is not None:
-            self.sync_feature_widgets()
-
 
     def set_up_image_capture(self,
                              *,
@@ -730,33 +769,6 @@ class Fl_Image_View_Group(Fl_Group):
                 return f"{q[0]:.1f},{q[1]:.1f}"
         else:
             return ""
-
-
-    def displayed_image(self,
-                        image):
-        # default implementation; meant to be overridden and extended
-        if image is None:
-            return None
-
-        if image.itemsize == 1:
-            # 8-bit image. Display as is
-            return image
-
-        # Deep image. Display as a heat map
-        if image.ndim > 2:
-            raise Exception("high-depth color images not supported yet")
-
-        if not self.do_equalize_fieldscale:
-            q = 5
-            a_min = np.percentile(image, q = q)
-            a_max = np.percentile(image, q = 100-q)
-            return mrcal.apply_color_map(image,
-                                         a_min = a_min,
-                                         a_max = a_max)
-        else:
-            return mrcal.apply_color_map(mrcam.equalize_fieldscale(image),
-                                         a_min = 0,
-                                         a_max = 255)
 
 
 
@@ -1195,29 +1207,10 @@ class Fl_application:
                 except:
                     image = None
 
-            self.image_view_groups[icam].update_image_widget( image,
+            self.image_view_groups[icam].image_widget.update( image,
                                                               iframe = record['iframe'][icam],
                                                               flip_x = self.flip_x,
                                                               flip_y = self.flip_y)
-
-    def handle_event_image_widget(self,
-                                  event,
-                                  image_view_group):
-        # default implementation; meant to be overridden and extended
-
-        if event == FL_KEYUP:
-            if Fl.event_key() == ord('e') or \
-               Fl.event_key() == ord('E'):
-                # Toggle the value shared between ALL the image_view_groups
-                image_view_group.do_equalize_fieldscale = not image_view_group.do_equalize_fieldscale
-                # If I have a log (we're replaying or logging to disk) I update the
-                # view. Otherwise I simply wait for the next frame to come in.
-                # Hopefully that should be quick-enough
-                if self.logged_images is not None:
-                    self.update_all_images_from_replay()
-                return 1
-
-        return None # Use parent's return code
 
 
     def image_received_from_mrcam(self,
@@ -1290,10 +1283,13 @@ we will do that ourselves, set frame['buffer'] to None)
                     # Otherwise, leave at None
 
             if self.logdir_write is None or time_slider_at_max:
-                self.image_view_groups[icam].update_image_widget( image  = image,
+                self.image_view_groups[icam].image_widget.update( image  = image,
                                                                   iframe = iframe,
                                                                   flip_x = self.flip_x,
                                                                   flip_y = self.flip_y)
+
+                self.image_view_groups[icam].sync_feature_widgets()
+
 
         # schedule the next set of images; do this even if off_decimation
         if not iframe in self.Ncameras_seen_iframe:
