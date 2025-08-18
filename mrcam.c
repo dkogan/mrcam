@@ -16,6 +16,8 @@
 #include "mrcam.h"
 #include "util.h"
 
+#define MSG(...) MRCAM_MSG(__VA_ARGS__)
+
 // debugging code; disabled by default
 #if 1
   #define TIMESTAMP() do { } while(0)

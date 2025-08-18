@@ -28,6 +28,8 @@ Based on:
 #include "clahe.h"
 #include "util.h"
 
+#define MSG(...) MRCAM_MSG(__VA_ARGS__)
+
 
 #define WRITE_INTERMEDIATE 0
 

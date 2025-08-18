@@ -12,6 +12,8 @@
 #include "mrcam.h"
 #include "util.h"
 
+#define MSG(...) MRCAM_MSG(__VA_ARGS__)
+
 
 typedef struct { int width,height; } dimensions_t;
 #define LIST_OPTIONS(_)                                                 \

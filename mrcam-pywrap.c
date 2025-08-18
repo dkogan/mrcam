@@ -22,9 +22,11 @@
 
 #define BARF(fmt, ...) PyErr_Format(PyExc_RuntimeError, "%s:%d %s(): "fmt, __FILE__, __LINE__, __func__, ## __VA_ARGS__)
 
+#include "util.h"
+
 // the try...() macros in util.h will produce Python errors
 #define ERR(fmt, ...) BARF(fmt, ##__VA_ARGS__)
-#include "util.h"
+#define MSG(...) MRCAM_MSG(__VA_ARGS__)
 
 
 
