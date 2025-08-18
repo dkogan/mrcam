@@ -315,91 +315,83 @@ from Fl_gnuplotlib import *
 
 shown_iframe = [None, None]
 shown_image  = [None, None]
-def displayed_image(image,
-                    **kwargs):
 
-    global shown_iframe,shown_image
+class Fl_stereo_image(mrcam.Fl_mrcam_image):
 
-    iframe                 = kwargs['iframe']
-    icam                   = kwargs['icam']
-    do_equalize_fieldscale = kwargs['do_equalize_fieldscale']
+    def displayed_image(self,
+                        image):
 
-    shown_image[icam]  = image
-    shown_iframe[icam] = iframe
+        global shown_iframe,shown_image
 
-    if shown_iframe[0] == shown_iframe[1]:
-        stereo_procesing(*shown_image,
-                         do_equalize_fieldscale = do_equalize_fieldscale)
+        shown_image [self.icam] = image
+        shown_iframe[self.icam] = self.image_view_group.iframe
 
-    return mrcam.displayed_image__default(image, **kwargs)
+        if shown_iframe[0] == shown_iframe[1]:
+            stereo_procesing(*shown_image,
+                             do_equalize_fieldscale = self.do_equalize_fieldscale)
 
-def handle_event_image_widget(image_view_group, event,
-                              **kwargs):
+        return super().displayed_image(image)
 
-    result = mrcam.handle_event_image_widget__e(image_view_group, event,
-                                                **kwargs)
-    if result is not None:
-        return result
+    def handle(self, event):
+
+
+        return super().handle(event)
 
 
 
-    return result
+        if event != FL_PUSH:
+            return None
+
+        if Fl.event_button() != FL_RIGHT_MOUSE:
+            return None
+
+        widget = image_view_group.image_widget
+
+        try:
+            q = np.round(np.array(widget.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ))).astype(int)
+        except:
+            return None
+
+        if q is None:
+            return None
 
 
+        global imagersize
 
-    if event != FL_PUSH:
-        return None
+        q00 = q - args.radius
+        q11 = q + args.radius
 
-    if Fl.event_button() != FL_RIGHT_MOUSE:
-        return None
-
-    widget = image_view_group.image_widget
-
-    try:
-        q = np.round(np.array(widget.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), ))).astype(int)
-    except:
-        return None
-
-    if q is None:
-        return None
+        if imagersize is None             or \
+           np.any(q00 < 0)                or \
+           np.any(q11 < 0)                or \
+           np.any(imagersize-1 - q00 < 0) or \
+           np.any(imagersize-1 - q11 < 0):
+            return None
 
 
-    global imagersize
+        # New region
+        stereo_regions.append(dict())
+        region = stereo_regions[-1]
 
-    q00 = q - args.radius
-    q11 = q + args.radius
+        region['roi'] = ( slice(q00[1],q11[1]),
+                          slice(q00[0],q11[0]) )
+        q01 = np.array((q00[0], q11[1]))
+        q10 = np.array((q11[0], q00[1]))
 
-    if imagersize is None             or \
-       np.any(q00 < 0)                or \
-       np.any(q11 < 0)                or \
-       np.any(imagersize-1 - q00 < 0) or \
-       np.any(imagersize-1 - q11 < 0):
-        return None
+        color_array = color_array_from_string(color_string)
+        region_marking = dict(points = nps.cat(nps.cat(q00,q01),
+                                               nps.cat(q01,q11),
+                                               nps.cat(q11,q10),
+                                               nps.cat(q10,q00)).astype(np.float32),
+                              color_rgb = color_array )
+        region['region_marking'] = region_marking
+        region['color_string']   = color_string
+        widget.set_lines( *[r['region_marking'] for r in stereo_regions] )
 
-
-    # New region
-    focus_regions.append(dict())
-    region = focus_regions[-1]
-
-    region['roi'] = ( slice(q00[1],q11[1]),
-                      slice(q00[0],q11[0]) )
-    q01 = np.array((q00[0], q11[1]))
-    q10 = np.array((q11[0], q00[1]))
-
-    color_array = color_array_from_string(color_string)
-    region_marking = dict(points = nps.cat(nps.cat(q00,q01),
-                                           nps.cat(q01,q11),
-                                           nps.cat(q11,q10),
-                                           nps.cat(q10,q00)).astype(np.float32),
-                          color_rgb = color_array )
-    region['region_marking'] = region_marking
-    region['color_string']   = color_string
-    widget.set_lines( *[r['region_marking'] for r in focus_regions] )
-
-    region['data'] = np.array(())
+        region['data'] = np.array(())
 
 
-    return 1
+        return 1
 
 
 class Fl_Multiline_Output_pass_keys(Fl_Multiline_Output):
@@ -418,76 +410,59 @@ class Fl_Button_pass_keys(Fl_Button):
 
 
 stereo_widget = None
-def create_gui_elements(*,
-                        fltk_application_context,
-                        log_readwrite_context,
-                        W,
-                        H,
-                        H_footer,
-                        title,
+
+class Fl_stereo_application(mrcam.Fl_mrcam_application):
+    def create_gui_status(self,
+                          *,
+                          W,
+                          H,
+                          H_footer,
+                          W_image_views,
+                          H_image_views,
+                          # extra uneeded stuff
+                          **kwargs):
+
+        self.status_widget = \
+            Fl_Multiline_Output_pass_keys(W_image_views//2, H_image_views//2,
+                                          W_image_views//2, H_image_views//2)
+        self.status_widget.value('')
+
+        # I want the status widget to be output-only and not user-stereoable.
+        self.status_widget.visible_focus(0)
+
+
+    def create_gui_body(self,
+                        *,
+                        W_image_views,
+                        H_image_views,
                         unlock_panzoom,
                         features,
-                        cb_displayed_image,
-                        cb_status_value):
+                        Fl_mrcam_image_group_custom,
+                        Fl_mrcam_image_custom,
+                        # extra uneeded stuff
+                        **kwargs):
 
-    global stereo_widget
+        global stereo_widget
 
-    H_footers = 0
-    if log_readwrite_context.get('logged_images') is not None:
-        H_footers += 2*H_footer
+        self.image_views = Fl_Group(0, 0, W_image_views, H_image_views)
 
-    H_image_views = H - H_footers
-    W_image_views = W
+        for icam in range(2):
+            self.image_view_groups[icam] = \
+                mrcam.Fl_mrcam_image_group(icam * (W_image_views//2),
+                                           0,
+                                           W_image_views//2, H_image_views//2,
+                                           camera          = self.cameras[icam],
+                                           features        = features,
+                                           icam            = icam,
+                                           unlock_panzoom     = unlock_panzoom,
+                                           application        = self,
+                                           Fl_mrcam_image_custom = Fl_stereo_image)
 
-    kwargs = dict(fltk_application_context = fltk_application_context,
-                  log_readwrite_context    = log_readwrite_context,
-                  W                        = W,
-                  H                        = H,
-                  H_image_views            = H_image_views,
-                  W_image_views            = W_image_views,
-                  H_footer                 = H_footer,
-                  title                    = title,
-                  unlock_panzoom           = unlock_panzoom,
-                  features                 = features,
-                  cb_displayed_image       = cb_displayed_image,
-                  cb_status_value          = cb_status_value)
+        stereo_widget = \
+            Fl_Gl_Image_Widget(0,                H_image_views//2,
+                               W_image_views//2, H_image_views//2)
 
-    mrcam.create_gui_window     (**kwargs)
-    mrcam.create_gui_time_slider(**kwargs)
-
-    fltk_application_context['status_widget'] = \
-        Fl_Multiline_Output_pass_keys(W_image_views//2, H_image_views//2,
-                                      W_image_views//2, H_image_views//2)
-    fltk_application_context['status_widget'].value('')
-
-    image_views = Fl_Group(0, 0, W_image_views, H_image_views)
-    fltk_application_context['image_views'] = image_views
-
-    for icam in range(2):
-        fltk_application_context['image_view_groups'][icam] = \
-            mrcam.Fl_Image_View_Group(icam * (W_image_views//2),
-                                      0,
-                                      W_image_views//2, H_image_views//2,
-                                      camera          = fltk_application_context['cameras'][icam],
-                                      features        = features,
-                                      cb_handle_event_image_widget = (handle_event_image_widget,
-                                                                      # the cookie
-                                                                      dict(**log_readwrite_context,
-                                                                           **fltk_application_context)),
-                                      unlock_panzoom     = unlock_panzoom,
-                                      cb_displayed_image = cb_displayed_image,
-                                      **fltk_application_context)
-
-    stereo_widget = \
-        Fl_Gl_Image_Widget(0,                H_image_views//2,
-                           W_image_views//2, H_image_views//2)
-
-    image_views.end()
-
-    # I want the status widget to be output-only and not user-focusable.
-    fltk_application_context['status_widget'].visible_focus(0)
-
-    mrcam.finish_gui_window(**kwargs)
+        self.image_views.end()
 
 
 def equalize_stretch(image,
@@ -693,31 +668,27 @@ else:
 
 
 
-log_readwrite_context = \
-    mrcam.log_readwrite_init(args.camera,
-                             logdir_write      = args.logdir,
-                             logdir_read       = args.replay,
-                             replay_from_frame = args.replay_from_frame,
-                             jpg               = args.jpg,
-                             image_path_prefix = args.image_path_prefix,
-                             image_directory   = args.image_directory)
 
-fltk_application_context = \
-    mrcam.fltk_application_init(args.camera_params_noname_nodims,
-                                args.camera,
-                                dims              = args.dims,
-                                replay            = args.replay,
-                                utcoffset_hours   = args.utcoffset_hours,
-                                flip_x            = args.flip_x,
-                                flip_y            = args.flip_y,
-                                unlock_panzoom    = args.unlock_panzoom,
-                                features          = args.features,
-                                period            = args.period,
-                                title             = "mrcam stereo tool",
-                                cb_create_gui_elements = create_gui_elements,
-                                cb_displayed_image= displayed_image,
-                                #status_value_and_cookie        = (status_value,        dict())
-                                **log_readwrite_context)
+fltk_application = \
+    Fl_stereo_application(args.camera_params_noname_nodims,
+                         args.camera,
+                         dims              = args.dims,
+                         utcoffset_hours   = args.utcoffset_hours,
+                         flip_x            = args.flip_x,
+                         flip_y            = args.flip_y,
+                         unlock_panzoom    = args.unlock_panzoom,
+                         features          = args.features,
+                         period            = args.period,
+
+                         title             = "mrcam stereo tool",
+
+                         # logging stuff
+                         logdir_write      = args.logdir,
+                         logdir_read       = args.replay,
+                         replay_from_frame = args.replay_from_frame,
+                         jpg               = args.jpg,
+                         image_path_prefix = args.image_path_prefix,
+                         image_directory   = args.image_directory)
 
 Fl.run()
 
