@@ -208,7 +208,6 @@ class Fl_focus_image(mrcam.Fl_mrcam_image):
 
         region['data'] = np.array(())
 
-
         return 1
 
 
@@ -226,7 +225,7 @@ class Fl_focus_application(mrcam.Fl_mrcam_application):
                         Fl_mrcam_image_group_custom,
                         Fl_mrcam_image_custom,
                         # extra uneeded stuff
-                               **kwargs):
+                        **kwargs):
 
         self.image_views = Fl_Group(0, 0, W_image_views, H_image_views)
 
