@@ -261,7 +261,7 @@ class Fl_focus_application(mrcam.Fl_mrcam_application):
                                             features                     = features,
                                             unlock_panzoom               = unlock_panzoom,
                                             application                  = self,
-                                            Fl_mrcam_image_custom        = Fl_mrcam_image_custom)
+                                            Fl_mrcam_image_custom        = Fl_focus_image)
             self.image_views.end()
 
 
