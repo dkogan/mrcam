@@ -59,7 +59,8 @@ LDLIBS += -lavutil -lswscale
 
 
 DIST_INCLUDE := \
-  mrcam.h
+  mrcam.h \
+  util.h
 
 DIST_BIN := \
 	mrcam-equalize
