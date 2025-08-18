@@ -1,0 +1,13 @@
+libmrcam.so.0 libmrcam0 #MINVER#
+* Build-Depends-Package: libmrcam-dev
+ libmrcam.so.0@libmrcam.so.0 0.2
+ mrcam_cancel_request@libmrcam.so.0 0.2
+ mrcam_equalize_fieldscale@libmrcam.so.0 0.2
+ mrcam_free@libmrcam.so.0 0.2
+ mrcam_init@libmrcam.so.0 0.2
+ mrcam_is_inited@libmrcam.so.0 0.2
+ mrcam_output_type@libmrcam.so.0 0.2
+ mrcam_pull@libmrcam.so.0 0.2
+ mrcam_push_buffer@libmrcam.so.0 0.2
+ mrcam_request@libmrcam.so.0 0.2
+ mrcam_sleep_until_next_request@libmrcam.so.0 0.2

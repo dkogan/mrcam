@@ -1,0 +1,17 @@
+mrcam (0.4-1) unstable; urgency=medium
+
+  * New upstraem release
+
+ -- Dima Kogan <dkogan@debian.org>  Mon, 18 Aug 2025 12:34:09 -0700
+
+mrcam (0.3-1) experimental; urgency=medium
+
+  * New upstream release
+
+ -- Dima Kogan <dkogan@debian.org>  Thu, 10 Jul 2025 17:48:58 -0700
+
+mrcam (0.2-1) experimental; urgency=medium
+
+  * Initial debianization
+
+ -- Dima Kogan <dkogan@debian.org>  Tue, 08 Jul 2025 15:19:43 -0700
