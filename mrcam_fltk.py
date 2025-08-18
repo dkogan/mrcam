@@ -344,12 +344,14 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
                  locked_panzoom_groups = None,
                  # These may be None, to disable a few features
                  application           = None,
-                 image_view_group      = None):
+                 image_view_group      = None,
+                 icam                  = 0):
 
         self.do_equalize_fieldscale = False
         self.locked_panzoom_groups  = locked_panzoom_groups
         self.application            = application
         self.image_view_group       = image_view_group
+        self.icam                   = icam
 
         # I want keyboard commands to work the same regardless of which widget
         # is focused. Specifically, I want the arrow keys to always end up in
@@ -417,6 +419,7 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
 
     def displayed_image(self,
                         image):
+
         # default implementation; meant to be overridden and extended
         if image is None:
             return None
@@ -445,7 +448,6 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
     def update(self,
                image,
                *,
-               iframe,
                flip_x,
                flip_y):
 
@@ -540,7 +542,6 @@ class Fl_mrcam_image_group(Fl_Group):
 
         self.camera      = camera
         self.iframe      = 0
-        self.icam        = icam
         self.application = application
 
         if features: w_controls = 300
@@ -554,7 +555,9 @@ class Fl_mrcam_image_group(Fl_Group):
                                   locked_panzoom_groups = \
                                     None if unlock_panzoom else \
                                     application.image_view_groups,
-                                  application = application)
+                                  application = application,
+                                  icam        = icam,
+                                  image_view_group = self)
 
         # Need group to control resizing: I want to fix the sizes of the widgets in
         # the group, so I group.resizable(None) later
@@ -746,7 +749,7 @@ class Fl_mrcam_image_group(Fl_Group):
 
             self.application.image_received_from_mrcam(iframe = self.iframe,
                                                        frame  = frame,
-                                                       icam   = self.icam)
+                                                       icam   = self.image_widget.icam)
             self.camera.push_buffer(frame['buffer']) # no-op if the buffer is None
             if not frame['off_decimation']:
                 self.iframe += 1
@@ -1179,7 +1182,6 @@ class Fl_mrcam_application:
 
         self.time_slider_update_label(iframe = iframes[0],
                                       time   = times[0])
-
         self.update_all_images_from_replay()
 
         # if live-updating we color the slider green
@@ -1210,6 +1212,8 @@ class Fl_mrcam_application:
 
         Ncameras = len(self.image_view_groups)
         for icam in range(Ncameras):
+            self.image_view_groups[icam].iframe = record['iframe'][icam]
+
             path = self.complete_path(record['imagepath'][icam])
             if path is None:
                 image = None # write an all-black image
@@ -1221,7 +1225,6 @@ class Fl_mrcam_application:
                     image = None
 
             self.image_view_groups[icam].image_widget.update( image,
-                                                              iframe = record['iframe'][icam],
                                                               flip_x = self.flip_x,
                                                               flip_y = self.flip_y)
 
@@ -1297,7 +1300,6 @@ we will do that ourselves, set frame['buffer'] to None)
 
             if self.logdir_write is None or time_slider_at_max:
                 self.image_view_groups[icam].image_widget.update( image  = image,
-                                                                  iframe = iframe,
                                                                   flip_x = self.flip_x,
                                                                   flip_y = self.flip_y)
 
