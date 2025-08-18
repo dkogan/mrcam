@@ -40,9 +40,10 @@ mrcam-test.o: CPPFLAGS += -fopenmp
 mrcam-test:   LDFLAGS  += -fopenmp
 mrcam-test:   LDLIBS += -lmrcal
 
-# use the arch-specific pkg-config if there is one
+ifeq ($(ARAVIS_DIR),)
 CFLAGS += $(shell $(or $(PKG_CONFIG),pkg-config) --cflags aravis-0.8)
 LDLIBS += $(shell $(or $(PKG_CONFIG),pkg-config) --libs   aravis-0.8)
+else
 
 # bleeding-edge aravis 0.10
 CFLAGS += $(shell $(or $(PKG_CONFIG),pkg-config) --cflags glib-2.0)
