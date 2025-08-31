@@ -836,7 +836,7 @@ class Fl_mrcam_application:
             for i,name in reversed(list(enumerate(camera_names))):
                 self.cameras[i] = \
                     mrcam.camera(name = name,
-                                 dims = args.dims[i] if args.dims is not None else None,
+                                 dims = dims[i] if dims is not None else None,
                                  **camera_params_noname_nodims)
 
                 if camera_params_noname_nodims['trigger'] == 'HARDWARE_TTYS0':
