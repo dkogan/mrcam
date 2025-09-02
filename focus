@@ -227,42 +227,29 @@ class Fl_focus_application(mrcam.Fl_mrcam_application):
                         # extra uneeded stuff
                         **kwargs):
 
+        global plot_widget
+
         self.image_views = Fl_Group(0, 0, W_image_views, H_image_views)
 
-        if True:
+        self.image_view_groups[0] = \
+            mrcam.Fl_mrcam_image_group(
+                                0,0,
+                                W_image_views // 2,
+                                H_image_views,
+                                camera          = self.cameras[0],
+                                features        = features,
+                                unlock_panzoom  = unlock_panzoom,
+                                application     = self,
+                                Fl_mrcam_image_custom = Fl_focus_image)
 
-            self.image_view_groups[0] = \
-                mrcam.Fl_mrcam_image_group(
-                                    0,0,
-                                    W_image_views // 2,
-                                    H_image_views,
-                                    camera          = self.cameras[0],
-                                    features        = features,
-                                    unlock_panzoom  = unlock_panzoom,
-                                    application     = self,
-                                    Fl_mrcam_image_custom = Fl_focus_image)
+        plot_widget = Fl_Gnuplotlib_Window(W_image_views//2, 0,
+                                           W_image_views//2,
+                                           H_image_views,
+                                           ymin = 0,
+                                           _xrange=(-args.plot_history,0)
+                                           )
 
-            # plot_widget = Fl_Gnuplotlib_Window(W_image_views//2, 0,
-            #                                    W_image_views//2,
-            #                                    H_image_views,
-            #                                    ymin = 0,
-            #                                    _xrange=(-args.plot_history,0)
-            #                                    )
-
-            self.image_views.end()
-
-        else:
-            self.image_view_groups[0] = \
-                Fl_mrcam_image_group_custom(0,0,
-                                            W_image_views,
-                                            H_image_views,
-                                            camera                       = self.cameras[0],
-                                            icam                         = 0,
-                                            features                     = features,
-                                            unlock_panzoom               = unlock_panzoom,
-                                            application                  = self,
-                                            Fl_mrcam_image_custom        = Fl_focus_image)
-            self.image_views.end()
+        self.image_views.end()
 
 
 
