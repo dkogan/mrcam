@@ -215,7 +215,8 @@ def parse_args():
 
     args = parser.parse_args()
 
-    mrcam.parse_args_postprocess(args)
+    mrcam.parse_args_postprocess(args,
+                                 Ncameras_expected = 2)
 
     Ncameras = len(args.camera)
     if Ncameras != 2:

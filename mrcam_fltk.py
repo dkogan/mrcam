@@ -23,9 +23,8 @@ from mrcam import * # so that the upstream importers can get both mrcam_fltk and
 
 
 def add_common_cmd_options(parser,
-                            *,
-                            single_camera     = False,
-                            Ncameras_expected = None):
+                           *,
+                           Ncameras_expected = None):
 
     parser.add_argument('--verbose','-v',
                         action='store_true',
@@ -97,37 +96,29 @@ def add_common_cmd_options(parser,
                         help='''The decimation factor. Report only every Nth
                         frame. By default this is 1: report every frame''')
 
-    if single_camera:
-        parser.add_argument('camera',
-                            type = str,
-                            nargs = '?',
-                            default = None,
-                            help='''Without --replay: the camera to talk to.
-                            This is a string passed to the arv_camera_new()
-                            function; see that function's documentation for
-                            details. The string can be IP addresses or MAC
-                            addresses or vendor-model-serialnumber strings. With
-                            --replay: an integer specifying the camera index in
-                            the log. If omitted, we take the first camera''')
-    else:
+    if Ncameras_expected != 1:
         parser.add_argument('--unlock-panzoom',
                             action='store_true',
                             help='''If given, the pan/zoom in the all the image
                             widgets are NOT locked together. By default they ARE
                             locked together''')
-        parser.add_argument('camera',
-                            type = str,
-                            nargs = Ncameras_expected if Ncameras_expected is not None else '*',
-                            default = (None,),
-                            help='''Without --replay: the camera(s) to talk to.
-                            One argument per camera. These are strings passed to
-                            the arv_camera_new() function; see that function's
-                            documentation for details. The strings can be IP
-                            addresses or MAC addresses or
-                            vendor-model-serialnumber strings. With --replay:
-                            integers and/or A-B ranges of integers specifying
-                            the camera indices in the log. If omitted, we use a
-                            single device: the first camera''')
+
+    camera_expect_description = ''
+    if Ncameras_expected is not None:
+        camera_expect_description = f' We expect exactly {Ncameras_expected} cameras'
+    parser.add_argument('camera',
+                        type = str,
+                        nargs = '*',
+                        default = (None,),
+                        help=f'''Without --replay: the camera(s) to talk to.
+                        One argument per camera. These are strings passed to
+                        the arv_camera_new() function; see that function's
+                        documentation for details. The strings can be IP
+                        addresses or MAC addresses or
+                        vendor-model-serialnumber strings. With --replay:
+                        integers and/or A-B ranges of integers specifying
+                        the camera indices in the log. If omitted, we use a
+                        single device: the first camera.{camera_expect_description}''')
 
     # log/replay stuff
     parser.add_argument('--logdir',
@@ -171,42 +162,8 @@ def add_common_cmd_options(parser,
 
 
 def parse_args_postprocess(args,
-                            *,
-                            single_camera = False):
-    if args.dims is not None:
-
-        def massage_dim(dim):
-            if dim == '-':
-                return None
-
-            errmsg = f"--dims MUST be followed by '-' or integer dimensions given by 'WIDTH,HEIGHT'. Couldn't parse '{dim}' that way"
-            m = re.match('([0-9]+),([0-9]+)$', dim)
-            if m is None:
-                print(errmsg, file = sys.stderr)
-                sys.exit(1)
-
-            try: w = int(m.group(1))
-            except Exception:
-                print(errmsg, file = sys.stderr)
-                sys.exit(1)
-            try: h = int(m.group(2))
-            except Exception:
-                print(errmsg, file = sys.stderr)
-                sys.exit(1)
-            if w <= 0 or h <= 0:
-                print(errmsg, file = sys.stderr)
-                sys.exit(1)
-
-            return (w,h)
-
-        if type(args.camera) == list: Ncameras = len(args.camera)
-        else:                         Ncameras = 1
-        args.dims = [massage_dim(dim) for dim in args.dims]
-        if len(args.dims) <= Ncameras:
-            args.dims += [None] * (Ncameras - len(args.dims))
-        else:
-            print("Received more --dims than cameras", file=sys.stderr)
-            sys.exit(1)
+                           *,
+                           Ncameras_expected = None):
 
     if args.features is not None:
         args.features = [ f for f in args.features.split(',') if len(f) ] # filter out empty features
@@ -254,7 +211,10 @@ def parse_args_postprocess(args,
         sys.exit(1)
 
 
-
+    #### normalize args.camera into an iterable of camera IDs Ncameras_expected
+    #### long. This will always be an interable of at least length 1. We handle
+    #### replay differently because we accept ranges (like "0-2") where each
+    #### token repreesnts multiple cameras
     if args.replay is not None:
         def camera_for_replay(s):
             if s is None:
@@ -285,24 +245,13 @@ def parse_args_postprocess(args,
             return list(range(i0,i1+1))
 
 
-        if args.camera is None:
-            # one camera; unspecified
-            args.camera = 0
-        elif isinstance(args.camera, str):
-            # one camera; parse as int > 0
-            try:
-                args.camera = int(args.camera)
-            except:
-                print(f"--replay given, so the camera must be an integer >= 0",
-                      file=sys.stderr)
-                sys.exit(1)
-            if args.camera < 0:
-                print(f"--replay given, so the camera must be an integer >= 0",
-                      file=sys.stderr)
-                sys.exit(1)
-        else:
-            # multiple cameras
-            args.camera = [c for cam in args.camera for c in camera_for_replay(cam)]
+        args.camera = [c for cam in args.camera for c in camera_for_replay(cam)]
+
+    if Ncameras_expected is not None and \
+       len(args.camera) != Ncameras_expected:
+        print(f"Expected {Ncameras_expected} cameras to be given, but got {len(args.camera)}",
+              file=sys.stderr)
+        sys.exit(1)
 
     if args.features and \
        args.replay   is not None:
@@ -310,11 +259,44 @@ def parse_args_postprocess(args,
               file=sys.stderr)
         sys.exit(1)
 
-    if single_camera:
-        # The various machinery requires SOME value to exist, so I write one
+
+    if args.dims is not None:
+
+        def massage_dim(dim):
+            if dim == '-':
+                return None
+
+            errmsg = f"--dims MUST be followed by '-' or integer dimensions given by 'WIDTH,HEIGHT'. Couldn't parse '{dim}' that way"
+            m = re.match('([0-9]+),([0-9]+)$', dim)
+            if m is None:
+                print(errmsg, file = sys.stderr)
+                sys.exit(1)
+
+            try: w = int(m.group(1))
+            except Exception:
+                print(errmsg, file = sys.stderr)
+                sys.exit(1)
+            try: h = int(m.group(2))
+            except Exception:
+                print(errmsg, file = sys.stderr)
+                sys.exit(1)
+            if w <= 0 or h <= 0:
+                print(errmsg, file = sys.stderr)
+                sys.exit(1)
+
+            return (w,h)
+
+        Ncameras = len(args.camera)
+        args.dims = [massage_dim(dim) for dim in args.dims]
+        if len(args.dims) <= Ncameras:
+            args.dims += [None] * (Ncameras - len(args.dims))
+        else:
+            print("Received more --dims than cameras", file=sys.stderr)
+            sys.exit(1)
+
+    # The various machinery requires SOME value to exist, so I write one
+    if Ncameras_expected == 1:
         args.unlock_panzoom = False
-        # Lots of code assumes multiple cameras. I oblige
-        args.camera = (args.camera,)
 
 
 
