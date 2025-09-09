@@ -64,6 +64,7 @@ DIST_INCLUDE := \
   util.h
 
 DIST_BIN := \
+	mrcam \
 	mrcam-equalize
 DIST_MAN := $(addsuffix .1,$(DIST_BIN))
 $(DIST_MAN): %.1: %.pod
