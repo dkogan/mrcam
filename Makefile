@@ -66,6 +66,9 @@ DIST_INCLUDE := \
 DIST_BIN := \
 	mrcam \
 	mrcam-equalize
+# Do NOT try to build mrcam from mrcam.c. This is required so that building
+# mrcam.1 does not try to rebuild mrcam
+mrcam: ;
 DIST_MAN := $(addsuffix .1,$(DIST_BIN))
 $(DIST_MAN): %.1: %.pod
 	pod2man --center="mrcam: machine-vision camera interface" --name=MRCAM --release="mrcam $(VERSION)" --section=1 $< $@
