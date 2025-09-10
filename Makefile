@@ -90,7 +90,7 @@ PYTHON_OBJECTS := mrcam-pywrap.o
 $(PYTHON_OBJECTS): CFLAGS += -Wno-cast-function-type
 $(PYTHON_OBJECTS): CFLAGS += $(PY_MRBUILD_CFLAGS)
 
-DIST_PY3_MODULES := mrcam$(PY_EXT_SUFFIX) mrcam_fltk.py
+DIST_PY3_MODULES := mrcam$(PY_EXT_SUFFIX) mrcam_fltk.py mrcam_argparse.py
 
 all: mrcam$(PY_EXT_SUFFIX)
 
