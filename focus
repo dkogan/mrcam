@@ -21,8 +21,7 @@ import sys
 import argparse
 import re
 import os
-
-import mrcam_fltk as mrcam
+import mrcam_argparse
 
 def parse_args():
 
@@ -41,13 +40,13 @@ def parse_args():
                         help='''The width of the sharpness plot. If omitted,
                         defaults to 30 seconds''')
 
-    mrcam.add_common_cmd_options(parser,
-                                 Ncameras_expected=1)
+    mrcam_argparse.add_common_cmd_options(parser,
+                                          Ncameras_expected=1)
 
     args = parser.parse_args()
 
-    mrcam.parse_args_postprocess(args,
-                                 Ncameras_expected=1)
+    mrcam_argparse.parse_args_postprocess(args,
+                                          Ncameras_expected=1)
 
     return args
 
@@ -58,6 +57,7 @@ import time
 import numpy as np
 import numpysane as nps
 import cv2
+import mrcam_fltk as mrcam
 from fltk import *
 from Fl_gnuplotlib import *
 

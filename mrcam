@@ -19,8 +19,7 @@ import sys
 import argparse
 import re
 import os
-
-import mrcam_fltk as mrcam
+import mrcam_argparse
 
 def parse_args():
 
@@ -28,15 +27,16 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    mrcam.add_common_cmd_options(parser)
+    mrcam_argparse.add_common_cmd_options(parser)
     args = parser.parse_args()
-    mrcam.parse_args_postprocess(args)
+    mrcam_argparse.parse_args_postprocess(args)
     return args
 
 
 args = parse_args()
 
 
+import mrcam_fltk as mrcam
 from fltk import *
 
 fltk_application = \

@@ -14,9 +14,8 @@ import sys
 import argparse
 import re
 import os
+import mrcam_argparse
 
-import mrcam_fltk as mrcam
-from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
 
 
 
@@ -210,13 +209,13 @@ def parse_args():
                         capture the images. Both intrinsics and extrinsics are
                         used''')
 
-    mrcam.add_common_cmd_options(parser,
-                                 Ncameras_expected = 2)
+    mrcam_argparse.add_common_cmd_options(parser,
+                                          Ncameras_expected = 2)
 
     args = parser.parse_args()
 
-    mrcam.parse_args_postprocess(args,
-                                 Ncameras_expected = 2)
+    mrcam_argparse.parse_args_postprocess(args,
+                                          Ncameras_expected = 2)
 
     Ncameras = len(args.camera)
     if Ncameras != 2:
@@ -259,6 +258,8 @@ import cv2
 import mrcal
 from fltk import *
 from Fl_gnuplotlib import *
+import mrcam_fltk as mrcam
+from Fl_Gl_Image_Widget import Fl_Gl_Image_Widget
 
 
 # def status_value(q, pixel_value_text):
