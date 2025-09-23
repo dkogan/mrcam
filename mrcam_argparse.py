@@ -267,10 +267,17 @@ def parse_args_postprocess(args,
 
             return (w,h)
 
-        Ncameras = len(args.camera)
+        Ncameras   = len(args.camera)
+        Ndims_args = len(args.dims)
+
+        # If given once, this is applied to ALL the cameras
+        if Ndims_args == 1:
+            args.dims *= Ncameras
+            Ndims_args = Ncameras
+
         args.dims = [massage_dim(dim) for dim in args.dims]
-        if len(args.dims) <= Ncameras:
-            args.dims += [None] * (Ncameras - len(args.dims))
+        if Ndims_args <= Ncameras:
+            args.dims += [None] * (Ncameras - Ndims_args)
         else:
             print("Received more --dims than cameras", file=sys.stderr)
             sys.exit(1)
