@@ -918,8 +918,6 @@ class Fl_mrcam_application:
 
         Ncameras = len(self.image_view_groups)
         for icam in range(Ncameras):
-            self.image_view_groups[icam].iframe = record['iframe'][icam]
-
             path = self.complete_path(record['imagepath'][icam])
             if path is None:
                 image = None # write an all-black image
