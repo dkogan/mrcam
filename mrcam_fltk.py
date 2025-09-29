@@ -334,6 +334,11 @@ class Fl_mrcam_image_group(Fl_Group):
 
             t = desc['type']
             if t == 'integer' or t == 'float':
+                if 'log' in flags and \
+                   any(x <= 0 for x in desc['bounds']):
+                    print(f"Warning: Requested log-scale feature '{name}' has non-positive bounds: {desc['bounds']}. Log-scale features must have strictly positive bounds; not adding widget for this feature")
+                    continue
+
                 if desc['unit']: label = f"{name} ({desc['unit']})"
                 else:            label = name
                 h_here = h_control + h_control_footer
@@ -344,8 +349,6 @@ class Fl_mrcam_image_group(Fl_Group):
                 widget.type(FL_HORIZONTAL)
 
                 if 'log' in flags:
-                    if any(x <= 0 for x in desc['bounds']):
-                        raise Exception(f"Requested log-scale feature '{name}' has non-positive bounds: {desc['bounds']}. Log-scale features must have strictly positive bounds")
                     widget.bounds(*[np.log(x) for x in desc['bounds']])
                 else:
                     widget.bounds(*desc['bounds'])
