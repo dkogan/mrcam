@@ -106,14 +106,11 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
         if event == FL_KEYUP:
             if Fl.event_key() == ord('e') or \
                Fl.event_key() == ord('E'):
-                # Toggle the value shared between ALL the image_view_groups
+
                 self.do_equalize_fieldscale = not self.do_equalize_fieldscale
-                # If I have a log (we're replaying or logging to disk) I update the
-                # view. Otherwise I simply wait for the next frame to come in.
-                # Hopefully that should be quick-enough
-                if self.application is not None and \
-                   self.application.logged_images is not None:
-                    self.application.update_all_images_from_replay()
+                self.update(self.image,
+                            flip_x = self.application.flip_x,
+                            flip_y = self.application.flip_y)
                 return super().handle(event) # to keep handling the events, so
                                              # that the other widgets see this
 
@@ -124,7 +121,9 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
 
 
     def displayed_image(self,
-                        image):
+                        image,
+                        *,
+                        same_image = False):
 
         # default implementation; meant to be overridden and extended
         if image is None:
@@ -138,17 +137,31 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
         if image.ndim > 2:
             raise Exception("high-depth color images not supported yet")
 
+        if not same_image:
+            self.image_for_display_no_fieldscale  = None
+            self.image_for_display_yes_fieldscale = None
+
         if not self.do_equalize_fieldscale:
+            if same_image and self.image_for_display_no_fieldscale is not None:
+                return self.image_for_display_no_fieldscale
+
             q = 5
             a_min = np.percentile(image, q = q)
             a_max = np.percentile(image, q = 100-q)
-            return mrcal.apply_color_map(image,
-                                         a_min = a_min,
-                                         a_max = a_max)
+            self.image_for_display_no_fieldscale = \
+                mrcal.apply_color_map(image,
+                                      a_min = a_min,
+                                      a_max = a_max)
+            return self.image_for_display_no_fieldscale
         else:
-            return mrcal.apply_color_map(mrcam.equalize_fieldscale(image),
-                                         a_min = 0,
-                                         a_max = 255)
+            if same_image and self.image_for_display_yes_fieldscale is not None:
+                return self.image_for_display_yes_fieldscale
+
+            self.image_for_display_yes_fieldscale = \
+                mrcal.apply_color_map(mrcam.equalize_fieldscale(image),
+                                      a_min = 0,
+                                      a_max = 255)
+            return self.image_for_display_yes_fieldscale
 
 
     def update(self,
@@ -157,10 +170,15 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
                flip_x,
                flip_y):
 
+        # We might be updating the display settings, managed in
+        # displayed_image()
+        same_image = image is self.image
+
         self.image = image
 
         # Will be None if the image was None (i.e. the capture failed)
-        image_data = self.displayed_image(image)
+        image_data = self.displayed_image(image,
+                                          same_image = same_image)
         self.update_image(image_data = image_data,
                           flip_x     = flip_x,
                           flip_y     = flip_y)
