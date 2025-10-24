@@ -686,7 +686,7 @@ class Fl_mrcam_application:
                 for icam in camera_names:
                     print(f"  Requested camera {icam} has {np.count_nonzero(log['icam']==icam)} observed frames",
                           file = sys.stderr)
-                print("These should all be idendical",
+                print("These should all be identical",
                       file=sys.stderr)
                 sys.exit(1)
 
