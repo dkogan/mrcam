@@ -31,7 +31,7 @@ def add_common_cmd_options(parser,
                         help='''Flip the image horizontally and/or vertically
                         for display. This changes the way the image is displayed
                         ONLY: the captured image data is unchanged. The argument
-                        is a comma-separated string of "x" and/or "y"''')
+                        is a string x or y or xy''')
     parser.add_argument('--dims',
                         action = 'append', # accept multiple instances of this option
                         help='''Imager dimensions given as WIDTH,HEIGHT.
@@ -152,16 +152,11 @@ def parse_args_postprocess(args,
         args.features = ()
 
     if args.display_flip is not None:
-        args.display_flip = set(args.display_flip.split(','))
-
-        set_remaining = args.display_flip - set( ('x','y','xy'))
-        if len(set_remaining):
-            print(f"--display-flip takes a comma-separated list of ONLY 'x' and/or 'y' and/or 'xy': got unknown elements {set_remaining}", file = sys.stderr)
-            sys.exit(1)
+        args.display_flip = set(args.display_flip)
     else:
         args.display_flip = set()
-    args.flip_x = 'x' in args.display_flip or 'xy' in args.display_flip
-    args.flip_y = 'y' in args.display_flip or 'xy' in args.display_flip
+    args.flip_x = 'x' in args.display_flip
+    args.flip_y = 'y' in args.display_flip
 
     ### args.camera_params_noname_nodims is a subset of args.__dict__. That
     ### subset is camera parameters passed directly to mrcam.camera()
