@@ -81,15 +81,15 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
 
                 pixel_value_text = ''
 
-                if self.image_view_group.image_widget.image is not None:
+                if self.image is not None:
                     qint_x = round(q[0])
                     qint_y = round(q[1])
 
-                    (image_height,image_width) = self.image_view_group.image_widget.image.shape[:2]
+                    (image_height,image_width) = self.image.shape[:2]
                     if qint_x >= 0 and qint_x < image_width and \
                        qint_y >= 0 and qint_y < image_height:
 
-                        pixel_value_text = f",{self.image_view_group.image_widget.image[qint_y,qint_x,...]}"
+                        pixel_value_text = f",{self.image[qint_y,qint_x,...]}"
 
                 self.image_view_group.status_widget.value( self.image_view_group.status_value(q, pixel_value_text) )
             except:
