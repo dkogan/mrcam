@@ -549,8 +549,8 @@ def stereo_procesing(*images,
 
 
     stereo_widget.update_image(image_data = disparity_colored,
-                               flip_x     = args.flip_x,
-                               flip_y     = args.flip_y,)
+                               flip_x     = args.flip_x_allcams[0],
+                               flip_y     = args.flip_y_allcams[0],)
 
 
 
@@ -676,8 +676,8 @@ fltk_application = \
                          args.camera,
                          dims              = args.dims,
                          utcoffset_hours   = args.utcoffset_hours,
-                         flip_x            = args.flip_x,
-                         flip_y            = args.flip_y,
+                         flip_x_allcams    = args.flip_x_allcams,
+                         flip_y_allcams    = args.flip_y_allcams,
                          unlock_panzoom    = args.unlock_panzoom,
                          features          = args.features,
                          period            = args.period,

@@ -31,7 +31,12 @@ def add_common_cmd_options(parser,
                         help='''Flip the image horizontally and/or vertically
                         for display. This changes the way the image is displayed
                         ONLY: the captured image data is unchanged. The argument
-                        is a string x or y or xy''')
+                        is a string 'x' or 'y' or 'xy' to be applied to ALL the
+                        cameras OR a comma-separated list of these strings, one
+                        per camera. If a list is given, its length MUST match
+                        the number of cameras. Pass an empty string to flip
+                        nothing. For instance, with 3 cameras, flipping the
+                        second one, pass "--display-flip ,xy,"''')
     parser.add_argument('--dims',
                         action = 'append', # accept multiple instances of this option
                         help='''Imager dimensions given as WIDTH,HEIGHT.
@@ -150,13 +155,6 @@ def parse_args_postprocess(args,
         args.features = [ f for f in args.features.split(',') if len(f) ] # filter out empty features
     else:
         args.features = ()
-
-    if args.display_flip is not None:
-        args.display_flip = set(args.display_flip)
-    else:
-        args.display_flip = set()
-    args.flip_x = 'x' in args.display_flip
-    args.flip_y = 'y' in args.display_flip
 
     ### args.camera_params_noname_nodims is a subset of args.__dict__. That
     ### subset is camera parameters passed directly to mrcam.camera()
@@ -280,3 +278,27 @@ def parse_args_postprocess(args,
     # The various machinery requires SOME value to exist, so I write one
     if Ncameras_expected == 1:
         args.unlock_panzoom = False
+
+    Ncameras = len(args.camera)
+
+
+
+    if args.display_flip is None:
+        args.display_flip = ('') * Ncameras
+    else:
+        if ',' in args.display_flip:
+            args.display_flip = args.display_flip.split(',')
+            if len(args.display_flip) != Ncameras:
+                print(f"--display-flip given a comma-separated list: MUST match {Ncameras=}", file=sys.stderr)
+                sys.exit(1)
+        else:
+            args.display_flip = (args.display_flip,) * Ncameras
+    def make_display_flip_one(display_flip):
+        s = set(display_flip)
+        return \
+            ('x' in s,
+             'y' in s)
+    flip_xy = [make_display_flip_one(d) for d in args.display_flip]
+    args.flip_x_allcams = [fxy[0] for fxy in flip_xy]
+    args.flip_y_allcams = [fxy[1] for fxy in flip_xy]
+    # flip_x_allcams and flip_y_allcams are boolean iterables of length args.camera

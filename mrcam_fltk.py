@@ -58,6 +58,8 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
         self.application            = application
         self.image_view_group       = image_view_group
         self.icam                   = icam
+        self.flip_x                 = application.flip_x_allcams[icam]
+        self.flip_y                 = application.flip_y_allcams[icam]
 
         # I want keyboard commands to work the same regardless of which widget
         # is focused. Specifically, I want the arrow keys to always end up in
@@ -109,8 +111,8 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
 
                 self.do_equalize_fieldscale = not self.do_equalize_fieldscale
                 self.update(self.image,
-                            flip_x = self.application.flip_x,
-                            flip_y = self.application.flip_y)
+                            flip_x = self.flip_x,
+                            flip_y = self.flip_y)
                 return super().handle(event) # to keep handling the events, so
                                              # that the other widgets see this
 
@@ -518,8 +520,8 @@ class Fl_mrcam_application:
                  H               = 1024,
                  H_footer        = 30,
                  title = "mrcam stream",
-                 flip_x            = False,
-                 flip_y            = False,
+                 flip_x_allcams    = False,
+                 flip_y_allcams    = False,
                  unlock_panzoom    = False,
                  features          = (),
                  period            = 1.0,
@@ -549,8 +551,8 @@ class Fl_mrcam_application:
 
         self.cameras                  = [None] * Ncameras
         self.image_view_groups        = [None] * Ncameras
-        self.flip_x                   = flip_x
-        self.flip_y                   = flip_y
+        self.flip_x_allcams           = flip_x_allcams
+        self.flip_y_allcams           = flip_y_allcams
         self.period                   = period
         self.Ncameras_seen_iframe     = dict()
         self.logged_image_from_iframe = dict()
@@ -950,8 +952,8 @@ class Fl_mrcam_application:
                     image = None
 
             self.image_view_groups[icam].image_widget.update( image,
-                                                              flip_x = self.flip_x,
-                                                              flip_y = self.flip_y)
+                                                              flip_x = self.flip_x_allcams[icam],
+                                                              flip_y = self.flip_y_allcams[icam])
 
 
     def image_received_from_mrcam(self,
@@ -1025,8 +1027,8 @@ we will do that ourselves, set frame['buffer'] to None)
 
             if self.logdir_write is None or time_slider_at_max:
                 self.image_view_groups[icam].image_widget.update( image  = image,
-                                                                  flip_x = self.flip_x,
-                                                                  flip_y = self.flip_y)
+                                                                  flip_x = self.flip_x_allcams[icam],
+                                                                  flip_y = self.flip_y_allcams[icam])
 
                 self.image_view_groups[icam].sync_feature_widgets()
 
