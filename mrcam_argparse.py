@@ -284,7 +284,7 @@ def parse_args_postprocess(args,
 
 
     if args.display_flip is None:
-        args.display_flip = ('') * Ncameras
+        args.display_flip = ('',) * Ncameras
     else:
         if ',' in args.display_flip:
             args.display_flip = args.display_flip.split(',')
