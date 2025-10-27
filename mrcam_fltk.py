@@ -49,17 +49,17 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
                  *args,
                  locked_panzoom_groups = None,
                  # These may be None, to disable a few features
-                 application           = None,
+                 flip_x                = False,
+                 flip_y                = False,
                  image_view_group      = None,
                  icam                  = 0):
 
         self.do_equalize_fieldscale = False
         self.locked_panzoom_groups  = locked_panzoom_groups
-        self.application            = application
         self.image_view_group       = image_view_group
         self.icam                   = icam
-        self.flip_x                 = application.flip_x_allcams[icam]
-        self.flip_y                 = application.flip_y_allcams[icam]
+        self.flip_x                 = flip_x
+        self.flip_y                 = flip_y
 
         # I want keyboard commands to work the same regardless of which widget
         # is focused. Specifically, I want the arrow keys to always end up in
@@ -281,7 +281,8 @@ class Fl_mrcam_image_group(Fl_Group):
                                   locked_panzoom_groups = \
                                     None if unlock_panzoom else \
                                     application.image_view_groups,
-                                  application = application,
+                                  flip_x      = application.flip_x_allcams[icam],
+                                  flip_y      = application.flip_y_allcams[icam],
                                   icam        = icam,
                                   image_view_group = self)
 
