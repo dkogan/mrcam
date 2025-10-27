@@ -51,12 +51,12 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
                  # These may be None, to disable a few features
                  flip_x                = False,
                  flip_y                = False,
-                 image_view_group      = None,
+                 status_widget         = None,
                  icam                  = 0):
 
         self.do_equalize_fieldscale = False
         self.locked_panzoom_groups  = locked_panzoom_groups
-        self.image_view_group       = image_view_group
+        self.status_widget          = status_widget
         self.icam                   = icam
         self.flip_x                 = flip_x
         self.flip_y                 = flip_y
@@ -76,7 +76,7 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
         return x
 
     def try_handle_move(self, event):
-        if self.image_view_group is not None and \
+        if self.status_widget is not None and \
            event == FL_MOVE:
             try:
                 q = self.map_pixel_image_from_viewport( (Fl.event_x(),Fl.event_y()), )
@@ -93,9 +93,9 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
 
                         pixel_value_text = f",{self.image[qint_y,qint_x,...]}"
 
-                self.image_view_group.status_widget.value( self.image_view_group.status_value(q, pixel_value_text) )
+                self.status_widget.value( self.status_value(q, pixel_value_text) )
             except:
-                self.image_view_group.status_widget.value( self.image_view_group.status_value(None, None) )
+                self.status_widget.value( self.status_value(None, None) )
 
 
     def handle(self, event,
@@ -241,12 +241,24 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
                                  ratios           = True) \
                      for g in self.locked_panzoom_groups )
 
+    def status_value(self, q, pixel_value_text):
+        # default implementation; meant to be overridden and extended
+        if q is not None:
+            if pixel_value_text is not None:
+                return f"{q[0]:.1f},{q[1]:.1f}{pixel_value_text}"
+            else:
+                return f"{q[0]:.1f},{q[1]:.1f}"
+        else:
+            return ""
+
 
 
 h_control        = 30
 h_control_footer = 30 # for the label below the widget; needed for some widgets only
 
 class Fl_mrcam_image_group(Fl_Group):
+    r'''The image widget itself and any genicam features that may be adjustable'''
+
     def __init__(self,
                  x,y,w,h,
                  *,
@@ -273,18 +285,16 @@ class Fl_mrcam_image_group(Fl_Group):
         if features: w_controls = 300
         else:        w_controls = 0
 
-        self.status_widget = application.status_widget
-
         self.image_widget = \
             Fl_mrcam_image_custom(x, y,
                                   w-w_controls, h,
                                   locked_panzoom_groups = \
                                     None if unlock_panzoom else \
                                     application.image_view_groups,
-                                  flip_x      = application.flip_x_allcams[icam],
-                                  flip_y      = application.flip_y_allcams[icam],
-                                  icam        = icam,
-                                  image_view_group = self)
+                                  flip_x        = application.flip_x_allcams[icam],
+                                  flip_y        = application.flip_y_allcams[icam],
+                                  icam          = icam,
+                                  status_widget = application.status_widget)
 
         # Need group to control resizing: I want to fix the sizes of the widgets in
         # the group, so I group.resizable(None) later
@@ -495,18 +505,6 @@ class Fl_mrcam_image_group(Fl_Group):
         if period is not None:
             # Ask for some data
             self.camera.request()
-
-
-    def status_value(self, q, pixel_value_text):
-        # default implementation; meant to be overridden and extended
-        if q is not None:
-            if pixel_value_text is not None:
-                return f"{q[0]:.1f},{q[1]:.1f}{pixel_value_text}"
-            else:
-                return f"{q[0]:.1f},{q[1]:.1f}"
-        else:
-            return ""
-
 
 
 class Fl_mrcam_application:
