@@ -47,7 +47,7 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
 
     def __init__(self,
                  *args,
-                 locked_panzoom_groups = None,
+                 locked_panzoom_widgets= None,
                  # These may be None, to disable a few features
                  flip_x                = False,
                  flip_y                = False,
@@ -55,7 +55,7 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
                  icam                  = 0):
 
         self.do_equalize_fieldscale = False
-        self.locked_panzoom_groups  = locked_panzoom_groups
+        self.locked_panzoom_widgets = locked_panzoom_widgets
         self.status_widget          = status_widget
         self.icam                   = icam
         self.flip_x                 = flip_x
@@ -211,7 +211,7 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
         (image_height,image_width) = self.image.shape[:2]
 
         if not panzoom_siblings or \
-           self.locked_panzoom_groups is None:
+           self.locked_panzoom_widgets is None:
 
             if not ratios:
                 return super().set_panzoom(x_centerpixel, y_centerpixel,
@@ -224,22 +224,22 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
         # All the widgets should pan/zoom together
         if not ratios:
             return \
-                all( g.image_widget. \
+                all( w. \
                      set_panzoom(x_centerpixel        / image_width,
                                  y_centerpixel        / image_height,
                                  visible_width_pixels / image_width,
                                  panzoom_siblings = False,
                                  ratios           = True) \
-                     for g in self.locked_panzoom_groups )
+                     for w in self.locked_panzoom_widgets )
         else:
             return \
-                all( g.image_widget. \
+                all( w. \
                      set_panzoom(x_centerpixel,
                                  y_centerpixel,
                                  visible_width_pixels,
                                  panzoom_siblings = False,
                                  ratios           = True) \
-                     for g in self.locked_panzoom_groups )
+                     for w in self.locked_panzoom_widgets )
 
     def status_value(self, q, pixel_value_text):
         # default implementation; meant to be overridden and extended
@@ -288,9 +288,9 @@ class Fl_mrcam_image_group(Fl_Group):
         self.image_widget = \
             Fl_mrcam_image_custom(x, y,
                                   w-w_controls, h,
-                                  locked_panzoom_groups = \
+                                  locked_panzoom_widgets = \
                                     None if unlock_panzoom else \
-                                    application.image_view_groups,
+                                    application.image_view_groups, # may pass the group of widget here. The widgets don't exist yet
                                   flip_x        = application.flip_x_allcams[icam],
                                   flip_y        = application.flip_y_allcams[icam],
                                   icam          = icam,
@@ -506,6 +506,9 @@ class Fl_mrcam_image_group(Fl_Group):
             # Ask for some data
             self.camera.request()
 
+    # So that Fl_mrcam_image can take locked_panzoom_widgets or locked_panzoom_groups
+    def set_panzoom(self, *args, **kwargs):
+        return self.image_widget(*args, **kwargs)
 
 class Fl_mrcam_application:
 
