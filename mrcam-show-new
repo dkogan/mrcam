@@ -1,0 +1,202 @@
+#!/usr/bin/python3
+
+
+r'''Preview newly-written files
+
+SYNOPSIS
+
+  $ mrcam-show-new 'frame*-cam0.png' 'frame*-cam1.png'
+
+  [ A window pops up showing a live view of new files matching these globs ]
+
+'''
+
+import sys
+import argparse
+import re
+import os
+import mrcam_argparse
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--unlock-panzoom',
+                        action='store_true',
+                        help='''If given, the pan/zoom in the all the image
+                        widgets are NOT locked together. By default they ARE
+                        locked together''')
+    parser.add_argument('--display-flip',
+                        help='''Flip the image horizontally and/or vertically
+                        for display. This changes the way the image is displayed
+                        ONLY: the captured image data is unchanged. The argument
+                        is a string 'x' or 'y' or 'xy' to be applied to ALL the
+                        cameras OR a comma-separated list of these strings, one
+                        per camera. If a list is given, its length MUST match
+                        the number of cameras. Pass an empty string to flip
+                        nothing. For instance, with 3 cameras, flipping the
+                        second one, pass "--display-flip ,xy,"''')
+    parser.add_argument('--image-directory',
+                        default='.',
+                        help='''The directory to watch for the globs. Defaults
+                        to the current directory''')
+    parser.add_argument('globs',
+                        nargs='+',
+                        help='''The globs to display. Each of these will be
+                        shown in a separate pane''')
+
+    args = parser.parse_args()
+
+    Ncameras = len(args.globs)
+
+    if args.display_flip is None:
+        args.display_flip = ('',) * Ncameras
+    else:
+        if ',' in args.display_flip:
+            args.display_flip = args.display_flip.split(',')
+            if len(args.display_flip) != Ncameras:
+                print(f"--display-flip given a comma-separated list: MUST match {Ncameras=}", file=sys.stderr)
+                sys.exit(1)
+        else:
+            args.display_flip = (args.display_flip,) * Ncameras
+    def make_display_flip_one(display_flip):
+        s = set(display_flip)
+        return \
+            ('x' in s,
+             'y' in s)
+    flip_xy = [make_display_flip_one(d) for d in args.display_flip]
+    args.flip_x_allcams = [fxy[0] for fxy in flip_xy]
+    args.flip_y_allcams = [fxy[1] for fxy in flip_xy]
+    # flip_x_allcams and flip_y_allcams are boolean iterables of length args.camera
+
+    return args
+
+
+args = parse_args()
+
+
+
+import mrcam_fltk as mrcam
+from fltk import *
+import fnmatch
+import pyinotify
+import struct
+import fcntl
+import math
+import mrcal
+
+Ncameras = len(args.globs)
+
+
+W        = 1280
+H        = 1024
+H_footer = 30
+title    = "Display new images"
+
+window = Fl_Window(W,H, title)
+
+status_widget = Fl_Output(0, H-H_footer,
+                          W, H_footer)
+status_widget.value('')
+
+# I want the status widget to be output-only and not user-focusable. This will
+# allow keyboard input to not be sent to THIS status widget, so that left/right
+# and 'u' go to the time slider and image windows respectively.
+status_widget.visible_focus(0)
+
+Ngrid = math.ceil(math.sqrt(Ncameras))
+Wgrid = Ngrid
+Hgrid = math.ceil(Ncameras/Wgrid)
+w_image = W            // Wgrid
+h_image = (H-H_footer) // Hgrid
+
+icam = 0
+y0   = 0
+image_views = Fl_Group(0, 0, W, H-H_footer)
+image_widgets = [None] * Ncameras
+for i in range(Hgrid):
+    x0 = 0
+
+    for j in range(Wgrid):
+        image_widgets[icam] = \
+            mrcam.Fl_mrcam_image(x0,y0,
+                           w_image if j < Wgrid-1 else (W         -x0),
+                           h_image if i < Hgrid-1 else (H-H_footer-y0),
+                           icam                         = icam,
+                           locked_panzoom_widgets = \
+                               None if args.unlock_panzoom else \
+                               image_widgets,
+                           flip_x                       = args.flip_x_allcams[icam],
+                           flip_y                       = args.flip_y_allcams[icam],
+                           status_widget                = status_widget)
+        x0   += w_image
+        icam += 1
+
+        if icam == Ncameras:
+            break
+    if icam == Ncameras:
+        break
+
+    y0 += h_image
+image_views.end()
+window.resizable(image_views)
+window.end()
+window.show()
+
+watch_manager = pyinotify.WatchManager()
+watch_manager.add_watch(args.image_directory,
+                        pyinotify.IN_CLOSE_WRITE)
+fd_inotify = watch_manager.get_fd()
+
+# I want to be doing nonblocking reads
+flags = fcntl.fcntl(fd_inotify, fcntl.F_GETFL)
+fcntl.fcntl(fd_inotify, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+
+def callback_image_written(fd):
+    # I do this myself. The Python libraries wrap this in way too much crap
+    while True:
+        # Non-blocking reads until there is no more
+        try:
+            data = os.read(fd, 65536)
+        except BlockingIOError:
+            # no more data; we're done
+            return
+
+        offset = 0
+        while offset < len(data):
+            # /usr/include/sys/inotify.h has:
+            #   struct inotify_event
+            #   {
+            #     int wd;		/* Watch descriptor.  */
+            #     uint32_t mask;	/* Watch mask.  */
+            #     uint32_t cookie;	/* Cookie to synchronize two events.  */
+            #     uint32_t len;		/* Length (including NULs) of name.  */
+            #     char name __flexarr;	/* Name.  */
+            #   }
+            wd, mask, cookie, name_len = \
+                struct.unpack_from("iIII",
+                                   data, offset)
+            offset += 4*4
+            if name_len <= 0:
+                continue
+
+            filename = data[offset:offset + name_len].rstrip(b"\x00").decode("utf-8", "ignore")
+            offset += name_len
+            for icam in range(Ncameras):
+                if fnmatch.fnmatch(filename, args.globs[icam]):
+                    path = f"{args.image_directory}/{filename}"
+                    try:
+                        image = mrcal.load_image(path)
+                    except Exception as e:
+                        print(f"WARNING: Failed to load {path=}: {e}; displaying a black image")
+                        image = None
+                    image_widgets[icam].update( image  = image,
+                                                flip_x = args.flip_x_allcams[icam],
+                                                flip_y = args.flip_y_allcams[icam])
+
+Fl.add_fd(watch_manager.get_fd(),
+          callback_image_written)
+
+Fl.run()
