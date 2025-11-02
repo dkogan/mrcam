@@ -202,7 +202,7 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
         '''
 
         if self.image is None:
-            return
+            return True
 
         (image_height,image_width) = self.image.shape[:2]
 
