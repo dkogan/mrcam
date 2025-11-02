@@ -110,9 +110,7 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
                Fl.event_key() == ord('E'):
 
                 self.do_equalize_fieldscale = not self.do_equalize_fieldscale
-                self.update(self.image,
-                            flip_x = self.flip_x,
-                            flip_y = self.flip_y)
+                self.update(self.image)
                 return super().handle(event) # to keep handling the events, so
                                              # that the other widgets see this
 
@@ -167,10 +165,7 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
 
 
     def update(self,
-               image,
-               *,
-               flip_x,
-               flip_y):
+               image):
 
         # We might be updating the display settings, managed in
         # displayed_image()
@@ -182,8 +177,8 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
         image_data = self.displayed_image(image,
                                           same_image = same_image)
         self.update_image(image_data = image_data,
-                          flip_x     = flip_x,
-                          flip_y     = flip_y)
+                          flip_x     = self.flip_x,
+                          flip_y     = self.flip_y)
 
 
     def set_panzoom(self,
@@ -953,9 +948,7 @@ class Fl_mrcam_application:
                 except:
                     image = None
 
-            self.image_view_groups[icam].image_widget.update( image,
-                                                              flip_x = self.flip_x_allcams[icam],
-                                                              flip_y = self.flip_y_allcams[icam])
+            self.image_view_groups[icam].image_widget.update(image)
 
 
     def image_received_from_mrcam(self,
@@ -1028,9 +1021,7 @@ we will do that ourselves, set frame['buffer'] to None)
                     # Otherwise, leave at None
 
             if self.logdir_write is None or time_slider_at_max:
-                self.image_view_groups[icam].image_widget.update( image  = image,
-                                                                  flip_x = self.flip_x_allcams[icam],
-                                                                  flip_y = self.flip_y_allcams[icam])
+                self.image_view_groups[icam].image_widget.update(image = image)
 
                 self.image_view_groups[icam].sync_feature_widgets()
 
