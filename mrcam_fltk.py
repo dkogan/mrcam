@@ -60,6 +60,7 @@ class Fl_mrcam_image(Fl_Gl_Image_Widget):
         self.icam                   = icam
         self.flip_x                 = flip_x
         self.flip_y                 = flip_y
+        self.image                  = None
 
         # I want keyboard commands to work the same regardless of which widget
         # is focused. Specifically, I want the arrow keys to always end up in
