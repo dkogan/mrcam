@@ -81,11 +81,12 @@ args = parse_args()
 import mrcam_fltk as mrcam
 from fltk import *
 import fnmatch
-import pyinotify
-import struct
-import fcntl
 import math
 import mrcal
+
+# for the inotify machinery
+import ctypes
+import struct
 
 Ncameras = len(args.globs)
 
@@ -145,17 +146,51 @@ window.resizable(image_views)
 window.end()
 window.show()
 
-watch_manager = pyinotify.WatchManager()
-watch_manager.add_watch(args.image_directory,
-                        pyinotify.IN_CLOSE_WRITE)
-fd_inotify = watch_manager.get_fd()
 
-# I want to be doing nonblocking reads
-flags = fcntl.fcntl(fd_inotify, fcntl.F_GETFL)
-fcntl.fcntl(fd_inotify, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+
+
+
+
+
+libc = ctypes.CDLL('libc.so.6', use_errno=True)
+if not (hasattr(libc, 'inotify_init1') and \
+        hasattr(libc, 'inotify_add_watch') ):
+    print("I needs inotify_init1() and inotify_add_watch() for this to work",
+          file=sys.stderr)
+    sys.exit(1)
+
+# int inotify_init1(int flags);
+libc.inotify_init1.argtypes = [ctypes.c_int]
+libc.inotify_init1.restype  = ctypes.c_int
+
+# int inotify_add_watch(int fd, const char *path, uint32_t mask);
+libc.inotify_add_watch.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_uint32]
+libc.inotify_add_watch.restype  = ctypes.c_int
+
+# I want IN_NONBLOCK, but python only gives me O_NONBLOCK. They're the same, and
+# changing that would break API compatibility, so it won't change, and I just
+# use O_NONBLOCK
+fd_inotify = libc.inotify_init1(os.O_NONBLOCK)
+if fd_inotify < 0:
+    err = ctypes.get_errno()
+    print(f"inotify_init1() failed: {os.strerror(err)}", file=sys.stderr)
+    sys.exit(1)
+
+# os doesn't give me IN_CLOSE_WRITE, so I just grab it from
+# /usr/include/linux/inotify.h. It will not change
+IN_CLOSE_WRITE = 0x00000008
+
+
+
+if libc.inotify_add_watch(fd_inotify,
+                          args.image_directory.encode('utf-8'),
+                          IN_CLOSE_WRITE) < 0:
+    err = ctypes.get_errno()
+    print(f"inotify_add_watch('{args.image_directory}', IN_CLOSE_WRITE) failed: {os.strerror(err)}", file=sys.stderr)
+    sys.exit(1)
+
 
 def callback_image_written(fd):
-    # I do this myself. The Python libraries wrap this in way too much crap
     while True:
         # Non-blocking reads until there is no more
         try:
@@ -192,11 +227,7 @@ def callback_image_written(fd):
                     except Exception as e:
                         print(f"WARNING: Failed to load {path=}: {e}; displaying a black image")
                         image = None
-                    image_widgets[icam].update( image  = image,
-                                                flip_x = args.flip_x_allcams[icam],
-                                                flip_y = args.flip_y_allcams[icam])
+                    image_widgets[icam].update(image = image)
 
-Fl.add_fd(watch_manager.get_fd(),
-          callback_image_written)
-
+Fl.add_fd(fd_inotify, callback_image_written)
 Fl.run()
