@@ -508,7 +508,7 @@ class Fl_mrcam_image_group(Fl_Group):
 
     # So that Fl_mrcam_image can take locked_panzoom_widgets or locked_panzoom_groups
     def set_panzoom(self, *args, **kwargs):
-        return self.image_widget(*args, **kwargs)
+        return self.image_widget.set_panzoom(*args, **kwargs)
 
 class Fl_mrcam_application:
 
