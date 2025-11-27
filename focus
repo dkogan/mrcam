@@ -124,7 +124,9 @@ def sharpness(image):
 class Fl_focus_image(mrcam.Fl_mrcam_image):
 
     def displayed_image(self,
-                        image):
+                        image,
+                        # rest; unused here
+                        **kwargs):
 
         # update_sharpness()
         global imagersize, plot_widget
@@ -153,7 +155,7 @@ class Fl_focus_image(mrcam.Fl_mrcam_image):
             # will work
             pass
 
-        return super().displayed_image(image)
+        return super().displayed_image(image, **kwargs)
 
     def handle(self, event):
 

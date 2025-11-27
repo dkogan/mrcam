@@ -332,7 +332,7 @@ class Fl_stereo_image(mrcam.Fl_mrcam_image):
             stereo_procesing(*shown_image,
                              do_equalize_fieldscale = self.do_equalize_fieldscale)
 
-        return super().displayed_image(image)
+        return super().displayed_image(image, **kwargs)
 
     def handle(self, event):
 
