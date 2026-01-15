@@ -18,7 +18,7 @@
 // An ffmpeg pixel format of AV_PIX_FMT_NONE means "the input is already packed,
 // and there's no need to invoke ffmpeg at all"
 //
-// Today I don't yet support the high-deptch color formats because there's no
+// Today I don't yet support the high-depth color formats because there's no
 // corresponding mrcal_image_XXXX_t
 //
 // The packed formats are not yet supported because they're weird. I just tried
