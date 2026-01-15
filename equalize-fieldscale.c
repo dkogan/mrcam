@@ -23,7 +23,7 @@ Based on:
 #include <limits.h>
 #include <math.h>
 #include <stdbool.h>
-#include <mrcal/mrcal-image.h>
+#include <mrcal/image.h>
 
 #include "clahe.h"
 #include "util.h"

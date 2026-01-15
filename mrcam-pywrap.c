@@ -8,7 +8,7 @@
 #include <poll.h>
 #include <assert.h>
 #include <pthread.h>
-#include <mrcal/mrcal-image.h>
+#include <mrcal/image.h>
 #include <arv.h>
 
 #include "mrcam.h"

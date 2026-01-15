@@ -1,6 +1,6 @@
 #pragma once
 
-#include <mrcal/mrcal-image.h>
+#include <mrcal/image.h>
 
 // I define this myself, in order to avoid requiring the user to #include
 // <arv.h>. This is a few common formats. The fields are:
