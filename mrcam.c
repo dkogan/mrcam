@@ -881,8 +881,28 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
         // Nothing to do. This CAN happen if we're capturing continuously: the
         // frames are coming in without us explicitly asking for each one, so we
         // might not be ready to do anything with the frame yet
+
         if(ctx->verbose)
+        {
+
+#define ARV_STREAM_CALLBACK_TYPE_LIST(_)            \
+            _(INIT)                                 \
+            _(START_BUFFER)                         \
+            _(BUFFER_DONE)                          \
+            _(EXIT)
+
+#define CHECK_AND_EXIT(w) case ARV_STREAM_CALLBACK_TYPE_ ## w: MSG("ARV_STREAM_CALLBACK_TYPE_" #w); break;
+            switch(type)
+            {
+                ARV_STREAM_CALLBACK_TYPE_LIST(CHECK_AND_EXIT)
+                    default:
+                MSG("unknown type!");
+            }
+
+#undef CHECK_AND_EXIT
+
             MSG("Nothing to do: user active_callback==NULL");
+        }
         return;
     }
 
