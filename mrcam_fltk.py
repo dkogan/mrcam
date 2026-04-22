@@ -812,6 +812,9 @@ class Fl_mrcam_application:
             else:
                 self.time_slider_widget.bounds(0, 0)
                 self.time_slider_widget.value(0)
+            # if live-updating we color the slider green
+            if self.logdir_write is not None:
+                self.time_slider_widget.color(FL_GREEN)
             self.time_slider_widget.callback( \
                 lambda *args: \
                     self.time_slider_select())
