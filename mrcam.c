@@ -1079,7 +1079,7 @@ bool mrcam_request( // in
     ctx->active_callback_off_decimation = callback_off_decimation;
     ctx->active_callback_cookie         = cookie;
 
-    if(ctx->verbose)
+    while(true)
     {
         gint n_input_buffers;
         gint n_output_buffers;
@@ -1094,8 +1094,19 @@ bool mrcam_request( // in
                                        &n_output_buffers,
                                        &n_buffer_filling);
 #endif
-        MSG("n_input_buffers,n_output_buffers,n_buffer_filling = %d,%d,%d",
-            n_input_buffers,n_output_buffers,n_buffer_filling);
+        if(ctx->verbose || n_input_buffers <= 0)
+        {
+            MSG("n_input_buffers,n_output_buffers,n_buffer_filling = %d,%d,%d",
+                n_input_buffers,n_output_buffers,n_buffer_filling);
+        }
+        if(n_input_buffers <= 0)
+        {
+            MSG("No input buffers available; cannot request a new frame at this time. THIS SHOULD NOT HAPPEN");
+            MSG("Either increase the buffer count or speed-up your image processing. Trying again in 1s...");
+            sleep(1);
+            continue;
+        }
+        break;
     }
 
     if(!ctx->acquiring)
