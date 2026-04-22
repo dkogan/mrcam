@@ -344,7 +344,7 @@ class Fl_mrcam_image_group(Fl_Group):
         self.features = list(expand_features(features))
         self.feature_dict_from_widget = dict()
 
-        y = 0
+        # Start with the y from the image, and advance with each feature widget
         for feature_dict in self.features:
             name  = feature_dict['name']
             flags = feature_dict['flags']
