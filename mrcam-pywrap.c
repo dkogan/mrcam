@@ -992,6 +992,7 @@ async_save_image_and_push_buffer(camera* self, PyObject* args, PyObject* kwargs)
 
     async_save_image_and_push_buffer_t s;
 
+    // the buffer is here JUST so that we can push it back when we're done
     char* keywords[] = {"path",
                         "image",
                         "buffer",
