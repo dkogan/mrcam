@@ -795,17 +795,7 @@ bool receive_image(// out
         *buffer = arv_stream_pop_buffer(*stream);
     }
     if(ctx->verbose)
-        MSG("... received buffer %p", *buffer);
-
-    // This MUST have been done by this function, regardless of things failing
-    if(ctx->acquisition_mode != MRCAM_ACQUISITION_MODE_CONTINUOUS)
-    {
-        try_arv(arv_camera_stop_acquisition(*camera, &error));
-
-        // if it failed, ctx->acquiring will remain at true. Probably there's no way
-        // to recover anyway
-        ctx->acquiring = false;
-    }
+        MSG("'%s': ... received buffer %p", _mrcam_device_id(ctx), *buffer);
 
     ArvBufferStatus status = arv_buffer_get_status(*buffer);
 
@@ -1047,6 +1037,18 @@ bool mrcam_request( // in
     bool    result = false;
     GError* error  = NULL;
 
+    // If we're not continuous, we initiate a new acquisition with each frame
+    if(ctx->acquisition_mode != MRCAM_ACQUISITION_MODE_CONTINUOUS &&
+       ctx->acquiring)
+    {
+        try_arv_or(arv_camera_stop_acquisition(*camera, &error),
+                   error->code == ARV_DEVICE_ERROR_STREAM_ERROR);
+        if(error != NULL)
+            g_clear_error(&error);
+        ctx->acquiring = false;
+    }
+
+
     ctx->timestamp_request_us = gettimeofday_uint64();
 
     if( (ctx->trigger == MRCAM_TRIGGER_NONE ||
@@ -1175,6 +1177,8 @@ bool mrcam_pull(/* out */
                 const uint64_t timeout_us,
                 mrcam_t* ctx)
 {
+    bool result = false;
+
     if(ctx->verbose) MSG("%s()", __func__);
 
     int N = ctx->time_decimation_factor;
@@ -1194,6 +1198,19 @@ bool mrcam_pull(/* out */
                                                  // returned to the user
                           N == 1 ? image_undecoded : NULL,
                           timeout_us, ctx);
+
+        // If we're not continuous, we initiate a new acquisition with each frame
+        if(ctx->acquisition_mode != MRCAM_ACQUISITION_MODE_CONTINUOUS &&
+           ctx->acquiring)
+        {
+            GError* error  = NULL;
+            try_arv_or(arv_camera_stop_acquisition(ctx->camera, &error),
+                       error->code == ARV_DEVICE_ERROR_STREAM_ERROR);
+            if(error != NULL)
+                g_clear_error(&error);
+            ctx->acquiring = false;
+        }
+
         if(!result)
         {
             mrcam_push_buffer(buffer, ctx);
@@ -1207,8 +1224,11 @@ bool mrcam_pull(/* out */
         }
     }
 
+    result = true;
+
     // The caller MUST mrcal_push_buffer(buffer) when done
-    return true;
+ done:
+    return result;
 }
 
 bool mrcam_cancel_request(mrcam_t* ctx)
