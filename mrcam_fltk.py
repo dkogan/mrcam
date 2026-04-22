@@ -528,7 +528,7 @@ class Fl_mrcam_application:
                  logdir_write,
                  logdir_read,
                  replay_from_frame,
-                 jpg,
+                 logformat,
                  image_path_prefix,
                  image_directory,
 
@@ -543,7 +543,7 @@ class Fl_mrcam_application:
                                 logdir_write      = logdir_write,
                                 logdir_read       = logdir_read,
                                 replay_from_frame = replay_from_frame,
-                                jpg               = jpg,
+                                logformat         = logformat,
                                 image_path_prefix = image_path_prefix,
                                 image_directory   = image_directory)
 
@@ -614,14 +614,14 @@ class Fl_mrcam_application:
                            logdir_read,
                            replay_from_frame,
                            logdir_write,
-                           jpg,
+                           logformat,
                            image_path_prefix,
                            image_directory):
 
         self.logdir_read       = logdir_read
         self.replay_from_frame = replay_from_frame
         self.logdir_write      = logdir_write
-        self.jpg               = jpg
+        self.logformat         = logformat
         self.image_path_prefix = image_path_prefix
         self.image_directory   = image_directory
 
@@ -968,8 +968,6 @@ we will do that ourselves, set frame['buffer'] to None)
 
         Ncameras = len(self.image_view_groups)
 
-        extension      = "jpg" if self.jpg else "png"
-
         image          = frame['image']
         timestamp      = frame['timestamp']
         buffer         = frame['buffer']
@@ -1003,7 +1001,7 @@ we will do that ourselves, set frame['buffer'] to None)
                     self.logged_images.append( self.logged_image_from_iframe[iframe] )
 
                 # write image to disk
-                filename = f"frame{iframe:05d}-cam{icam}.{extension}"
+                filename = f"frame{iframe:05d}-cam{icam}.{self.logformat}"
                 path = f"{self.logdir_write}/{filename}"
 
                 if image is None:

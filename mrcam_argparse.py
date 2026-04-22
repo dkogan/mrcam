@@ -113,14 +113,16 @@ def add_common_cmd_options(parser,
                         with --replay. When logging, simultaneous replaying is
                         ALWAYS enabled. If the requested directory does not
                         exist, we create it''')
-    parser.add_argument('--jpg',
-                        action='store_true',
-                        help='''If given, we write the output images as .jpg
-                        files, using lossy compression. If omitted, we write out
-                        lossless .png files (bigger, much slower to compress,
-                        decompress). Some pixel formats (deep ones, in
-                        particular) do not work with.jpg''')
-
+    parser.add_argument('--logformat',
+                        choices=('jpg','png','pgm', 'ppm'),
+                        default='png',
+                        help='''The file format used for the logs; if omitted we
+                        use 'png'. 'png' is lossless and compressed, but slow.
+                        'jpg' is lossy and very compressed and fast. 'pgm'/'ppm'
+                        is lossless and not compressed at all, but very fast.
+                        'pgm' is for grayscale images, 'ppm' is for color
+                        images. Some pixel formats (deep ones, in particular) do
+                        not work with jpg''')
     parser.add_argument('--replay',
                         help='''If given, we replay the stored images
                         instead of talking to camera hardware. The log

@@ -19,7 +19,7 @@ typedef struct { int width,height; } dimensions_t;
 #define LIST_OPTIONS(_)                                                 \
     _(int,            Nframes, Nframes, 1,                   required_argument, " N",           'N', "N:") \
     _(const char*,    logdir,  logdir,  NULL,                required_argument, " DIR",         'l', "l:") \
-    _(bool,           jpg,     jpg,     false,               no_argument,       ,               'j', "j" ) \
+    _(const char*,    logformat,logformat,"png",             required_argument, " FORMAT",      'L', "L:" ) \
     _(double,         period,  period,  1.0,                 required_argument, " PERIOD_SEC",  'T', "T:") \
     /* The default pixel format is MONO_*. Should match the one in camera_init() in mrcam-pywrap.c */ \
     _(mrcam_pixfmt_t, pixfmt,  pixfmt,  MRCAM_PIXFMT_MONO_8, required_argument, " PIXELFORMAT", 'F', ""  ) \
@@ -137,7 +137,7 @@ static bool parse_args(// out
             break;
 
         case 'l': options->logdir                          = optarg;       break;
-        case 'j': options->jpg                             = true;         break;
+        case 'f': options->logformat                       = optarg;       break;
         case 'T': options->period                          = atof(optarg); break;
         case 'v': options->verbose                         = true;         break;
         case 'F':
@@ -215,7 +215,7 @@ static bool parse_args(// out
 #undef PARSE
             break;
 
-        case 'f':
+        case 'L':
             options->time_decimation_factor = atoi(optarg);
             break;
 
@@ -342,7 +342,7 @@ int main(int argc, char **argv)
                              options.logdir,
                              iframe,
                              icam,
-                             options.jpg ? "jpg" : "png") >= (int)sizeof(filename) )
+                             options.logformat) >= (int)sizeof(filename) )
                 {
                     MSG("Static buffer overflow. Increase sizeof(filename)");
                     __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
