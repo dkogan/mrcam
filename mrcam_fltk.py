@@ -972,6 +972,7 @@ we will do that ourselves, set frame['buffer'] to None)
         Ncameras = len(self.image_view_groups)
 
         image          = frame['image']
+        image_undecoded= frame['image_undecoded']
         timestamp      = frame['timestamp']
         buffer         = frame['buffer']
         off_decimation = frame['off_decimation']
@@ -1013,7 +1014,7 @@ we will do that ourselves, set frame['buffer'] to None)
                     self.write_logline(f"{timestamp:.3f} {iframe} {icam} {filename}")
 
                     self.image_view_groups[icam].camera. \
-                        async_save_image_and_push_buffer(path,image,frame['buffer'])
+                        async_save_image_and_push_buffer(path,image_undecoded,frame['buffer'])
                     frame['buffer'] = None # indicate that the caller should NOT re-push the buffer
 
                 self.logged_image_from_iframe[iframe]['time'     ][icam] = timestamp

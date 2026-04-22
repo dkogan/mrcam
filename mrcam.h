@@ -115,6 +115,7 @@ typedef enum {MRCAM_UNKNOWN = -1,
 mrcam_output_type_t mrcam_output_type(mrcam_pixfmt_t pixfmt);
 
 typedef void (mrcam_callback_t )(mrcal_image_uint8_t image, // type may not be exact
+                                 mrcal_image_uint8_t image_undecoded,
                                  void* buffer,              // ArvBuffer*, without requiring #include arv.h
                                  uint64_t timestamp_us,
                                  void* cookie);
@@ -234,6 +235,7 @@ bool mrcam_is_inited(mrcam_t* ctx);
 // to make the buffer available to future captures.
 bool mrcam_pull(/* out */
                 mrcal_image_uint8_t* image,
+                mrcal_image_uint8_t* image_undecoded,
                 // the buffer. Call mrcam_push_buffer(buffer) when done with the
                 // image
                 void** buffer,
@@ -250,6 +252,7 @@ bool mrcam_pull(/* out */
 // Usage:
 //
 //   void callback(mrcal_image_uint8_t image,
+//                 mrcal_image_uint8_t image_undecoded,
 //                 void* buffer,
 //                 uint64_t timestamp_us,
 //                 void* cookie)

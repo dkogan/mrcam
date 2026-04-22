@@ -79,7 +79,15 @@ typedef struct {
 // The structure being sent over the pipe when an image is received
 typedef struct
 {
-    mrcal_image_uint8_t mrcal_image; // type might not be exact
+    // Image type might not be exact
+
+    // The image used for display
+    mrcal_image_uint8_t mrcal_image;
+    // Usually the image used for logging will be exactly the same one we use
+    // for display (mrcal_image == mrcal_image_undecoded). Sometimes we want
+    // to log an undecoded image, however: for instance we might want to log the
+    // data BEFORE we debayer it
+    mrcal_image_uint8_t mrcal_image_undecoded;
     uint64_t            timestamp_us;
     ArvBuffer*          buffer;
     bool                off_decimation;
@@ -515,9 +523,10 @@ static PyObject*
 pull(camera* self, PyObject* args, PyObject* kwargs)
 {
     // error by default
-    PyObject* result = NULL;
-    PyObject* image  = NULL;
-    void*     buffer = NULL;
+    PyObject* result          = NULL;
+    PyObject* image           = NULL;
+    PyObject* image_undecoded = NULL;
+    void*     buffer          = NULL;
 
     char* keywords[] = {"timeout",
                         "period",
@@ -545,8 +554,10 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
 
     // generic type
     mrcal_image_uint8_t mrcal_image;
+    mrcal_image_uint8_t mrcal_image_undecoded;
     uint64_t            timestamp_us;
     if(!mrcam_pull( &mrcal_image,
+                    &mrcal_image_undecoded,
                     &buffer,
                     &timestamp_us,
                     (uint64_t)(period_sec  * 1e6),
@@ -561,11 +572,27 @@ pull(camera* self, PyObject* args, PyObject* kwargs)
     if(image == NULL)
         // BARF() already called
         goto done;
+    if(mrcal_image_undecoded.data != NULL)
+    {
+        // Today I use this path only for 8-bit bayer-array data, so I
+        // hardcode MRCAM_uint8. I will expand this later
+        image_undecoded = numpy_image_from_mrcal_image(&mrcal_image_undecoded, MRCAM_uint8);
+        if(image_undecoded == NULL)
+            // BARF() already called
+            goto done;
+    }
+    else
+    {
+        // Error occurred. I return None as the image_undecoded
+        image_undecoded = Py_None;
+        Py_INCREF(image_undecoded);
+    }
 
-    result = Py_BuildValue("{sOsNsd}",
-                           "image",     image,
-                           "buffer",    PyLong_FromVoidPtr(buffer),
-                           "timestamp", (double)timestamp_us / 1e6);
+    result = Py_BuildValue("{sOsOsNsd}",
+                           "image",           image,
+                           "image_undecoded", image_undecoded,
+                           "buffer",          PyLong_FromVoidPtr(buffer),
+                           "timestamp",       (double)timestamp_us / 1e6);
     if(result == NULL)
     {
         BARF("Couldn't build %s() result", __func__);
@@ -631,15 +658,17 @@ ssize_t write_persistent(int fd, const uint8_t* buf, size_t count)
 static
 void
 callback(mrcal_image_uint8_t mrcal_image, // type might not be exact
+         mrcal_image_uint8_t mrcal_image_undecoded,
          void*    buffer, // ArvBuffer*, without requiring #include arv.h
          uint64_t timestamp_us,
          void* cookie)
 {
     camera* self = (camera*)cookie;
 
-    image_ready_t s = {.mrcal_image  = mrcal_image,
-                       .timestamp_us = timestamp_us,
-                       .buffer       = buffer};
+    image_ready_t s = {.mrcal_image           = mrcal_image,
+                       .mrcal_image_undecoded = mrcal_image_undecoded,
+                       .timestamp_us          = timestamp_us,
+                       .buffer                = buffer};
 
     if(sizeof(s) != write_persistent(self->pipe_capture[PIPE_FD_WRITE], (uint8_t*)&s, sizeof(s)))
     {
@@ -651,6 +680,7 @@ callback(mrcal_image_uint8_t mrcal_image, // type might not be exact
 static
 void
 callback_off_decimation(__attribute__((unused)) mrcal_image_uint8_t mrcal_image, // type might not be exact
+                        __attribute__((unused)) mrcal_image_uint8_t mrcal_image_undecoded,
                         __attribute__((unused)) void*    buffer, // ArvBuffer*, without requiring #include arv.h
                         __attribute__((unused)) uint64_t timestamp_us,
                         void* cookie)
@@ -692,8 +722,9 @@ static PyObject*
 requested_image(camera* self, PyObject* args, PyObject* kwargs)
 {
     // error by default
-    PyObject* result = NULL;
-    PyObject* image  = NULL;
+    PyObject* result          = NULL;
+    PyObject* image           = NULL;
+    PyObject* image_undecoded = NULL;
 
     char* keywords[] = {"block",
                         NULL};
@@ -736,15 +767,33 @@ requested_image(camera* self, PyObject* args, PyObject* kwargs)
             Py_INCREF(image);
         }
 
-        result = Py_BuildValue("{sOsdsNsi}",
+        if(s.mrcal_image_undecoded.data != NULL)
+        {
+            // Today I use this path only for 8-bit bayer-array data, so I
+            // hardcode MRCAM_uint8. I will expand this later
+            image_undecoded = numpy_image_from_mrcal_image(&s.mrcal_image_undecoded, MRCAM_uint8);
+            if(image_undecoded == NULL)
+                // BARF() already called
+                goto done;
+        }
+        else
+        {
+            // Error occurred. I return None as the image_undecoded
+            image_undecoded = Py_None;
+            Py_INCREF(image_undecoded);
+        }
+
+        result = Py_BuildValue("{sOsOsdsNsi}",
                                "image",          image,
+                               "image_undecoded",image_undecoded,
                                "timestamp",      (double)s.timestamp_us / 1e6,
                                "buffer",         PyLong_FromVoidPtr(s.buffer),
                                "off_decimation", 0);
     }
     else
-        result = Py_BuildValue("{sOsOsOsi}",
+        result = Py_BuildValue("{sOsOsOsOsi}",
                                "image",          Py_None,
+                               "image_undecoded",Py_None,
                                "timestamp",      Py_None,
                                "buffer",         Py_None,
                                "off_decimation", 1);

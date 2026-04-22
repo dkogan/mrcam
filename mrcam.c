@@ -682,11 +682,30 @@ static bool is_pixfmt_matching(ArvPixelFormat pixfmt,
 static
 bool fill_image(// out
                 mrcal_image_uint8_t* image, // type may not be 100% right; layout is the same
+                mrcal_image_uint8_t* image_undecoded,
                 // in
                 ArvBuffer* buffer,
                 mrcam_t* ctx)
 {
     if(ctx->verbose) MSG("");
+
+    if(image_undecoded != NULL)
+    {
+        if(ctx->pixfmt == MRCAM_PIXFMT_BAYER_GR_8 ||
+           ctx->pixfmt == MRCAM_PIXFMT_BAYER_RG_8 ||
+           ctx->pixfmt == MRCAM_PIXFMT_BAYER_GB_8 ||
+           ctx->pixfmt == MRCAM_PIXFMT_BAYER_BG_8)
+        {
+            if(!fill_image_unpacked(image_undecoded, buffer, sizeof(uint8_t)))
+            {
+                *image           = (mrcal_image_uint8_t){};
+                *image_undecoded = (mrcal_image_uint8_t){};
+                return false;
+            }
+        }
+        else
+            *image_undecoded = (mrcal_image_uint8_t){};
+    }
 
     ArvPixelFormat pixfmt = arv_buffer_get_image_pixel_format(buffer);
     if(!is_pixfmt_matching(pixfmt, ctx->pixfmt))
@@ -733,10 +752,12 @@ bool receive_image(// out
                    uint64_t* timestamp_us, // may be NULL
                    ArvBuffer** buffer,
 
-                   // fill this image with the data, on success. On failure set to {}
+                   // fill with the (un)decoded data, on success. On
+                   // failure set to {}
                    // May be NULL
                    // specific image type may not be right; it doesn't matter
                    mrcal_image_uint8_t* image,
+                   mrcal_image_uint8_t* image_undecoded,
 
                    // in
                    const uint64_t timeout_us,
@@ -846,11 +867,22 @@ bool receive_image(// out
     if(image != NULL)
     {
         if(result)
-            result = fill_image(image, *buffer, ctx);
+            result = fill_image(// out
+                                image,
+                                image_undecoded,
+                                // in
+                                *buffer,
+                                ctx);
 
         if(!result)
-            *image = (mrcal_image_uint8_t){}; // error
+        {
+            *image           = (mrcal_image_uint8_t){}; // error
+            *image_undecoded = (mrcal_image_uint8_t){}; // error
+        }
     }
+    else if(image_undecoded != NULL)
+        *image_undecoded = (mrcal_image_uint8_t){};
+
     // I want to make sure that arv_camera_stop_acquisition() was called by this
     // function. That happened on top. If it failed, there isn't anything I can
     // do about it.
@@ -940,6 +972,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
                 MSG("ARV_STREAM_CALLBACK_TYPE_BUFFER_DONE");
 
             mrcal_image_uint8_t image; // specific image type may not be right; it doesn't matter
+            mrcal_image_uint8_t image_undecoded;
 
             const bool on_decimation =
                 (ctx->time_decimation_factor <= 1) ||
@@ -947,7 +980,8 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
 
             ArvBuffer* buffer_popped;
             receive_image(NULL, &buffer_popped,
-                          on_decimation ? &image : NULL,
+                          on_decimation ? &image           : NULL,
+                          on_decimation ? &image_undecoded : NULL,
                           0, ctx);
 
             // On error image is {0}, which indicates an error. We invoke the
@@ -963,6 +997,7 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
                 if(ctx->verbose)
                     MSG("calling the active_callback()");
                 ctx->active_callback(image,
+                                     image_undecoded,
                                      buffer_popped,
                                      ctx->timestamp_start_buffer_us,
                                      ctx->active_callback_cookie);
@@ -986,7 +1021,9 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
                 // External triggering or whatever else. New frame requests
                 // happen here
                 if(ctx->active_callback_off_decimation != NULL)
-                    ctx->active_callback_off_decimation((mrcal_image_uint8_t){},NULL,0,ctx->active_callback_cookie);
+                    ctx->active_callback_off_decimation((mrcal_image_uint8_t){},
+                                                        (mrcal_image_uint8_t){},
+                                                        NULL,0,ctx->active_callback_cookie);
             }
         }
 
@@ -1125,6 +1162,7 @@ bool mrcam_request( // in
 /* timeout_us=0 means "wait forever" */
 bool mrcam_pull(/* out */
                 mrcal_image_uint8_t* image,
+                mrcal_image_uint8_t* image_undecoded,
                 // the buffer. Call mrcam_push_buffer(buffer) when done with the
                 // image
                 void** buffer,
@@ -1154,6 +1192,7 @@ bool mrcam_pull(/* out */
                           N == 1 ? image : NULL, // fill in the image on the
                                                  // last round, which will be
                                                  // returned to the user
+                          N == 1 ? image_undecoded : NULL,
                           timeout_us, ctx);
         if(!result)
         {

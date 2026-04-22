@@ -302,7 +302,7 @@ int main(int argc, char **argv)
         mrcal_image_uint8_t  image_uint8 [options.Ncameras];
         mrcal_image_uint16_t image_uint16[options.Ncameras];
         mrcal_image_bgr_t    image_bgr   [options.Ncameras];
-    } images;
+    } images, images_undecoded;
 
     uint64_t timestamps_us[options.Ncameras];
 
@@ -317,7 +317,8 @@ int main(int argc, char **argv)
         int64_t t0 = gettimeofday_int64();
 
         for(int icam=0; icam<options.Ncameras; icam++)
-            if(!mrcam_pull( &images.image_uint8 [icam],
+            if(!mrcam_pull( &images          .image_uint8 [icam],
+                            &images_undecoded.image_uint8 [icam],
                             &buffers[icam],
                             &timestamps_us[icam],
                             (uint64_t)(options.period  * 1e6),
@@ -356,7 +357,7 @@ int main(int argc, char **argv)
                 switch(mrcam_output_type(ctx[icam].pixfmt))
                 {
                 case MRCAM_uint8:
-                    if(!mrcal_image_uint8_save(  filename, &images.image_uint8 [icam]))
+                    if(!mrcal_image_uint8_save(  filename, (images.image_uint8 [icam].data != NULL) ? &images.image_uint8 [icam] : &images_undecoded.image_uint8 [icam]))
                     {
                         MSG("Couldn't save to '%s'", filename);
                         __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
@@ -365,7 +366,7 @@ int main(int argc, char **argv)
                     break;
 
                 case MRCAM_uint16:
-                    if(!mrcal_image_uint16_save( filename, &images.image_uint16[icam]))
+                    if(!mrcal_image_uint16_save( filename, (images.image_uint16[icam].data != NULL) ? &images.image_uint16[icam] : &images_undecoded.image_uint16[icam]))
                     {
                         MSG("Couldn't save to '%s'", filename);
                         __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
@@ -374,7 +375,7 @@ int main(int argc, char **argv)
                     break;
 
                 case MRCAM_bgr:
-                    if(!mrcal_image_bgr_save(   filename, &images.image_bgr   [icam]))
+                    if(!mrcal_image_bgr_save(   filename, (images.image_bgr   [icam].data != NULL) ? &images.image_bgr   [icam] : &images_undecoded.image_bgr   [icam]))
                     {
                         MSG("Couldn't save to '%s'", filename);
                         __atomic_store(&capturefailed, &(bool){true}, __ATOMIC_RELAXED);
