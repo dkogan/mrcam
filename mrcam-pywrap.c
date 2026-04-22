@@ -357,9 +357,9 @@ static void camera_dealloc(camera* self)
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
+// Creates a REFERENCE to the data in mrcal_image. Does NOT copy the data
 static PyObject*
-numpy_image_from_mrcal_image(// type not exact
-                             const mrcal_image_uint8_t* mrcal_image, // type might not be exact,
+numpy_image_from_mrcal_image(const mrcal_image_uint8_t* mrcal_image, // type might not be exact,
                              mrcam_output_type_t type)
 {
     switch(type)
@@ -422,6 +422,7 @@ numpy_image_from_mrcal_image(// type not exact
     }
 }
 
+// Does NOT copy the data
 static
 bool mrcal_image_from_numpy_image(mrcal_image_uint8_t* image, // type not exact
                                   mrcal_image_uint8_save_t** generic_save,
