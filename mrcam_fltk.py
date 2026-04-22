@@ -979,7 +979,7 @@ we will do that ourselves, set frame['buffer'] to None)
 
         if not off_decimation:
             if image is None:
-                print("Error capturing the image. I will try again",
+                print("Error capturing the image. Will try again in the next cycle",
                       file=sys.stderr)
 
             time_slider_at_max = False
