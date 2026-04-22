@@ -377,7 +377,7 @@ numpy_image_from_mrcal_image(const mrcal_image_uint8_t* mrcal_image, // type mig
             const int bytes_per_pixel__output = 1;
             if(mrcal_image->stride != mrcal_image->width * bytes_per_pixel__output)
             {
-                BARF("Image returned by mrcam_pull() is not contiguous");
+                BARF("Image is not contiguous");
                 return NULL;
             }
             return
@@ -394,7 +394,7 @@ numpy_image_from_mrcal_image(const mrcal_image_uint8_t* mrcal_image, // type mig
             const int bytes_per_pixel__output = 2;
             if(mrcal_image->stride != mrcal_image->width * bytes_per_pixel__output)
             {
-                BARF("Image returned by mrcam_pull() is not contiguous");
+                BARF("Image is not contiguous");
                 return NULL;
             }
             return
@@ -411,7 +411,7 @@ numpy_image_from_mrcal_image(const mrcal_image_uint8_t* mrcal_image, // type mig
             const int bytes_per_pixel__output = 3;
             if(mrcal_image->stride != mrcal_image->width * bytes_per_pixel__output)
             {
-                BARF("Image returned by mrcam_pull() is not contiguous");
+                BARF("Image is not contiguous");
                 return NULL;
             }
             return
