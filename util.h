@@ -5,9 +5,20 @@
 #define MRCAM_MSG(fmt, ...) fprintf(stderr, "%s(%d) in %s(): " fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define MRCAM_ERR(fmt, ...) MRCAM_MSG("Failure!!! " fmt, ##__VA_ARGS__)
 
+#if !(defined ONLY_MSG && ONLY_MSG)
+
+static inline const char* _mrcam_device_id(const mrcam_t* ctx)
+{
+    if(ctx         == NULL) return "UNKNOWN (ctx==NULL)";
+    if(ctx->camera == NULL) return "UNKNOWN (ctx->camera==NULL)";
+    const char* device_id = arv_camera_get_device_id(ctx->camera,NULL);
+    if(device_id == NULL) return "UNKNOWN (arv_camera_get_device_id() failed)";
+    return device_id;
+}
+
 #define try(expr, ...) do {                                     \
         if(ctx->verbose)                                        \
-            MRCAM_MSG("ctx=%p: Evaluating   '" #expr "'", ctx); \
+            MRCAM_MSG("'%s': Evaluating   '" #expr "'", _mrcam_device_id(ctx)); \
         if(!(expr))                                             \
         {                                                       \
             MRCAM_ERR("'" #expr "' is false" __VA_ARGS__);      \
@@ -17,7 +28,7 @@
 
 #define try_arv(expr) do {                              \
         if(ctx->verbose)                                \
-            MRCAM_MSG("ctx=%p: Calling   '" #expr "'", ctx);  \
+            MRCAM_MSG("'%s': Calling   '" #expr "'", _mrcam_device_id(ctx)); \
         expr;                                           \
         if(error != NULL)                               \
         {                                               \
@@ -32,7 +43,7 @@
         if(ctx->verbose)                                                \
         {                                                               \
             extra_verbose_before;                                       \
-            MRCAM_MSG("ctx=%p: Calling   '" #expr "'", ctx);            \
+            MRCAM_MSG("'%s': Calling   '" #expr "'", _mrcam_device_id(ctx)); \
         }                                                               \
         expr;                                                           \
         if(ctx->verbose)                                                \
@@ -52,7 +63,7 @@
 // THIS MACRO MAY LEAVE error ALLOCATED. YOU NEED TO g_clear_error() yourself
 #define try_arv_or(expr, condition) do {                                \
         if(ctx->verbose)                                                \
-            MRCAM_MSG("ctx=%p: Calling   '" #expr "'", ctx);            \
+            MRCAM_MSG("'%s': Calling   '" #expr "'", _mrcam_device_id(ctx)); \
         expr;                                                           \
         if(error != NULL)                                               \
         {                                                               \
@@ -71,7 +82,7 @@
 
 #define try_arv_and(expr, condition) do {                               \
         if(ctx->verbose)                                                \
-            MRCAM_MSG("ctx=%p: Calling   '" #expr "'", ctx);            \
+            MRCAM_MSG("'%s': Calling   '" #expr "'", _mrcam_device_id(ctx)); \
         expr;                                                           \
         if(error != NULL)                                               \
         {                                                               \
@@ -86,3 +97,5 @@
             goto done;                                                  \
         }                                                               \
     } while(0)
+
+#endif

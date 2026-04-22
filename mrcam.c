@@ -752,7 +752,7 @@ bool receive_image(// out
 
     if(!ctx->acquiring)
     {
-        MSG("No acquisition in progress. Nothing to receive");
+        MSG("'%s': No acquisition in progress. Nothing to receive", _mrcam_device_id(ctx));
         goto done;
     }
 
@@ -761,13 +761,16 @@ bool receive_image(// out
     if (timeout_us > 0)
     {
         if(ctx->verbose)
-            MSG("Calling   arv_stream_timeout_pop_buffer(timeout_us = %"PRIu64") ...", timeout_us);
+            MSG("'%s': Calling   arv_stream_timeout_pop_buffer(timeout_us = %"PRIu64") ...",
+                _mrcam_device_id(ctx),
+                timeout_us);
         *buffer = arv_stream_timeout_pop_buffer(*stream, timeout_us);
     }
     else
     {
         if(ctx->verbose)
-            MSG("Calling   arv_stream_pop_buffer() ...");
+            MSG("'%s': Calling   arv_stream_pop_buffer() ...",
+                _mrcam_device_id(ctx));
         *buffer = arv_stream_pop_buffer(*stream);
     }
     if(ctx->verbose)
@@ -796,12 +799,12 @@ bool receive_image(// out
   _(ARV_BUFFER_STATUS_SIZE_MISMATCH)            \
   _(ARV_BUFFER_STATUS_FILLING)                  \
   _(ARV_BUFFER_STATUS_ABORTED)
-#define CHECK(s) else if(status == s) { MSG("ERROR: arv_stream_pop_buffer() says " #s); goto done; }
+#define CHECK(s) else if(status == s) { MSG("ERROR: '%s': arv_stream_pop_buffer() says " #s, _mrcam_device_id(ctx)); goto done; }
     if(status == ARV_BUFFER_STATUS_SUCCESS) ;
     LIST_STATUS(CHECK)
     else
     {
-        MSG("ERROR: arv_stream_pop_buffer() returned unknown status %d", status);
+        MSG("ERROR: '%s': arv_stream_pop_buffer() returned unknown status %d", _mrcam_device_id(ctx), status);
         goto done;
     }
 #undef LIST_STATUS
@@ -823,12 +826,12 @@ bool receive_image(// out
   _(ARV_BUFFER_PAYLOAD_TYPE_H264)                       \
   _(ARV_BUFFER_PAYLOAD_TYPE_MULTIZONE_IMAGE)            \
   _(ARV_BUFFER_PAYLOAD_TYPE_MULTIPART)
-#define CHECK(s) else if(payload_type == s) { MSG("ERROR: arv_stream_pop_buffer() says " #s "; I only know about ARV_BUFFER_PAYLOAD_TYPE_IMAGE"); goto done; }
+#define CHECK(s) else if(payload_type == s) { MSG("ERROR: '%s': arv_stream_pop_buffer() says " #s "; I only know about ARV_BUFFER_PAYLOAD_TYPE_IMAGE", _mrcam_device_id(ctx)); goto done; }
     if(payload_type == ARV_BUFFER_PAYLOAD_TYPE_IMAGE) ;
     LIST_PAYLOAD_TYPE(CHECK)
     else
     {
-        MSG("ERROR: arv_stream_pop_buffer() returned unknown payload_type %d", payload_type);
+        MSG("ERROR: '%s': arv_stream_pop_buffer() returned unknown payload_type %d", _mrcam_device_id(ctx), payload_type);
         goto done;
     }
 #undef LIST_PAYLOAD_TYPE

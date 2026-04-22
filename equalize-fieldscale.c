@@ -26,6 +26,8 @@ Based on:
 #include <mrcal/image.h>
 
 #include "clahe.h"
+
+#define ONLY_MSG 1
 #include "util.h"
 
 #define MSG(...) MRCAM_MSG(__VA_ARGS__)
