@@ -291,8 +291,6 @@ init_stream(mrcam_t* ctx)
     // If ARV_ACQUISITION_MODE_MULTI_FRAME, I ask for just one frame
     if(ctx->acquisition_mode == MRCAM_ACQUISITION_MODE_MULTI_FRAME)
         try_arv(arv_camera_set_integer(*camera, "AcquisitionFrameCount", 1, &error));
-    if(error != NULL)
-        g_clear_error(&error);
 
 #define SET(name, ...)                                                  \
     else if(ctx->acquisition_mode == MRCAM_ACQUISITION_MODE_ ## name)   \
