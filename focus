@@ -257,7 +257,7 @@ class Fl_focus_application(mrcam.Fl_mrcam_application):
 
 
 fltk_application = \
-    Fl_focus_application(args.camera_params_noname_nodims,
+    Fl_focus_application(args.camera_params_global,
                          args.camera,
                          dims              = args.dims,
                          utcoffset_hours   = args.utcoffset_hours,

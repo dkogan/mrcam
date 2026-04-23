@@ -509,7 +509,7 @@ class Fl_mrcam_image_group(Fl_Group):
 class Fl_mrcam_application:
 
     def __init__(self,
-                 camera_params_noname_nodims,
+                 camera_params_global,
                  camera_names,
                  *,
                  dims            = None,
@@ -559,15 +559,15 @@ class Fl_mrcam_application:
             # I init each camera. If we're sending the TTYS0 trigger signal, I want all
             # the cameras to be ready when the trigger comes in. Thus the LAST camera
             # will send the trigger; I set the rest to EXTERNAL triggering in that case
-            camera_params_noname_nodims = dict(camera_params_noname_nodims) # make a copy
+            camera_params_global = dict(camera_params_global) # make a copy
             for i,name in reversed(list(enumerate(camera_names))):
                 self.cameras[i] = \
                     mrcam.camera(name = name,
                                  dims = dims[i] if dims is not None else None,
-                                 **camera_params_noname_nodims)
+                                 **camera_params_global)
 
-                if camera_params_noname_nodims['trigger'] == 'HARDWARE_TTYS0':
-                    camera_params_noname_nodims['trigger'] = 'HARDWARE_EXTERNAL'
+                if camera_params_global['trigger'] == 'HARDWARE_TTYS0':
+                    camera_params_global['trigger'] = 'HARDWARE_EXTERNAL'
 
 
 

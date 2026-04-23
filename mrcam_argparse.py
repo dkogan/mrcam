@@ -158,20 +158,20 @@ def parse_args_postprocess(args,
     else:
         args.features = ()
 
-    ### args.camera_params_noname_nodims is a subset of args.__dict__. That
+    ### args.camera_params_global is a subset of args.__dict__. That
     ### subset is camera parameters passed directly to mrcam.camera()
     # These must match keywords[] in camera_init() in mrcam-pywrap.c WITHOUT the
     # "name" field
-    camera_param_noname_nodims_keys = \
+    camera_param_global_keys = \
         ("pixfmt",
          "acquisition_mode",
          "trigger",
          "time_decimation_factor",
          "Nbuffers",
          "verbose")
-    args.camera_params_noname_nodims = dict()
-    for k in camera_param_noname_nodims_keys:
-        args.camera_params_noname_nodims[k] = getattr(args, k, None)
+    args.camera_params_global = dict()
+    for k in camera_param_global_keys:
+        args.camera_params_global[k] = getattr(args, k, None)
 
     if args.image_path_prefix is not None and \
        args.image_directory   is not None:

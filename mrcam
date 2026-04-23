@@ -40,7 +40,7 @@ import mrcam_fltk as mrcam
 from fltk import *
 
 fltk_application = \
-    mrcam.Fl_mrcam_application(args.camera_params_noname_nodims,
+    mrcam.Fl_mrcam_application(args.camera_params_global,
                                args.camera,
                                dims              = args.dims,
                                utcoffset_hours   = args.utcoffset_hours,
