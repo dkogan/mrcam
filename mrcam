@@ -43,6 +43,7 @@ fltk_application = \
     mrcam.Fl_mrcam_application(args.camera_params_global,
                                args.camera,
                                dims              = args.dims,
+                               init_commands      = args.init_commands,
                                utcoffset_hours   = args.utcoffset_hours,
                                flip_x_allcams    = args.flip_x_allcams,
                                flip_y_allcams    = args.flip_y_allcams,

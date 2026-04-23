@@ -76,6 +76,17 @@ def add_common_cmd_options(parser,
                         default = "SOFTWARE",
                         help='''The trigger mode. If omitted, we use "SOFTWARE". Pass any invalid mode (like
                         "") to get a list of valid values on stderr.''')
+    parser.add_argument('--init-commands',
+                        help='''An initialization-commands string to use to set
+                        up the camera capture. If different cameras require
+                        different commands, pass a comma-separated list of
+                        commands here, one string per camera. Each string is
+                        "k1=v1 k2=v2 ..." genicam settings or "-" to use a
+                        common default. The default may not work for your
+                        camera. A value of "" means "no commands are needed".
+                        May be omitted to use the default "-" for ALL the
+                        cameras in the set. In particular, the triggering
+                        configuration commands must appear here''')
     parser.add_argument('--time-decimation-factor',
                         type    = int,
                         default = 1,
@@ -284,17 +295,44 @@ def parse_args_postprocess(args,
     Ncameras = len(args.camera)
 
 
+    def gather_per_camera_list(option,
+                               postprocess_element = None):
 
-    if args.display_flip is None:
-        args.display_flip = ('',) * Ncameras
-    else:
-        if ',' in args.display_flip:
-            args.display_flip = args.display_flip.split(',')
-            if len(args.display_flip) != Ncameras:
-                print(f"--display-flip given a comma-separated list: MUST match {Ncameras=}", file=sys.stderr)
-                sys.exit(1)
+        name = '--' + option.replace('_','-')
+        value = getattr(args, option)
+        if value is None:
+            values = ('',) * Ncameras
         else:
-            args.display_flip = (args.display_flip,) * Ncameras
+            if ',' in value:
+                values = [s.strip() for s in value.split(',')]
+                if len(values) != Ncameras:
+                    print(f"{name} given a comma-separated list with {len(value)} values: MUST match {Ncameras=}", file=sys.stderr)
+                    sys.exit(1)
+            else:
+                values = (value,) * Ncameras
+
+        if postprocess_element is not None:
+            values = [postprocess_element(v,name) for v in values]
+        setattr(args, option, values)
+
+    def dict_or_None_from_kv_list_string(kvs, name):
+        r'''String such as "a=b c=d e=f" into a dict {a:b, c:d, e:f}
+
+        A special value of "-" means None'''
+        if kvs == "-": return None
+
+        d = dict()
+        for kv in kvs.split():
+            try:
+                k,v = kv.split('=')
+            except ValueError:
+                print(f"{name} should be given strings with each element being of the form 'aaa=bbb'; cannot interpret '{kv}'")
+                sys.exit(1)
+            d[k] = v
+        return d
+
+
+    gather_per_camera_list('display_flip')
     def make_display_flip_one(display_flip):
         s = set(display_flip)
         return \
@@ -304,3 +342,8 @@ def parse_args_postprocess(args,
     args.flip_x_allcams = [fxy[0] for fxy in flip_xy]
     args.flip_y_allcams = [fxy[1] for fxy in flip_xy]
     # flip_x_allcams and flip_y_allcams are boolean iterables of length args.camera
+
+
+
+    if args.init_commands is not None:
+        gather_per_camera_list('init_commands', dict_or_None_from_kv_list_string)

@@ -53,6 +53,11 @@ ARGUMENTS
   invalid string here (such as '', for instance). To get a list of formats
   supported by the hardware, run 'arv-tool-0.8 features PixelFormat'
 
+- init_commands: optional dict, containing the genicam feature settings needed
+  to configure the camera capture. If omitted or None, a sensible default is
+  used, but this may not work for all cameras. In particular, the triggering
+  configuration commands must appear here
+
 - trigger: optional string, defaulting to 'SOFTWARE' if omitted or None.
   Currently we support:
 

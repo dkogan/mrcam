@@ -513,6 +513,7 @@ class Fl_mrcam_application:
                  camera_names,
                  *,
                  dims            = None,
+                 init_commands    = None,
                  utcoffset_hours = None,
                  W               = 1280,
                  H               = 1024,
@@ -563,7 +564,8 @@ class Fl_mrcam_application:
             for i,name in reversed(list(enumerate(camera_names))):
                 self.cameras[i] = \
                     mrcam.camera(name = name,
-                                 dims = dims[i] if dims is not None else None,
+                                 dims          = dims[i]          if dims          is not None else None,
+                                 init_commands = init_commands[i] if init_commands is not None else None,
                                  **camera_params_global)
 
                 if camera_params_global['trigger'] == 'HARDWARE_TTYS0':

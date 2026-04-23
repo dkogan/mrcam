@@ -329,7 +329,13 @@ bool mrcam_init(// out
                 mrcam_t* ctx,
                 // in
                 const char* camera_name,
-                const mrcam_options_t* options)
+                const mrcam_options_t* options,
+                // NULL-terminated list of strings such as
+                // { "TriggerSelector" "AcquisitionStart"}
+                //   "TriggerSource",  "Hardware",
+                //   NULL }
+                // NULL if empty
+                const char** init_commands)
 {
     bool result = false;
     GError* error  = NULL;
@@ -391,19 +397,6 @@ bool mrcam_init(// out
                                  report_available_pixel_formats(*camera, ctx);
                              });
 
-    // Some cameras start up with the test-pattern enabled. So I turn it off
-    // unconditionally. This setting doesn't exist on all cameras; if it
-    // doesn't, I ignore that failure
-
-
-    try_arv_or(arv_camera_set_string (*camera, "TestPattern", "Off", &error),
-               error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND);
-    if(error != NULL)
-    {
-        // No TestPattern setting exists. I ignore the error
-        g_clear_error(&error);
-    }
-
     ctx->buffers = malloc(ctx->Nbuffers * sizeof(ctx->buffers[0]));
     if(ctx->buffers == NULL)
     {
@@ -446,56 +439,90 @@ bool mrcam_init(// out
                             width * height)));
     }
 
-    // Set the triggering strategy
-    if(ctx->trigger != MRCAM_TRIGGER_NONE)
+    // Init the capture; in particular this sets the triggering strategy
+    if(init_commands != NULL)
     {
-        try_arv_or( arv_camera_set_string(*camera, "TriggerMode", "On", &error),
-                    error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
+        int i_init_commands = 0;
+        while(init_commands[i_init_commands] != NULL)
+        {
+            const char* key   = init_commands[i_init_commands];
+            const char* value = init_commands[i_init_commands+1];
+
+            if(options->verbose)
+                MSG("setting init_commands: %s=%s", key, value);
+            try_arv(arv_camera_set_string(*camera, key, value, &error));
+            i_init_commands += 2;
+        }
+    }
+    else
+    {
+        // No init_commands given. Use a default set that may or may not work
+        // for specific cameras
+
+        // Some cameras start up with the test-pattern enabled. So I turn it off
+        // unconditionally. This setting doesn't exist on all cameras; if it
+        // doesn't, I ignore that failure
+
+
+        try_arv_or(arv_camera_set_string (*camera, "TestPattern", "Off", &error),
+                   error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND);
         if(error != NULL)
         {
-            // No TriggerMode is available at all. I ignore the error. If there WAS
-            // a TriggerMode, and I couldn't set it to "On", then I DO flag an error
+            // No TestPattern setting exists. I ignore the error
             g_clear_error(&error);
         }
 
-        // If either the feature or the requested enum don't exist, I let it go
-        try_arv_or( arv_camera_set_string(*camera, "TriggerSelector", "FrameStart", &error),
-                    error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
-                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
-        if(error != NULL)
-            g_clear_error(&error);
-    }
-    if(ctx->trigger == MRCAM_TRIGGER_SOFTWARE)
-    {
-        try_arv_or( arv_camera_set_string(*camera, "TriggerSource",   "Software", &error),
-                    error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
-                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
-        if(error != NULL)
-            g_clear_error(&error);
-    }
-    else if(ctx->trigger == MRCAM_TRIGGER_HARDWARE_TTYS0 ||
-            ctx->trigger == MRCAM_TRIGGER_HARDWARE_EXTERNAL)
-    {
-        try_arv_or( arv_camera_set_string(*camera, "TriggerSource",   "Line0", &error),
-                    error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
-                    error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
-        if(error != NULL)
-            g_clear_error(&error);
-    }
-    else if(ctx->trigger == MRCAM_TRIGGER_NONE)
-    {}
-    else
-    {
-        MSG("Unknown trigger enum value '%d'", ctx->trigger);
-        goto done;
-    }
+        // Set the triggering strategy
+        if(ctx->trigger != MRCAM_TRIGGER_NONE)
+        {
+            try_arv_or( arv_camera_set_string(*camera, "TriggerMode", "On", &error),
+                        error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
+            if(error != NULL)
+            {
+                // No TriggerMode is available at all. I ignore the error. If there WAS
+                // a TriggerMode, and I couldn't set it to "On", then I DO flag an error
+                g_clear_error(&error);
+            }
 
-    // High-res cameras need BIG packets to maintain the signal integrity. Here
-    // I ask for packets 9kB in size; that's about the biggest we can have
-    try_arv_or( arv_camera_set_integer(*camera, "GevSCPSPacketSize", 9000, &error),
-                error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
-    if(error != NULL)
-        g_clear_error(&error);
+            // If either the feature or the requested enum don't exist, I let it go
+            try_arv_or( arv_camera_set_string(*camera, "TriggerSelector", "FrameStart", &error),
+                        error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
+                        error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+            if(error != NULL)
+                g_clear_error(&error);
+        }
+        if(ctx->trigger == MRCAM_TRIGGER_SOFTWARE)
+        {
+            try_arv_or( arv_camera_set_string(*camera, "TriggerSource",   "Software", &error),
+                        error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
+                        error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+            if(error != NULL)
+                g_clear_error(&error);
+        }
+        else if(ctx->trigger == MRCAM_TRIGGER_HARDWARE_TTYS0 ||
+                ctx->trigger == MRCAM_TRIGGER_HARDWARE_EXTERNAL)
+        {
+            try_arv_or( arv_camera_set_string(*camera, "TriggerSource",   "Line0", &error),
+                        error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND ||
+                        error->code == ARV_GC_ERROR_ENUM_ENTRY_NOT_FOUND );
+            if(error != NULL)
+                g_clear_error(&error);
+        }
+        else if(ctx->trigger == MRCAM_TRIGGER_NONE)
+        {}
+        else
+        {
+            MSG("Unknown trigger enum value '%d'", ctx->trigger);
+            goto done;
+        }
+
+        // High-res cameras need BIG packets to maintain the signal integrity. Here
+        // I ask for packets 9kB in size; that's about the biggest we can have
+        try_arv_or( arv_camera_set_integer(*camera, "GevSCPSPacketSize", 9000, &error),
+                    error->code == ARV_DEVICE_ERROR_FEATURE_NOT_FOUND );
+        if(error != NULL)
+            g_clear_error(&error);
+    }
 
     if(!init_stream(ctx))
         goto done;
