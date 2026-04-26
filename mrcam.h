@@ -125,7 +125,9 @@ typedef struct
 {
     // arv stuff; void to not require #including arv.h
     void* camera;
+#ifndef ARAVIS_0_10
     void** buffers;
+#endif
     void* stream;
 
     // Details about the requested pixel format, that I'm using to talk to the
@@ -161,7 +163,9 @@ typedef struct
     int time_decimation_factor;
     int time_decimation_index;
 
+#ifndef ARAVIS_0_10
     int Nbuffers;
+#endif
 
     uint64_t timestamp_request_us;
     uint64_t timestamp_start_buffer_us;

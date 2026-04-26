@@ -26,12 +26,16 @@
 #endif
 
 
-#define DEFINE_INTERNALS(ctx)                                           \
-    ArvCamera** camera  __attribute__((unused)) = (ArvCamera**)(&(ctx)->camera); \
-    ArvStream** stream  __attribute__((unused)) = (ArvStream**)(&(ctx)->stream); \
-    ArvBuffer** buffers __attribute__((unused)) = (ArvBuffer**)((ctx)->buffers);
-
-
+#ifndef ARAVIS_0_10
+  #define DEFINE_INTERNALS(ctx)                                                    \
+      ArvCamera** camera  __attribute__((unused)) = (ArvCamera**)(&(ctx)->camera); \
+      ArvStream** stream  __attribute__((unused)) = (ArvStream**)(&(ctx)->stream); \
+      ArvBuffer** buffers __attribute__((unused)) = (ArvBuffer**)((ctx)->buffers);
+#else
+  #define DEFINE_INTERNALS(ctx)                                                    \
+      ArvCamera** camera  __attribute__((unused)) = (ArvCamera**)(&(ctx)->camera); \
+      ArvStream** stream  __attribute__((unused)) = (ArvStream**)(&(ctx)->stream);
+#endif
 
 
 
@@ -308,6 +312,7 @@ init_stream(mrcam_t* ctx)
 
     result = true;
 
+#ifndef ARAVIS_0_10
     if(ctx->verbose)
         MSG("arv_stream_push_buffer() ALL %d buffers:", ctx->Nbuffers);
     for(int i=0; i<ctx->Nbuffers; i++)
@@ -316,6 +321,7 @@ init_stream(mrcam_t* ctx)
         if(ctx->verbose)
             MSG("  %p", buffers[i]);
     }
+#endif
 
  done:
     if(!result)
@@ -344,7 +350,9 @@ bool mrcam_init(// out
                       .acquisition_mode                = options->acquisition_mode,
                       .verbose                         = options->verbose,
                       .time_decimation_factor          = options->time_decimation_factor,
+#ifndef ARAVIS_0_10
                       .Nbuffers                        = options->Nbuffers,
+#endif
                       .fd_tty_trigger                  = -1};
 
     DEFINE_INTERNALS(ctx);
@@ -397,17 +405,18 @@ bool mrcam_init(// out
                                  report_available_pixel_formats(*camera, ctx);
                              });
 
+#ifndef ARAVIS_0_10
     ctx->buffers = malloc(ctx->Nbuffers * sizeof(ctx->buffers[0]));
     if(ctx->buffers == NULL)
     {
         MSG("Couldn't alloc %d buffer pointers'", ctx->Nbuffers);
         goto done;
     }
-
     gint payload_size;
     try_arv(payload_size = arv_camera_get_payload(*camera, &error));
     for(int i=0; i<ctx->Nbuffers; i++)
         try(ctx->buffers[i] = arv_buffer_new(payload_size, NULL));
+#endif
 
     enum AVPixelFormat av_pixfmt_input, av_pixfmt_output;
     try(pixfmt__av_pixfmt(&av_pixfmt_input, &av_pixfmt_output,
@@ -527,6 +536,10 @@ bool mrcam_init(// out
     if(!init_stream(ctx))
         goto done;
 
+#ifdef ARAVIS_0_10
+    try_arv(arv_stream_create_buffers(*stream, options->Nbuffers, NULL, NULL, &error));
+#endif
+
     result = true;
 
  done:
@@ -567,8 +580,10 @@ void mrcam_free(mrcam_t* ctx)
         ctx->fd_tty_trigger = -1;
     }
 
+#ifndef ARAVIS_0_10
     free(ctx->buffers);
     ctx->buffers = NULL;
+#endif
 }
 
 bool mrcam_is_inited(mrcam_t* ctx)
