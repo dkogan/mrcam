@@ -26,19 +26,20 @@
 // packing each pixel into 12 bits instead of 10. And I see that libswscale
 // doesn't support this: AV_PIX_FMT_GRAY10BE and AV_PIX_FMT_GRAY12BE use 16 bits
 // per pixel, not 10 or 12
-#define LIST_MRCAM_PIXFMT(_)                                    \
-  _(MONO_8,       Mono8,    uint8,  AV_PIX_FMT_NONE)            \
-  /* Each pixel takes up 16 bits. NOT packed */                 \
-  _(MONO_10,      Mono10,   uint16, AV_PIX_FMT_NONE)            \
-  _(MONO_12,      Mono12,   uint16, AV_PIX_FMT_NONE)            \
-  _(MONO_14,      Mono14,   uint16, AV_PIX_FMT_NONE)            \
-  _(MONO_16,      Mono16,   uint16, AV_PIX_FMT_NONE)            \
-  _(BAYER_GR_8,   BayerGR8, bgr,    AV_PIX_FMT_BAYER_GRBG8)     \
-  _(BAYER_RG_8,   BayerRG8, bgr,    AV_PIX_FMT_BAYER_RGGB8)     \
-  _(BAYER_GB_8,   BayerGB8, bgr,    AV_PIX_FMT_BAYER_GBRG8)     \
-  _(BAYER_BG_8,   BayerBG8, bgr,    AV_PIX_FMT_BAYER_BGGR8)     \
-  _(RGB_8_PACKED, RGB8,     bgr,    AV_PIX_FMT_NONE)            \
-  _(BGR_8_PACKED, BGR8,     bgr,    AV_PIX_FMT_NONE)
+#define LIST_MRCAM_PIXFMT(_)                                            \
+  _(MONO_8,              Mono8,    uint8,  AV_PIX_FMT_NONE)             \
+  /* Each pixel takes up 16 bits. NOT packed */                         \
+  _(MONO_10,             Mono10,   uint16, AV_PIX_FMT_NONE)             \
+  _(MONO_12,             Mono12,   uint16, AV_PIX_FMT_NONE)             \
+  _(MONO_14,             Mono14,   uint16, AV_PIX_FMT_NONE)             \
+  _(MONO_16,             Mono16,   uint16, AV_PIX_FMT_NONE)             \
+  _(BAYER_GR_8,          BayerGR8, bgr,    AV_PIX_FMT_BAYER_GRBG8)      \
+  _(BAYER_RG_8,          BayerRG8, bgr,    AV_PIX_FMT_BAYER_RGGB8)      \
+  _(BAYER_GB_8,          BayerGB8, bgr,    AV_PIX_FMT_BAYER_GBRG8)      \
+  _(BAYER_BG_8,          BayerBG8, bgr,    AV_PIX_FMT_BAYER_BGGR8)      \
+  _(YUV_422_YUYV_PACKED, YUYV,     bgr,    AV_PIX_FMT_YUYV422)          \
+  _(RGB_8_PACKED,        RGB8,     bgr,    AV_PIX_FMT_NONE)             \
+  _(BGR_8_PACKED,        BGR8,     bgr,    AV_PIX_FMT_NONE)
 
 
 typedef enum
