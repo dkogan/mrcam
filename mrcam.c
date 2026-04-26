@@ -1081,10 +1081,7 @@ bool mrcam_request( // in
     if(ctx->acquisition_mode != MRCAM_ACQUISITION_MODE_CONTINUOUS &&
        ctx->acquiring)
     {
-        try_arv_or(arv_camera_stop_acquisition(*camera, &error),
-                   error->code == ARV_DEVICE_ERROR_STREAM_ERROR);
-        if(error != NULL)
-            g_clear_error(&error);
+        try_arv(arv_camera_stop_acquisition(*camera, &error));
         ctx->acquiring = false;
     }
 
@@ -1255,10 +1252,7 @@ bool mrcam_pull(/* out */
            ctx->acquiring)
         {
             GError* error  = NULL;
-            try_arv_or(arv_camera_stop_acquisition(ctx->camera, &error),
-                       error->code == ARV_DEVICE_ERROR_STREAM_ERROR);
-            if(error != NULL)
-                g_clear_error(&error);
+            try_arv(arv_camera_stop_acquisition(ctx->camera, &error));
             ctx->acquiring = false;
         }
 
