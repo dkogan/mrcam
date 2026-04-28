@@ -163,10 +163,6 @@ typedef struct
     int time_decimation_factor;
     int time_decimation_index;
 
-#ifndef ARAVIS_0_10
-    int Nbuffers;
-#endif
-
     uint64_t timestamp_request_us;
     uint64_t timestamp_start_buffer_us;
 

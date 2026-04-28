@@ -26,16 +26,9 @@
 #endif
 
 
-#ifndef ARAVIS_0_10
-  #define DEFINE_INTERNALS(ctx)                                                    \
-      ArvCamera** camera  __attribute__((unused)) = (ArvCamera**)(&(ctx)->camera); \
-      ArvStream** stream  __attribute__((unused)) = (ArvStream**)(&(ctx)->stream); \
-      ArvBuffer** buffers __attribute__((unused)) = (ArvBuffer**)((ctx)->buffers);
-#else
-  #define DEFINE_INTERNALS(ctx)                                                    \
-      ArvCamera** camera  __attribute__((unused)) = (ArvCamera**)(&(ctx)->camera); \
-      ArvStream** stream  __attribute__((unused)) = (ArvStream**)(&(ctx)->stream);
-#endif
+#define DEFINE_INTERNALS(ctx)                                                    \
+    ArvCamera** camera  __attribute__((unused)) = (ArvCamera**)(&(ctx)->camera); \
+    ArvStream** stream  __attribute__((unused)) = (ArvStream**)(&(ctx)->stream);
 
 
 
@@ -228,7 +221,8 @@ void mrcam_push_buffer(void**   buffer, // ArvBuffer**, without requiring #inclu
 }
 
 static bool
-init_stream(mrcam_t* ctx)
+init_stream(mrcam_t* ctx,
+            const int Nbuffers)
 {
     bool    result = false;
     GError* error  = NULL;
@@ -313,14 +307,27 @@ init_stream(mrcam_t* ctx)
     result = true;
 
 #ifndef ARAVIS_0_10
-    if(ctx->verbose)
-        MSG("arv_stream_push_buffer() ALL %d buffers:", ctx->Nbuffers);
-    for(int i=0; i<ctx->Nbuffers; i++)
+    ctx->buffers = malloc(Nbuffers * sizeof(ctx->buffers[0]));
+    if(ctx->buffers == NULL)
     {
-        arv_stream_push_buffer(*stream, buffers[i]);
-        if(ctx->verbose)
-            MSG("  %p", buffers[i]);
+        MSG("Couldn't alloc %d buffer pointers'", Nbuffers);
+        goto done;
     }
+    gint payload_size;
+    try_arv(payload_size = arv_camera_get_payload(*camera, &error));
+    for(int i=0; i<Nbuffers; i++)
+        try(ctx->buffers[i] = arv_buffer_new(payload_size, NULL));
+
+    if(ctx->verbose)
+        MSG("arv_stream_push_buffer() ALL %d buffers:", Nbuffers);
+    for(int i=0; i<Nbuffers; i++)
+    {
+        arv_stream_push_buffer(*stream, ctx->buffers[i]);
+        if(ctx->verbose)
+            MSG("  %p", ctx->buffers[i]);
+    }
+#else
+    try_arv(arv_stream_create_buffers(*stream, Nbuffers, NULL, NULL, &error));
 #endif
 
  done:
@@ -350,9 +357,6 @@ bool mrcam_init(// out
                       .acquisition_mode                = options->acquisition_mode,
                       .verbose                         = options->verbose,
                       .time_decimation_factor          = options->time_decimation_factor,
-#ifndef ARAVIS_0_10
-                      .Nbuffers                        = options->Nbuffers,
-#endif
                       .fd_tty_trigger                  = -1};
 
     DEFINE_INTERNALS(ctx);
@@ -404,19 +408,6 @@ bool mrcam_init(// out
 
                                  report_available_pixel_formats(*camera, ctx);
                              });
-
-#ifndef ARAVIS_0_10
-    ctx->buffers = malloc(ctx->Nbuffers * sizeof(ctx->buffers[0]));
-    if(ctx->buffers == NULL)
-    {
-        MSG("Couldn't alloc %d buffer pointers'", ctx->Nbuffers);
-        goto done;
-    }
-    gint payload_size;
-    try_arv(payload_size = arv_camera_get_payload(*camera, &error));
-    for(int i=0; i<ctx->Nbuffers; i++)
-        try(ctx->buffers[i] = arv_buffer_new(payload_size, NULL));
-#endif
 
     enum AVPixelFormat av_pixfmt_input, av_pixfmt_output;
     try(pixfmt__av_pixfmt(&av_pixfmt_input, &av_pixfmt_output,
@@ -533,12 +524,8 @@ bool mrcam_init(// out
             g_clear_error(&error);
     }
 
-    if(!init_stream(ctx))
+    if(!init_stream(ctx, options->Nbuffers))
         goto done;
-
-#ifdef ARAVIS_0_10
-    try_arv(arv_stream_create_buffers(*stream, options->Nbuffers, NULL, NULL, &error));
-#endif
 
     result = true;
 
@@ -555,12 +542,6 @@ bool mrcam_init(// out
 void mrcam_free(mrcam_t* ctx)
 {
     DEFINE_INTERNALS(ctx);
-
-    // I do not clear the buffers. It looks like g_clear_object(stream) does
-    // that for me, and if I do it myself, there's a double-free
-
-    // for(int i=0; i<ctx->Nbuffers; i++)
-    //     g_clear_object(&buffers[i]);
 
     g_clear_object(stream);
     g_clear_object(camera);
