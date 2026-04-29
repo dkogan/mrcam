@@ -19,18 +19,18 @@
 
 typedef struct { int width,height; } dimensions_t;
 #define LIST_OPTIONS(_)                                                 \
-    _(int,            Nframes, Nframes, 1,                   required_argument, " N",           'N', "N:") \
-    _(const char*,    logdir,  logdir,  NULL,                required_argument, " DIR",         'l', "l:") \
-    _(const char*,    logformat,logformat,"png",             required_argument, " FORMAT",      'L', "L:" ) \
-    _(double,         period,  period,  1.0,                 required_argument, " PERIOD_SEC",  'T', "T:") \
+    _(int,                      Nframes,                Nframes,                1,                                   required_argument, " N",                  'N',     "N:") \
+    _(const char*,              logdir,                 logdir,                 NULL,                                required_argument, " DIR",                'l',     "l:") \
+    _(const char*,              logformat,              logformat,              "png",                               required_argument, " FORMAT",             'L',     "L:" ) \
+    _(double,                   period,                 period,                 1.0,                                 required_argument, " PERIOD_SEC",         'T',     "T:") \
     /* The default pixel format is MONO_*. Should match the one in camera_init() in mrcam-pywrap.c */ \
-    _(mrcam_pixfmt_t, pixfmt,  pixfmt,  MRCAM_PIXFMT_MONO_8, required_argument, " PIXELFORMAT", 'F', ""  ) \
-    _(dimensions_t,   dims,    dims,    {},                  required_argument, " WIDTH,HEIGHT",'D', ""  ) \
-    _(int,            Nbuffers,Nbuffers,10,                  required_argument, " NBUFFERS",    'b', "b:"  ) \
-    _(mrcam_trigger_t,trigger, trigger, MRCAM_TRIGGER_SOFTWARE,required_argument, " TRIGGER",     't', ""  ) \
-    _(mrcam_acquisition_mode_t,acquisition_mode, acquisition-mode, MRCAM_ACQUISITION_MODE_SINGLE_FRAME,required_argument, " ACQUISITION-MODE",     'a', ""  ) \
-    _(int,            time_decimation_factor,time-decimation-factor, 1, required_argument, " DECIMATION_FACTOR" ,'f', "") \
-    _(bool,           verbose, verbose, false,               no_argument,       ,               'v', "v")
+    _(mrcam_pixfmt_t,           pixfmt,                 pixfmt,                 MRCAM_PIXFMT_MONO_8,                 required_argument, " PIXELFORMAT",        'F',     ""  ) \
+    _(dimensions_t,             dims,                   dims,                   {},                                  required_argument, " WIDTH,               HEIGHT", 'D', ""  ) \
+    _(int,                      Nbuffers,               Nbuffers,               10,                                  required_argument, " NBUFFERS",           'b',     "b:"  ) \
+    _(mrcam_trigger_t,          trigger,                trigger,                MRCAM_TRIGGER_SOFTWARE,              required_argument, " TRIGGER",            't',     ""  ) \
+    _(mrcam_acquisition_mode_t, acquisition_mode,       acquisition-mode,       MRCAM_ACQUISITION_MODE_SINGLE_FRAME, required_argument, " ACQUISITION-MODE",   'a',     ""  ) \
+    _(int,                      time_decimation_factor, time-decimation-factor, 1,                                   required_argument, " DECIMATION_FACTOR" , 'f',     "") \
+    _(bool,                     verbose,                verbose,                false,                               no_argument,       ,                      'v',     "v")
 
 
 
