@@ -122,8 +122,8 @@ def add_common_cmd_options(parser,
                         help='''The directory to write the images and metadata.
                         If omitted, we do NOT log anything to disk. Exclusive
                         with --replay. When logging, simultaneous replaying is
-                        ALWAYS enabled. If the requested directory does not
-                        exist, we create it''')
+                        ALWAYS enabled. The requested directory must not exist
+                        (we will create it) or it must be empty''')
     parser.add_argument('--logformat',
                         choices=('jpg','png','pgm', 'ppm'),
                         default='png',

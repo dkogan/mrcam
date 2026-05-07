@@ -715,17 +715,30 @@ class Fl_mrcam_application:
 
         elif logdir_write is not None:
             ### we're writing a log
-            if not os.path.isdir(logdir_write):
-                if os.path.exists(logdir_write):
-                    print(f"Error: requested logdir_write '{logdir_write}' is a FILE on disk. It should be a directory (that we will write to) or it shouldn't exist (we will create the directory)",
-                          file=sys.stderr)
-                    sys.exit(1)
+
+            def isdirempty(d):
+                try:   next(os.scandir(d))
+                except StopIteration:
+                    return True
+                except:
+                    raise
+                return False
+
+            if not os.path.exists(logdir_write):
                 try:
                     os.mkdir(logdir_write)
                 except Exception as e:
                     print(f"Error: could not mkdir requested logdir_write '{logdir_write}': {e}",
                           file=sys.stderr)
                     sys.exit(1)
+            elif not os.path.isdir(logdir_write):
+                print(f"Error: requested logdir_write '{logdir_write}' is a FILE on disk. It should be an empty directory (that we will write to) or it shouldn't exist (we will create the directory)",
+                      file=sys.stderr)
+                sys.exit(1)
+            elif not isdirempty(logdir_write):
+                print(f"Error: requested logdir_write '{logdir_write}' is a non-empty directory. It should be an empty directory (that we will write to) or it shouldn't exist (we will create the directory)",
+                      file=sys.stderr)
+                sys.exit(1)
 
             path = f"{logdir_write}/images.vnl"
             try:
