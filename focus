@@ -56,8 +56,8 @@ args = parse_args()
 import time
 import numpy as np
 import numpysane as nps
-import cv2
 import mrcam_fltk as mrcam
+import cv2
 from fltk import *
 from Fl_gnuplotlib import *
 
