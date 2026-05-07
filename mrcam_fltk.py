@@ -974,10 +974,14 @@ we will do that ourselves, set frame['buffer'] to None)
         Ncameras = len(self.image_view_groups)
 
         image          = frame['image']
-        image_undecoded= frame['image_undecoded']
         timestamp      = frame['timestamp']
         buffer         = frame['buffer']
         off_decimation = frame['off_decimation']
+
+        if frame['image_undecoded'] is not None:
+            image_undecoded= frame['image_undecoded']
+        else:
+            image_undecoded= frame['image']
 
         if not off_decimation:
             if image is None:
