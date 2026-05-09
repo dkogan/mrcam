@@ -1020,7 +1020,7 @@ stream_stats(camera* self, PyObject* args, PyObject* kwargs)
         goto done;
     }
 
-#ifndef ARAVIS_0_10
+#if !ARAVIS_CHECK_VERSION(0,9,0)
     arv_stream_get_n_buffers ((ArvStream*)self->ctx.stream,
                               &n_input_buffers,
                               &n_output_buffers);

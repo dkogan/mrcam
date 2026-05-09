@@ -125,9 +125,7 @@ typedef struct
 {
     // arv stuff; void to not require #including arv.h
     void* camera;
-#ifndef ARAVIS_0_10
-    void** buffers;
-#endif
+    void** buffers; // Might be unused. Currently touching this ONLY with aravis <= 0.8
     void* stream;
 
     // Details about the requested pixel format, that I'm using to talk to the

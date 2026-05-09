@@ -238,7 +238,7 @@ init_stream(mrcam_t* ctx,
 
     try_arv_and( *stream = arv_camera_create_stream(*camera,
                                                     callback_arv, ctx,
-#ifdef ARAVIS_0_10
+#if ARAVIS_CHECK_VERSION(0,9,0)
                                                     NULL,
 #endif
                                                     &error),
@@ -306,7 +306,7 @@ init_stream(mrcam_t* ctx,
 
     result = true;
 
-#ifndef ARAVIS_0_10
+#if !ARAVIS_CHECK_VERSION(0,9,0)
     ctx->buffers = malloc(Nbuffers * sizeof(ctx->buffers[0]));
     if(ctx->buffers == NULL)
     {
@@ -561,7 +561,7 @@ void mrcam_free(mrcam_t* ctx)
         ctx->fd_tty_trigger = -1;
     }
 
-#ifndef ARAVIS_0_10
+#if !ARAVIS_CHECK_VERSION(0,9,0)
     free(ctx->buffers);
     ctx->buffers = NULL;
 #endif
@@ -1102,7 +1102,7 @@ bool mrcam_request( // in
         gint n_input_buffers;
         gint n_output_buffers;
         gint n_buffer_filling = -1;
-#ifndef ARAVIS_0_10
+#if !ARAVIS_CHECK_VERSION(0,9,0)
         arv_stream_get_n_buffers (*stream,
                                   &n_input_buffers,
                                   &n_output_buffers);
