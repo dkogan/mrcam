@@ -20,6 +20,17 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
+    parser.add_argument('--method',
+                        default='fieldscale',
+                        help='''The equalization method to use. Options are
+                        ('fieldscale', 'clahe', 'stretch[:Q]'). Different
+                        methods have different requirements for data types and
+                        image dimensions. 'stretch' equalization will stretch
+                        the full range from min to max. If :Q is given, we will
+                        saturate the lower and upper Q of the range. For
+                        instance, stretch:.01 will cull the lower and upper 1%
+                        of the intensities.''')
+
     parser.add_argument('--outdir',
                         required=True,
                         type=lambda d: d if os.path.isdir(d) else \
@@ -53,6 +64,30 @@ def parse_args():
 
     args = parser.parse_args()
 
+
+    if args.method in ('fieldscale', 'clahe', 'stretch'):
+        # these are valid
+        args.stretchQ = 0 # default
+        pass
+    else:
+        m = re.match('stretch:(.+)', args.method)
+        if m is None:
+            print('''ERROR: --method must be given one of ('fieldscale', 'clahe', 'stretch[:Q]')''',
+                  file=sys.stderr)
+            sys.exit(1)
+        try: q = float(m.group(1))
+        except:
+            print(f'''ERROR: --method stretch:Q given; Q must be a value in [0, 0.5]. Couldn't parse '{m.group(1)}' as a floating-point value''',
+                  file=sys.stderr)
+            sys.exit(1)
+        if not (0 <= q and q < 0.5):
+            print('''ERROR: --method stretch:Q given; Q must be a value in [0, 0.5]''',
+                  file=sys.stderr)
+            sys.exit(1)
+
+        args.method   = 'stretch'
+        args.stretchQ = q
+
     args.image_globs = getattr(args, 'image-globs')
 
     return args
@@ -67,6 +102,14 @@ import multiprocessing
 import mrcal
 import mrcam
 
+if args.method == 'clahe':
+    import cv2
+    import numpy as np
+    clahe = cv2.createCLAHE()
+    clahe.setClipLimit(8)
+elif args.method == 'stretch':
+    import numpy as np
+
 
 def _transform_this(inout):
     if inout[1] is None:
@@ -80,9 +123,41 @@ def _transform_this(inout):
         return
 
     try:
-        image = mrcam.equalize_fieldscale(image)
+        if args.method == 'fieldscale':
+            image = mrcam.equalize_fieldscale(image)
+        elif args.method == 'clahe':
+
+            image = clahe.apply(image)
+            if image.dtype != np.uint8:
+                # cv2.clahe produces odd results with non-8-bit images. I
+                # stretch it in that case
+                r0 = np.min(image)
+                r1 = np.max(image)
+                if r1 == r0:
+                    image = np.zeros( image.shape, dtype=np.uint8 )
+                else:
+                    image = np.clip( (image - r0) / (r1-r0) * 255 + 0.5,
+                                     0, 255).astype(np.uint8)
+        else:
+            # stretch
+            if args.stretchQ == 0:
+                r0 = np.min(image)
+                r1 = np.max(image)
+            else:
+                r0 = np.percentile(image, 100. * args.stretchQ)
+                r1 = np.percentile(image, 100. * (1. - args.stretchQ))
+
+            if r1 == r0:
+                image = np.zeros( image.shape, dtype=np.uint8 )
+            else:
+                # + 0.5 to round to the nearest integer
+                image = np.clip( (image - r0) / (r1-r0) * 255 + 0.5,
+                                 0, 255).astype(np.uint8)
+
     except Exception as e:
         raise Exception(f"Error transforming '{inout[0]}': {e}")
+
+
 
     if args.color_map:
         image = mrcal.apply_color_map(image,
