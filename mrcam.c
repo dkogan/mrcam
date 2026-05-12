@@ -343,12 +343,9 @@ bool mrcam_init(// out
                 // in
                 const char* camera_name,
                 const mrcam_options_t* options,
-                // NULL-terminated list of strings such as
-                // { "TriggerSelector" "AcquisitionStart"}
-                //   "TriggerSource",  "Hardware",
-                //   NULL }
+                // whitespace-separated string of "feature=value" settings.
                 // NULL if empty
-                const char** init_commands)
+                const char* init_commands)
 {
     bool result = false;
     GError* error  = NULL;
@@ -441,19 +438,9 @@ bool mrcam_init(// out
 
     // Init the capture; in particular this sets the triggering strategy
     if(init_commands != NULL)
-    {
-        int i_init_commands = 0;
-        while(init_commands[i_init_commands] != NULL)
-        {
-            const char* key   = init_commands[i_init_commands];
-            const char* value = init_commands[i_init_commands+1];
-
-            if(options->verbose)
-                MSG("setting init_commands: %s=%s", key, value);
-            try_arv(arv_camera_set_string(*camera, key, value, &error));
-            i_init_commands += 2;
-        }
-    }
+        try_arv(arv_device_set_features_from_string(arv_camera_get_device(*camera),
+                                                    init_commands,
+                                                    &error));
     else
     {
         // No init_commands given. Use a default set that may or may not work

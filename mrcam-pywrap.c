@@ -176,7 +176,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     const char* camera_name             = NULL;
     const char* pixfmt_string           = "MONO_8";
     const char* acquisition_mode_string = "SINGLE_FRAME";
-    PyObject* py_init_commands           = NULL;
+    const char* init_commands_string    = NULL;
     const char* trigger_string          = "SOFTWARE";
     PyObject* py_pixfmt_string           = NULL;
     PyObject* py_acquisition_mode_string = NULL;
@@ -193,14 +193,12 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     mrcam_acquisition_mode_t acquisition_mode;
     mrcam_trigger_t          trigger;
 
-    const char* init_commands[65] = {}; // max size supported
-
     if( !PyArg_ParseTupleAndKeywords(args, kwargs,
-                                     "|z$OOOOiOip:mrcam.__init__", keywords,
+                                     "|z$OOzOiOip:mrcam.__init__", keywords,
                                      &camera_name,
                                      &py_pixfmt_string,
                                      &py_acquisition_mode_string,
-                                     &py_init_commands,
+                                     &init_commands_string,
                                      &py_trigger_string,
                                      &time_decimation_factor,
                                      &py_width_height,
@@ -312,41 +310,6 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
 
 
 
-    if(!IS_NULL(py_init_commands))
-    {
-        if(!PyDict_Check(py_init_commands))
-        {
-            BARF("'init_commands'; MUST be a dict");
-            goto done;
-        }
-        const int N    = PyDict_Size(py_init_commands);
-        const int Nmax = (sizeof(init_commands)/sizeof(init_commands[0])-1)/2;
-        if(N > Nmax)
-        {
-            BARF("'init_commands' can have at most %d items, was given %d. Increase the static sizeof(init_commands) if you do want this many",
-                 Nmax, N);
-            goto done;
-        }
-
-        Py_ssize_t pos = 0;
-        PyObject*  key;
-        PyObject*  value;
-
-        int i = 0;
-        while(PyDict_Next(py_init_commands, &pos, &key, &value))
-        {
-            if(!(PyUnicode_Check(key) &&
-                 PyUnicode_Check(value)))
-            {
-                BARF("'init_commands' MUST be a dict AND all the keys and values must be strings");
-                goto done;
-            }
-
-            init_commands[i++] = PyUnicode_AsUTF8(key);
-            init_commands[i++] = PyUnicode_AsUTF8(value);
-        }
-    }
-
     const mrcam_options_t mrcam_options =
         {
             .pixfmt                          = pixfmt,
@@ -361,8 +324,7 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
     if(!mrcam_init(&self->ctx,
                    camera_name,
                    &mrcam_options,
-                   // py_init_commands omitted or None means "use the default set of commands"
-                   IS_NULL(py_init_commands) ? NULL : init_commands))
+                   init_commands_string))
     {
         BARF("Couldn't init mrcam camera");
         goto done;

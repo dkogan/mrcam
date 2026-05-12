@@ -513,7 +513,7 @@ class Fl_mrcam_application:
                  camera_names,
                  *,
                  dims            = None,
-                 init_commands    = None,
+                 init_commands   = None,
                  utcoffset_hours = None,
                  W               = 1280,
                  H               = 1024,

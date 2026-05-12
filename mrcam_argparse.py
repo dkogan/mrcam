@@ -295,8 +295,7 @@ def parse_args_postprocess(args,
     Ncameras = len(args.camera)
 
 
-    def gather_per_camera_list(option,
-                               postprocess_element = None):
+    def gather_per_camera_list(option):
 
         name = '--' + option.replace('_','-')
         value = getattr(args, option)
@@ -311,25 +310,7 @@ def parse_args_postprocess(args,
             else:
                 values = (value,) * Ncameras
 
-        if postprocess_element is not None:
-            values = [postprocess_element(v,name) for v in values]
         setattr(args, option, values)
-
-    def dict_or_None_from_kv_list_string(kvs, name):
-        r'''String such as "a=b c=d e=f" into a dict {a:b, c:d, e:f}
-
-        A special value of "-" means None'''
-        if kvs == "-": return None
-
-        d = dict()
-        for kv in kvs.split():
-            try:
-                k,v = kv.split('=')
-            except ValueError:
-                print(f"{name} should be given strings with each element being of the form 'aaa=bbb'; cannot interpret '{kv}'")
-                sys.exit(1)
-            d[k] = v
-        return d
 
 
     gather_per_camera_list('display_flip')
@@ -346,4 +327,4 @@ def parse_args_postprocess(args,
 
 
     if args.init_commands is not None:
-        gather_per_camera_list('init_commands', dict_or_None_from_kv_list_string)
+        gather_per_camera_list('init_commands')

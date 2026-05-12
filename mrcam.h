@@ -197,12 +197,9 @@ bool mrcam_init(// out
                 // in
                 const char* camera_name,
                 const mrcam_options_t* options,
-                // NULL-terminated list of strings such as
-                // { "TriggerSelector" "AcquisitionStart"}
-                //   "TriggerSource",  "Hardware",
-                //   NULL }
+                // whitespace-separated string of "feature=value" settings.
                 // NULL if empty
-                const char** init_commands);
+                const char* init_commands);
 
 // deallocates everything, and sets all the pointers in ctx to NULL
 void mrcam_free(mrcam_t* ctx);
