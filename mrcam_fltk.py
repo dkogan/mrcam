@@ -556,6 +556,8 @@ class Fl_mrcam_application:
         self.Ncameras_seen_iframe     = dict()
         self.logged_image_from_iframe = dict()
 
+        self.Nimages_dropped = 0
+
         if self.logdir_read is None:
             # I init each camera. If we're sending the TTYS0 trigger signal, I want all
             # the cameras to be ready when the trigger comes in. Thus the LAST camera
@@ -942,7 +944,7 @@ class Fl_mrcam_application:
                                  time):
         t = int(time + self.utcoffset_sec)
         t = datetime.datetime.fromtimestamp(t, datetime.UTC)
-        self.time_slider_widget.label(f"iframe={iframe}/{int(self.time_slider_widget.maximum())} timestamp={time:.03f} {t.strftime('%Y-%m-%d %H:%M:%S')} {self.tzname}")
+        self.time_slider_widget.label(f"iframe={iframe}/{int(self.time_slider_widget.maximum())} timestamp={time:.03f} {t.strftime('%Y-%m-%d %H:%M:%S')} {self.tzname} Nimages_dropped={self.Nimages_dropped}")
 
 
 
@@ -1000,7 +1002,7 @@ we will do that ourselves, set frame['buffer'] to None)
             if image is None:
                 print("Error capturing the image. Will try again in the next cycle",
                       file=sys.stderr)
-
+                self.Nimages_dropped += 1
             time_slider_at_max = False
             if self.logdir_write is not None:
 
