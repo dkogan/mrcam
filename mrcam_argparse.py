@@ -169,6 +169,16 @@ def parse_args_postprocess(args,
     else:
         args.features = ()
 
+    # Convert these to uppercase. That's what the code compares against
+    camera_param_uppercase_keys = \
+        ("pixfmt",
+         "acquisition_mode",
+         "trigger")
+    for k in camera_param_uppercase_keys:
+        if hasattr(args,k):
+            setattr(args,k, getattr(args,k).upper())
+
+
     ### args.camera_params_global is a subset of args.__dict__. That
     ### subset is camera parameters passed directly to mrcam.camera()
     # These must match keywords[] in camera_init() in mrcam-pywrap.c WITHOUT the
