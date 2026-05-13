@@ -4,7 +4,7 @@ r'''Equalize a set of images, and write the output to disk
 
 SYNOPSIS
 
-  mrcam-equalize --outdir /tmp -j '*.png'
+  mrcam-equalize --logdir /tmp -j '*.png'
   [all .png files are equalized in parallel, with the results written to /tmp]
 
 '''
@@ -31,10 +31,10 @@ def parse_args():
                         instance, stretch:.01 will cull the lower and upper 1%%
                         of the intensities.''')
 
-    parser.add_argument('--outdir',
+    parser.add_argument('--logdir',
                         required=True,
                         type=lambda d: d if os.path.isdir(d) else \
-                                parser.error(f"--outdir requires an existing directory as the arg, but got '{d}'"),
+                                parser.error(f"--logdir requires an existing directory as the arg, but got '{d}'"),
                         help='''Directory to write the output images into.
                         Required. May not be the same directory as the input''')
 
@@ -171,7 +171,7 @@ def _transform_this(inout):
 
 def target_image_filename(filename_in):
     d,f = os.path.split(filename_in)
-    filename_out = f"{args.outdir}/{f}"
+    filename_out = f"{args.logdir}/{f}"
     if os.path.abspath(filename_in) == os.path.abspath(filename_out):
         print(f"Image '{filename_in}' is set to be processed into the same path. Skipping",
               file=sys.stderr)
