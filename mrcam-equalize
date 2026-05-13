@@ -33,16 +33,15 @@ def parse_args():
 
     parser.add_argument('--logdir',
                         required=True,
-                        type=lambda d: d if os.path.isdir(d) else \
-                                parser.error(f"--logdir requires an existing directory as the arg, but got '{d}'"),
                         help='''Directory to write the output images into.
-                        Required. May not be the same directory as the input''')
+                        Required. Must not exist or be an empty directory,
+                        unless --force''')
 
     parser.add_argument('--force', '-f',
                         action='store_true',
                         default=False,
-                        help='''By default existing files are not overwritten. Pass --force to overwrite them
-                        without complaint''')
+                        help='''By default existing files are not overwritten.
+                        Pass --force to overwrite them without complaint''')
 
     parser.add_argument('--color-map',
                         action='store_true',
@@ -183,6 +182,32 @@ def target_image_filename(filename_in):
         return None
     return filename_out
 
+def isdirempty(d):
+    try:   next(os.scandir(d))
+    except StopIteration:
+        return True
+    except:
+        raise
+    return False
+
+
+
+
+if not os.path.exists(args.logdir):
+    try:
+        os.mkdir(args.logdir)
+    except Exception as e:
+        print(f"Error: could not mkdir --logdir '{args.logdir}': {e}",
+              file=sys.stderr)
+        sys.exit(1)
+elif not os.path.isdir(args.logdir):
+    print(f"Error: --logdir '{args.logdir}' is a FILE on disk. It should be an empty directory (that we will write to) or it shouldn't exist (we will create the directory)",
+          file=sys.stderr)
+    sys.exit(1)
+elif not isdirempty(args.logdir) and not args.force:
+    print(f"Error: requested --logdir '{args.logdir}' is a non-empty directory. It should be an empty directory (that we will write to) or it shouldn't exist (we will create the directory). Pass --force if you want to potentially overwrite existing data",
+          file=sys.stderr)
+    sys.exit(1)
 
 
 filenames_in  = [f for g in args.image_globs for f in glob.glob(g)]
