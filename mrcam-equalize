@@ -28,7 +28,7 @@ def parse_args():
                         image dimensions. 'stretch' equalization will stretch
                         the full range from min to max. If :Q is given, we will
                         saturate the lower and upper Q of the range. For
-                        instance, stretch:.01 will cull the lower and upper 1%
+                        instance, stretch:.01 will cull the lower and upper 1%%
                         of the intensities.''')
 
     parser.add_argument('--outdir',
