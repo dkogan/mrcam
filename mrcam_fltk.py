@@ -994,9 +994,9 @@ we will do that ourselves, set frame['buffer'] to None)
         off_decimation = frame['off_decimation']
 
         if frame['image_undecoded'] is not None:
-            image_undecoded= frame['image_undecoded']
+            image_to_log= frame['image_undecoded']
         else:
-            image_undecoded= frame['image']
+            image_to_log= frame['image']
 
         if not off_decimation:
             if image is None:
@@ -1035,7 +1035,7 @@ we will do that ourselves, set frame['buffer'] to None)
                     self.write_logline(f"{timestamp:.3f} {iframe} {icam} {filename}")
 
                     self.image_view_groups[icam].camera. \
-                        async_save_image_and_push_buffer(path,image_undecoded,frame['buffer'])
+                        async_save_image_and_push_buffer(path,image_to_log,frame['buffer'])
                     frame['buffer'] = None # indicate that the caller should NOT re-push the buffer
 
                 self.logged_image_from_iframe[iframe]['time'     ][icam] = timestamp
