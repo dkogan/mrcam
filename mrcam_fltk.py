@@ -1021,8 +1021,8 @@ we will do that ourselves, set frame['buffer'] to None)
                     # I adjust the results in log_readwrite_init() to remove the
                     # duplicated iframes
                     self.logged_image_from_iframe[iframe] = dict(time      = [None] * Ncameras,
-                                                                        imagepath = [None] * Ncameras,
-                                                                        iframe    = [None] * Ncameras)
+                                                                 imagepath = [None] * Ncameras,
+                                                                 iframe    = [None] * Ncameras)
                     self.logged_images.append( self.logged_image_from_iframe[iframe] )
 
                 # write image to disk
