@@ -678,7 +678,7 @@ bool fill_image_swscale(// out
 static bool is_pixfmt_matching(ArvPixelFormat pixfmt,
                                mrcam_pixfmt_t mrcam_pixfmt)
 {
-#define CHECK(name, name_genicam, T, ...) if(pixfmt == ARV_PIXEL_FORMAT_ ## name && mrcam_pixfmt == MRCAM_PIXFMT_ ## name) return true;
+#define CHECK(name, name_genicam, ...) if(pixfmt == ARV_PIXEL_FORMAT_ ## name && mrcam_pixfmt == MRCAM_PIXFMT_ ## name) return true;
     LIST_MRCAM_PIXFMT(CHECK);
 #undef CHECK
     MSG("Mismatched pixel format! I asked for '%s', but got ArvPixelFormat 0x%x",
