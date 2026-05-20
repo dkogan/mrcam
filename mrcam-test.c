@@ -341,7 +341,7 @@ int main(int argc, char **argv)
             char filename[1024] = "-";
             if(options.logdir != NULL)
             {
-                const char* fmt = "%s/frame-%05d-cam%d.%s"; // in variable to not confuse MSG()
+                const char* fmt = "%s/frame%05d-cam%d.%s"; // in variable to not confuse MSG()
                 if( snprintf(filename, sizeof(filename),
                              fmt,
                              options.logdir,
