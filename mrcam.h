@@ -38,6 +38,7 @@
   _(BAYER_GB_8,          BayerGB8, bgr,    AV_PIX_FMT_BAYER_GBRG8)      \
   _(BAYER_BG_8,          BayerBG8, bgr,    AV_PIX_FMT_BAYER_BGGR8)      \
   _(YUV_422_YUYV_PACKED, YUYV,     bgr,    AV_PIX_FMT_YUYV422)          \
+  _(NV12,                nv12,     bgr,    AV_PIX_FMT_NV12)             \
   _(RGB_8_PACKED,        RGB8,     bgr,    AV_PIX_FMT_NONE)             \
   _(BGR_8_PACKED,        BGR8,     bgr,    AV_PIX_FMT_NONE)
 
