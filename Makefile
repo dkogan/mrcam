@@ -51,6 +51,11 @@ else
 
   CFLAGS  += -I$(ARAVIS_DIR)/src -I$(ARAVIS_DIR)/build/src
   LDFLAGS += -L$(ARAVIS_DIR)/build/src -Wl,-rpath=$(ARAVIS_DIR)/build/src
+
+  CFLAGS += $(shell $(or $(PKG_CONFIG),pkg-config) --cflags glib-2.0)
+  LDLIBS += $(shell $(or $(PKG_CONFIG),pkg-config) --libs   glib-2.0)
+
+
 endif
 
 LDLIBS += -lavutil -lswscale
