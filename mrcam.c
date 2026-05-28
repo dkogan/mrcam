@@ -1033,6 +1033,29 @@ callback_arv(void* cookie, ArvStreamCallbackType type, ArvBuffer* buffer)
     }
 }
 
+typedef struct
+{
+    gint n_input_buffers;
+    gint n_output_buffers;
+    gint n_buffer_filling;
+} n_buffers_t;
+static void get_n_buffers(ArvStream* stream,
+                          n_buffers_t* n_buffers)
+{
+    n_buffers->n_buffer_filling = -1;
+
+#if !ARAVIS_CHECK_VERSION(0,9,0)
+    arv_stream_get_n_buffers(stream,
+                             &n_buffers->n_input_buffers,
+                             &n_buffers->n_output_buffers);
+#else
+    arv_stream_get_n_owned_buffers(stream,
+                                   &n_buffers->n_input_buffers,
+                                   &n_buffers->n_output_buffers,
+                                   &n_buffers->n_buffer_filling);
+#endif
+}
+
 bool mrcam_request( // in
                     mrcam_callback_t* callback,
                     mrcam_callback_t* callback_off_decimation,
@@ -1086,25 +1109,14 @@ bool mrcam_request( // in
 
     while(true)
     {
-        gint n_input_buffers;
-        gint n_output_buffers;
-        gint n_buffer_filling = -1;
-#if !ARAVIS_CHECK_VERSION(0,9,0)
-        arv_stream_get_n_buffers (*stream,
-                                  &n_input_buffers,
-                                  &n_output_buffers);
-#else
-        arv_stream_get_n_owned_buffers(*stream,
-                                       &n_input_buffers,
-                                       &n_output_buffers,
-                                       &n_buffer_filling);
-#endif
-        if(ctx->verbose || n_input_buffers <= 0)
+        n_buffers_t n_buffers;
+        get_n_buffers(*stream, &n_buffers);
+        if(ctx->verbose || n_buffers.n_input_buffers <= 0)
         {
             MSG("n_input_buffers,n_output_buffers,n_buffer_filling = %d,%d,%d",
-                n_input_buffers,n_output_buffers,n_buffer_filling);
+                n_buffers.n_input_buffers,n_buffers.n_output_buffers,n_buffers.n_buffer_filling);
         }
-        if(n_input_buffers <= 0)
+        if(n_buffers.n_input_buffers <= 0)
         {
             MSG("No input buffers available; cannot request a new frame at this time. THIS SHOULD NOT HAPPEN");
             MSG("Either increase the buffer count or speed-up your image processing. Trying again in 1s...");
