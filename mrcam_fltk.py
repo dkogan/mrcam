@@ -27,7 +27,8 @@ from mrcam_argparse import *
 def schedule_next_frame(*,
                         request,
                         t0,
-                        period):
+                        period,
+                        have_available_buffers):
     # I want the image requests to fire at a constant rate, ignoring the other
     # processing. Analogous to mrcam_sleep_until_next_request(), but sets an
     # FLTK timer instead of sleeping.
@@ -38,10 +39,17 @@ def schedule_next_frame(*,
     else:
         time_sleep = t0 + period - time_now
 
+    def request_if():
+        if have_available_buffers():
+            request()
+        else:
+            print("WARNING: all cameras do not have available buffers; skipping a cycle", file=sys.stderr)
+            Fl.add_timeout(time_sleep, request_if())
+
     if time_sleep <= 0:
-        request()
+        request_if()
     else:
-        Fl.add_timeout(time_sleep, lambda *args: request())
+        Fl.add_timeout(time_sleep, request_if)
 
 
 
@@ -494,9 +502,10 @@ class Fl_mrcam_image_group(Fl_Group):
                 self.iframe += 1
 
             if period is not None:
-                schedule_next_frame(request = self.camera.request,
-                                    t0      = self.camera.timestamp_request_us/1e6,
-                                    period  = period)
+                schedule_next_frame(request                = self.camera.request,
+                                    t0                     = self.camera.timestamp_request_us/1e6,
+                                    period                 = period,
+                                    have_available_buffers = lambda: self.camera.stream_stats()['n_input_buffers'] > 0)
 
 
         # Tell FLTK to callback_mrcam() when data is available
@@ -1086,9 +1095,14 @@ we will do that ourselves, set frame['buffer'] to None)
             def request_image_set():
                 for image_view_group in self.image_view_groups:
                     image_view_group.camera.request()
-            schedule_next_frame(request = request_image_set,
-                                t0      = self.image_view_groups[0].camera.timestamp_request_us/1e6,
-                                period  = self.period)
+            def all_cameras_have_available_buffers():
+                return all( image_view_group.camera.stream_stats()['n_input_buffers'] > 0 \
+                            for image_view_group in self.image_view_groups )
+
+            schedule_next_frame(request                = request_image_set,
+                                t0                     = self.image_view_groups[0].camera.timestamp_request_us/1e6,
+                                period                 = self.period,
+                                have_available_buffers = all_cameras_have_available_buffers)
 
 
     def write_logline(self,l):
