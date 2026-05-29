@@ -278,4 +278,14 @@ fltk_application = \
                          image_path_prefix = args.image_path_prefix,
                          image_directory   = args.image_directory)
 
-Fl.run()
+
+try:
+    run_and_wait_available_with_default_sigint_handler = fltk.pyfltk_features['run_and_wait_available_with_default_sigint_handler']
+except:
+    run_and_wait_available_with_default_sigint_handler = False
+if run_and_wait_available_with_default_sigint_handler:
+    # makes Ctrl-C work.
+    Fl.run_with_default_sigint_handler()
+else:
+    Fl.run()
+
