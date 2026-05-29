@@ -24,7 +24,10 @@ import mrcam
 from mrcam          import *
 from mrcam_argparse import *
 
-def schedule_next_frame(f, t0, period):
+def schedule_next_frame(*,
+                        request,
+                        t0,
+                        period):
     # I want the image requests to fire at a constant rate, ignoring the other
     # processing. Analogous to mrcam_sleep_until_next_request(), but sets an
     # FLTK timer instead of sleeping.
@@ -36,9 +39,9 @@ def schedule_next_frame(f, t0, period):
         time_sleep = t0 + period - time_now
 
     if time_sleep <= 0:
-        f()
+        request()
     else:
-        Fl.add_timeout(time_sleep, lambda *args: f())
+        Fl.add_timeout(time_sleep, lambda *args: request())
 
 
 
@@ -491,7 +494,9 @@ class Fl_mrcam_image_group(Fl_Group):
                 self.iframe += 1
 
             if period is not None:
-                schedule_next_frame(self.camera.request, self.camera.timestamp_request_us/1e6, period)
+                schedule_next_frame(request = self.camera.request,
+                                    t0      = self.camera.timestamp_request_us/1e6,
+                                    period  = period)
 
 
         # Tell FLTK to callback_mrcam() when data is available
@@ -1081,8 +1086,9 @@ we will do that ourselves, set frame['buffer'] to None)
             def request_image_set():
                 for image_view_group in self.image_view_groups:
                     image_view_group.camera.request()
-            schedule_next_frame(request_image_set,
-                                self.image_view_groups[0].camera.timestamp_request_us/1e6, self.period)
+            schedule_next_frame(request = request_image_set,
+                                t0      = self.image_view_groups[0].camera.timestamp_request_us/1e6,
+                                period  = self.period)
 
 
     def write_logline(self,l):
