@@ -33,6 +33,7 @@ pre-canned applications are included:
   and the tool reports a live "sharpness" metric in those regions. The user then
   moves the focus ring, aiming to maximize the displayed sharpness metric
 
+- mrcam-stereo: live dense stereo reporting
 
 LIMITATIONS
 
