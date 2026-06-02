@@ -67,7 +67,10 @@ DIST_INCLUDE := \
 
 DIST_BIN := \
 	mrcam \
-	mrcam-equalize
+	mrcam-equalize \
+	focus \
+	stereo \
+	mrcam-test
 # Do NOT try to build mrcam from mrcam.c. This is required so that building
 # mrcam.1 does not try to rebuild mrcam
 mrcam: ;
