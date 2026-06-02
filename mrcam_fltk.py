@@ -34,18 +34,17 @@ def schedule_next_frame(*,
     # FLTK timer instead of sleeping.
     time_now = time.time()
 
-    if t0 == 0:
-        time_sleep = period
-    else:
-        time_sleep = t0 + period - time_now
-
     def request_if():
         if have_available_buffers():
             request()
         else:
             print("WARNING: all cameras do not have available buffers; skipping a cycle", file=sys.stderr)
-            Fl.add_timeout(time_sleep, request_if())
+            Fl.add_timeout(period, request_if)
 
+    if t0 == 0:
+        time_sleep = period
+    else:
+        time_sleep = t0 + period - time_now
     if time_sleep <= 0:
         request_if()
     else:
