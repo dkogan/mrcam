@@ -1,3 +1,11 @@
+Capture images from the camera on the commandline
+
+SYNOPSIS
+
+  $ mrcam-test --logdir /tmp --period 0.5
+
+  # ...
+
 mrcam-test is a command-line image-capture tool. It is used mostly as a
 demo/test of the mrcam C API. The options are very similar to those taken by the
 "mrcam" Python tool, and work the same way.
