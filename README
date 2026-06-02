@@ -29,8 +29,8 @@ pre-canned applications are included:
   and log replay. Logging and replay can happen during the same run: a live
   preview can be rewinded.
 
-- focus: tool to focus cameras. The user selects some regions in an image, and
-  the tool reports a live "sharpness" metric in those regions. The user then
+- mrcam-focus: tool to focus cameras. The user selects some regions in an image,
+  and the tool reports a live "sharpness" metric in those regions. The user then
   moves the focus ring, aiming to maximize the displayed sharpness metric
 
 
