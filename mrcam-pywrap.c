@@ -1106,7 +1106,7 @@ void* thread_save(void* cookie)
     {
         if(sizeof(s) != read_persistent(self->pipe_save[PIPE_FD_READ], (uint8_t*)&s, sizeof(s)))
         {
-            fprintf(stderr, "Couldn't read image-save data from pipe.... Giving up on the thread\n");
+            fprintf(stderr, "Couldn't read image-save data from pipe. This is fatal.... Giving up on the thread\n");
             return NULL;
         }
 
@@ -1115,7 +1115,7 @@ void* thread_save(void* cookie)
             fprintf(stderr,
                     "## ERROR: couldn't save image to path='%s'\n",
                     s.path);
-            continue;
+            // fall through, and push the buffer back regardless
         }
 
         mrcam_push_buffer((void**)&s.buffer, &self->ctx);
