@@ -24,6 +24,21 @@ import mrcam
 from mrcam          import *
 from mrcam_argparse import *
 
+
+try:    valuator_format_can_return_buffer = fltk.pyfltk_features['valuator_format_can_return_buffer']
+except: valuator_format_can_return_buffer = False
+if valuator_format_can_return_buffer:
+    class LogSlider(Fl_Value_Slider):
+        def _init__(x, y, w, h, label):
+            Fl_Value_Slider.__init__(x,y,w,h,label)
+        def format(self):
+            x       = self.value()
+            return f"{np.exp(x):.0f}"
+else:
+    # not supported
+    LogSlider = None
+
+
 def schedule_next_frame(*,
                         request,
                         t0,
@@ -369,6 +384,10 @@ class Fl_mrcam_image_group(Fl_Group):
             if desc.get('representation','') == 'LOGARITHMIC':
                 flags.add('log')
 
+            if 'log' in flags and LogSlider is None:
+                print(f"WARNING: feature '{name}' is logarithmic, but this pyfltk doesn't support log-sliders. Units a linear widget instead")
+                flags.remove('log')
+
             t = desc['type']
             if t == 'integer' or t == 'float':
                 if 'log' in flags and \
@@ -379,9 +398,14 @@ class Fl_mrcam_image_group(Fl_Group):
                 if desc['unit']: label = f"{name} ({desc['unit']})"
                 else:            label = name
                 h_here = h_control + h_control_footer
-                widget = Fl_Value_Slider(x + w-w_controls, y,
-                                         w_controls, h_control,
-                                         label)
+                if 'log' in flags:
+                    widget = LogSlider(x + w-w_controls, y,
+                                       w_controls, h_control,
+                                       label)
+                else:
+                    widget = Fl_Value_Slider(x + w-w_controls, y,
+                                             w_controls, h_control,
+                                             label)
                 widget.align(FL_ALIGN_BOTTOM)
                 widget.type(FL_HORIZONTAL)
 
