@@ -323,6 +323,9 @@ class Fl_mrcam_image_group(Fl_Group):
                          w_controls, h)
 
         def expand_features(features_selected):
+
+            known_flags = set( ('log',) )
+
             feature_set = camera.features() if camera is not None else set()
 
             for f in features_selected:
@@ -342,6 +345,9 @@ class Fl_mrcam_image_group(Fl_Group):
                     else:
                         flags = set()
 
+                    for f in flags:
+                        if f not in known_flags:
+                            raise Exception(f"Feature '{name}' was given a flags '{f}' which isn't in {known_flags=}")
                     if name in feature_set:
                         yield dict(name  = name,
                                    flags = flags)
