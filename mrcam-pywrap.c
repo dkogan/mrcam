@@ -1334,9 +1334,30 @@ feature_descriptor(camera* self, PyObject* args, PyObject* kwargs)
     else if( ARV_IS_GC_INTEGER(feature_node) )
     {
         gint64 min,max,increment;
-        try_arv(min       = arv_gc_integer_get_min(ARV_GC_INTEGER(feature_node), &error));
-        try_arv(max       = arv_gc_integer_get_max(ARV_GC_INTEGER(feature_node), &error));
-        try_arv(increment = arv_gc_integer_get_inc(ARV_GC_INTEGER(feature_node), &error));
+        try_arv_or(min       = arv_gc_integer_get_min(ARV_GC_INTEGER(feature_node), &error), true);
+        if(error != NULL)
+        {
+            min = 1;
+            MRCAM_MSG("Couldn't get the min; arbitrarily setting it to %"PRIi64, min);
+            g_clear_error(&error);
+        }
+
+        try_arv_or(max       = arv_gc_integer_get_max(ARV_GC_INTEGER(feature_node), &error), true);
+        if(error != NULL)
+        {
+            max = 10;
+            MRCAM_ERR("Couldn't get the max; arbitrarily setting it to %"PRIi64, max);
+            g_clear_error(&error);
+        }
+
+        try_arv_or(increment = arv_gc_integer_get_inc(ARV_GC_INTEGER(feature_node), &error), true);
+        if(error != NULL)
+        {
+            increment = 1;
+            MRCAM_ERR("Couldn't get the increment; arbitrarily setting it to %"PRIi64, increment);
+            g_clear_error(&error);
+        }
+
 
         const char* representation;
         switch(arv_gc_integer_get_representation(ARV_GC_INTEGER(feature_node)))
@@ -1366,9 +1387,29 @@ feature_descriptor(camera* self, PyObject* args, PyObject* kwargs)
     else if( ARV_IS_GC_FLOAT(feature_node) )
     {
         double min,max,increment;
-        try_arv(min       = arv_gc_float_get_min(ARV_GC_FLOAT(feature_node), &error));
-        try_arv(max       = arv_gc_float_get_max(ARV_GC_FLOAT(feature_node), &error));
-        try_arv(increment = arv_gc_float_get_inc(ARV_GC_FLOAT(feature_node), &error));
+        try_arv_or(min       = arv_gc_float_get_min(ARV_GC_FLOAT(feature_node), &error), true);
+        if(error != NULL)
+        {
+            min = 1;
+            MRCAM_MSG("Couldn't get the min; arbitrarily setting it to %f", min);
+            g_clear_error(&error);
+        }
+
+        try_arv_or(max       = arv_gc_float_get_max(ARV_GC_FLOAT(feature_node), &error), true);
+        if(error != NULL)
+        {
+            max = 10;
+            MRCAM_ERR("Couldn't get the max; arbitrarily setting it to %f", max);
+            g_clear_error(&error);
+        }
+
+        try_arv_or(increment = arv_gc_float_get_inc(ARV_GC_FLOAT(feature_node), &error), true);
+        if(error != NULL)
+        {
+            increment = 1;
+            MRCAM_ERR("Couldn't get the increment; arbitrarily setting it to %f", increment);
+            g_clear_error(&error);
+        }
 
         const char* representation;
         switch(arv_gc_float_get_representation(ARV_GC_FLOAT(feature_node)))
