@@ -29,6 +29,7 @@ typedef struct { int width,height; } dimensions_t;
     _(int,                      Nbuffers,               Nbuffers,               10,                                  required_argument, " NBUFFERS",           'b',     "b:"  ) \
     _(mrcam_trigger_t,          trigger,                trigger,                MRCAM_TRIGGER_SOFTWARE,              required_argument, " TRIGGER",            't',     ""  ) \
     _(mrcam_acquisition_mode_t, acquisition_mode,       acquisition-mode,       MRCAM_ACQUISITION_MODE_SINGLE_FRAME, required_argument, " ACQUISITION-MODE",   'a',     ""  ) \
+    _(const char*,              init_commands,          init-commands,          NULL,                                required_argument, " INIT-OPTIONS",       'o',     "") \
     _(int,                      time_decimation_factor, time-decimation-factor, 1,                                   required_argument, " DECIMATION_FACTOR" , 'f',     "") \
     _(bool,                     verbose,                verbose,                false,                               no_argument,       ,                      'v',     "v")
 
@@ -281,6 +282,7 @@ int main(int argc, char **argv)
             .height                          = options.dims.height,
             .trigger                         = options.trigger,
             .acquisition_mode                = options.acquisition_mode,
+            .init_commands                   = options.init_commands,
             .time_decimation_factor          = options.time_decimation_factor,
             .Nbuffers                        = options.Nbuffers,
             .verbose                         = options.verbose
