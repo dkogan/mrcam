@@ -1429,6 +1429,9 @@ feature_descriptor(camera* self, PyObject* args, PyObject* kwargs)
 
  done:
     g_free(available_enum_entries);
+
+    if(result == NULL && !PyErr_Occurred())
+        BARF("arv call failed");
     return result;
 }
 
@@ -1665,6 +1668,8 @@ feature_value(camera* self, PyObject* args, PyObject* kwargs)
     }
 
  done:
+    if(result == NULL && !PyErr_Occurred())
+        BARF("arv call failed");
     return result;
 }
 
