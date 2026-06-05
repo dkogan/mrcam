@@ -38,7 +38,7 @@ def schedule_next_frame(*,
         if have_available_buffers():
             request()
         else:
-            print("WARNING: all cameras do not have available buffers; skipping a cycle", file=sys.stderr)
+            print(f"WARNING: all cameras do not have available buffers; skipping a cycle: {period=}", file=sys.stderr)
             Fl.add_timeout(period, request_if)
 
     if t0 == 0:
