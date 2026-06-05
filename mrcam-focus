@@ -23,6 +23,10 @@ import re
 import os
 import mrcam_argparse
 
+radius_default            = 50
+radius_ratio_of_width_max = 32 # radius at most W/32
+
+
 def parse_args():
 
     parser = \
@@ -30,10 +34,11 @@ def parse_args():
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
     parser.add_argument('--radius',
-                        type=int,
-                        default = 50,
-                        help='''The radius of the boxes that define the focusing
-                        region-of-interest. If omitted, defaults to 50 pixels''')
+                        help=f'''The radius of the boxes that define the
+                        focusing region-of-interest. If omitted, defaults to
+                        {radius_default} pixels or
+                        width/{radius_ratio_of_width_max}, whichever is smaller
+                        ''')
     parser.add_argument('--plot-history',
                         type=float,
                         default = 30,
@@ -176,11 +181,15 @@ class Fl_focus_image(mrcam.Fl_mrcam_image):
         global focus_regions
         global imagersize
 
+        if imagersize is None
+            return 1
+
+        if args.radius is None:
+            args.radius = min(radius_default, int(imagersize[0]/radius_ratio_of_width_max))
         q00 = q - args.radius
         q11 = q + args.radius
 
-        if imagersize is None             or \
-           np.any(q00 < 0)                or \
+        if np.any(q00 < 0)                or \
            np.any(q11 < 0)                or \
            np.any(imagersize-1 - q00 < 0) or \
            np.any(imagersize-1 - q11 < 0):
