@@ -319,12 +319,12 @@ camera_init(camera* self, PyObject* args, PyObject* kwargs)
             .width                           = width,
             .height                          = height,
             .Nbuffers                        = Nbuffers,
+            .init_commands                   = init_commands_string,
             .verbose                         = verbose
         };
     if(!mrcam_init(&self->ctx,
                    camera_name,
-                   &mrcam_options,
-                   init_commands_string))
+                   &mrcam_options))
     {
         BARF("Couldn't init mrcam camera");
         goto done;

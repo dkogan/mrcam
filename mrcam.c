@@ -342,10 +342,7 @@ bool mrcam_init(// out
                 mrcam_t* ctx,
                 // in
                 const char* camera_name,
-                const mrcam_options_t* options,
-                // whitespace-separated string of "feature=value" settings.
-                // NULL if empty
-                const char* init_commands)
+                const mrcam_options_t* options)
 {
     bool result = false;
     GError* error  = NULL;
@@ -437,9 +434,9 @@ bool mrcam_init(// out
     }
 
     // Init the capture; in particular this sets the triggering strategy
-    if(init_commands != NULL)
+    if(options->init_commands != NULL)
         try_arv(arv_device_set_features_from_string(arv_camera_get_device(*camera),
-                                                    init_commands,
+                                                    options->init_commands,
                                                     &error));
     else
     {

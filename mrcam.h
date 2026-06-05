@@ -187,6 +187,10 @@ typedef struct
 
     int Nbuffers;
 
+    // whitespace-separated string of "feature=value" settings.
+    // NULL if empty
+    const char* init_commands;
+
     // If time_decimation_factor > 1, we report every Nth frame to the user.
     int time_decimation_factor;
     bool verbose;
@@ -197,10 +201,7 @@ bool mrcam_init(// out
                 mrcam_t* ctx,
                 // in
                 const char* camera_name,
-                const mrcam_options_t* options,
-                // whitespace-separated string of "feature=value" settings.
-                // NULL if empty
-                const char* init_commands);
+                const mrcam_options_t* options);
 
 // deallocates everything, and sets all the pointers in ctx to NULL
 void mrcam_free(mrcam_t* ctx);

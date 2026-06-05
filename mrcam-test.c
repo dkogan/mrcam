@@ -289,9 +289,7 @@ int main(int argc, char **argv)
     {
         if(!mrcam_init(&ctx[icam],
                        options.camera_names[icam],
-                       &mrcam_options,
-                       // default set of init commands
-                       NULL))
+                       &mrcam_options))
             return 1;
 
         if(mrcam_options.trigger == MRCAM_TRIGGER_HARDWARE_TTYS0)
