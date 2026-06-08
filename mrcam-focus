@@ -181,7 +181,7 @@ class Fl_focus_image(mrcam.Fl_mrcam_image):
         global focus_regions
         global imagersize
 
-        if imagersize is None
+        if imagersize is None:
             return 1
 
         if args.radius is None:
