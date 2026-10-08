@@ -140,7 +140,7 @@ static bool parse_args(// out
             break;
 
         case 'l': options->logdir                          = optarg;       break;
-        case 'f': options->logformat                       = optarg;       break;
+        case 'L': options->logformat                       = optarg;       break;
         case 'T': options->period                          = atof(optarg); break;
         case 'v': options->verbose                         = true;         break;
         case 'F':
@@ -218,7 +218,7 @@ static bool parse_args(// out
 #undef PARSE
             break;
 
-        case 'L':
+        case 'f':
             options->time_decimation_factor = atoi(optarg);
             break;
 
