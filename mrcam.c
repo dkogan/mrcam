@@ -1065,20 +1065,6 @@ bool mrcam_request( // in
     bool    result = false;
     GError* error  = NULL;
 
-    n_buffers_t n_buffers;
-    get_n_buffers(*stream, &n_buffers);
-    if(ctx->verbose || n_buffers.n_input_buffers <= 0)
-    {
-        MSG("n_input_buffers,n_output_buffers,n_buffer_filling = %d,%d,%d",
-            n_buffers.n_input_buffers,n_buffers.n_output_buffers,n_buffers.n_buffer_filling);
-    }
-    if(n_buffers.n_input_buffers <= 0)
-    {
-        MSG("No input buffers available; cannot request a new frame at this time");
-        return false;
-    }
-
-
     // If we're not continuous, we initiate a new acquisition with each frame
     if(ctx->acquisition_mode != MRCAM_ACQUISITION_MODE_CONTINUOUS &&
        ctx->acquiring)
@@ -1117,6 +1103,19 @@ bool mrcam_request( // in
     ctx->active_callback                = callback;
     ctx->active_callback_off_decimation = callback_off_decimation;
     ctx->active_callback_cookie         = cookie;
+
+    n_buffers_t n_buffers;
+    get_n_buffers(*stream, &n_buffers);
+    if(ctx->verbose || n_buffers.n_input_buffers <= 0)
+    {
+        MSG("n_input_buffers,n_output_buffers,n_buffer_filling = %d,%d,%d",
+            n_buffers.n_input_buffers,n_buffers.n_output_buffers,n_buffers.n_buffer_filling);
+    }
+    if(n_buffers.n_input_buffers <= 0)
+    {
+        MSG("No input buffers available; cannot request a new frame at this time");
+        return false;
+    }
 
     if(!ctx->acquiring)
         try_arv( arv_camera_start_acquisition(*camera, &error));
