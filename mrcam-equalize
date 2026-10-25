@@ -230,7 +230,7 @@ if args.jobs > 1:
     # i is the just-processed index. I process the rest in parallel
     filenames_inout = filenames_inout[i+1:]
 
-    pool = multiprocessing.Pool(args.jobs)
+    pool = multiprocessing.get_context("fork").Pool(args.jobs)
     try:
         mapresult = pool.map_async(_transform_this, filenames_inout)
 
