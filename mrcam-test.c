@@ -8,6 +8,9 @@
 #include <getopt.h>
 #include <string.h>
 #include <omp.h>
+#include <dirent.h>
+#include <errno.h>
+#include <sys/stat.h>
 
 #include "mrcam.h"
 
@@ -258,6 +261,75 @@ static bool parse_args(// out
     return true;
 }
 
+static bool is_dirempty_and_no_error(const char *d)
+{
+    bool result = false;
+
+    DIR* dir = opendir(d);
+    if(dir == NULL)
+    {
+        MSG("Error: could not open '%s': %s\n",
+            d,
+            strerror(errno));
+        return false;
+    }
+
+    while(true)
+    {
+        errno = 0;
+        struct dirent* e = readdir(dir);
+
+        if(e == NULL)
+        {
+            if(errno != 0)
+            {
+                MSG("Error: could not read '%s': %s\n",
+                    d,
+                    strerror(errno));
+                goto done;
+            }
+
+            // Done. Directory is empty
+            result = true;
+            break;
+        }
+
+        if(0==strcmp(e->d_name, ".") || 0==strcmp(e->d_name, ".."))
+            continue;
+
+        // Done. Directory is not empty
+        break;
+    }
+
+ done:
+    closedir(dir);
+    return result;
+}
+
+static bool check_or_create_logdir(const char* logdir)
+{
+    struct stat st;
+    if( 0 != stat(logdir, &st)) {
+        if( 0 != mkdir(logdir, 0777))
+        {
+            MSG("Error: could not mkdir requested logdir '%s': %s",
+                logdir, strerror(errno));
+            return false;
+        }
+    }
+    else if (!S_ISDIR(st.st_mode))
+    {
+        MSG("Error: requested logdir '%s' is a FILE on disk. It should be an empty directory (that we will write to) or it shouldn't exist (we will create the directory)", logdir);
+        return false;
+    }
+    else if (!is_dirempty_and_no_error(logdir))
+    {
+        MSG("Error: requested logdir '%s' is a non-empty directory or an error occurred. It should be an empty directory (that we will write to) or it shouldn't exist (we will create the directory)", logdir);
+        return false;
+    }
+    return true;
+}
+
 
 int main(int argc, char **argv)
 {
@@ -267,6 +339,10 @@ int main(int argc, char **argv)
     // function calls exit() if something went wrong; so no error checking
     parse_args(&options,
                argc, argv);
+
+    // Logic is the same as in mrcam_fltk.py in log_readwrite_init(). Please consolidate
+    if(!check_or_create_logdir(options.logdir))
+        return 1;
 
     omp_set_num_threads(options.Ncameras);
 

@@ -761,6 +761,7 @@ class Fl_mrcam_application:
         elif logdir_write is not None:
             ### we're writing a log
 
+            # Logic is exactly the same as in mrcam-test.c; please consolidate
             def isdirempty(d):
                 try:   next(os.scandir(d))
                 except StopIteration:
