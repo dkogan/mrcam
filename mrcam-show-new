@@ -3,6 +3,10 @@
 
 r'''Preview newly-written files
 
+This tool monitors a given directory for newly-written images, and displays
+them. Useful as an independent live-view application for an image-capture
+program that doesn't have live preview capabilities
+
 SYNOPSIS
 
   $ mrcam-show-new 'frame*-cam0.png' 'frame*-cam1.png'
