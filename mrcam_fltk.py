@@ -567,6 +567,7 @@ class Fl_mrcam_application:
                  unlock_panzoom    = False,
                  features          = (),
                  period            = 1.0,
+                 Nframes           = None,
 
                  # logging stuff
                  logdir_write,
@@ -598,6 +599,7 @@ class Fl_mrcam_application:
         self.period                   = period
         self.Ncameras_seen_iframe     = dict()
         self.logged_image_from_iframe = dict()
+        self.Nframes                  = Nframes
 
         self.Nimages_dropped = 0
 
@@ -1105,6 +1107,10 @@ we will do that ourselves, set frame['buffer'] to None)
         # the usual expected order
         if self.Ncameras_seen_iframe[iframe] >= Ncameras:
             # Every camera reported back. Finish up and ask for another frame
+            if self.Nframes is not None and iframe >= self.Nframes:
+                self.window.hide()
+                return
+
             del self.Ncameras_seen_iframe[iframe]
 
             if not off_decimation and self.time_slider_widget is not None:

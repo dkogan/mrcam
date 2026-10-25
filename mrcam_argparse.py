@@ -57,6 +57,10 @@ def add_common_cmd_options(parser,
                         quickly and the client cannot process them immediately,
                         we need more buffers to store the data until the client
                         can catch up.''')
+    parser.add_argument('--Nframes',
+                        type = int,
+                        help='''If given, we exit after reading this many
+                        frames''')
     parser.add_argument('--pixfmt',
                         # should match the LIST_OPTIONS macro in mrcam-test.c
                         # and camera_init() in mrcam-pywrap.c

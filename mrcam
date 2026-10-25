@@ -50,6 +50,7 @@ fltk_application = \
                                unlock_panzoom    = args.unlock_panzoom,
                                features          = args.features,
                                period            = args.period,
+                               Nframes           = args.Nframes,
 
                                # logging stuff
                                logdir_write      = args.logdir,
