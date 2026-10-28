@@ -138,6 +138,9 @@ def add_common_cmd_options(parser,
                         'pgm' is for grayscale images, 'ppm' is for color
                         images. Some pixel formats (deep ones, in particular) do
                         not work with jpg''')
+    parser.add_argument('--force',
+                        action = 'store_true',
+                        help='''If given, we can overwrite the data in --logdir''')
     parser.add_argument('--replay',
                         help='''If given, we replay the stored images
                         instead of talking to camera hardware. The log

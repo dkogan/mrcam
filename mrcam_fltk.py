@@ -574,6 +574,7 @@ class Fl_mrcam_application:
                  logdir_read,
                  replay_from_frame,
                  logformat,
+                 force,
                  image_path_prefix,
                  image_directory,
 
@@ -589,6 +590,7 @@ class Fl_mrcam_application:
                                 logdir_read       = logdir_read,
                                 replay_from_frame = replay_from_frame,
                                 logformat         = logformat,
+                                force             = force,
                                 image_path_prefix = image_path_prefix,
                                 image_directory   = image_directory)
 
@@ -664,6 +666,7 @@ class Fl_mrcam_application:
                            replay_from_frame,
                            logdir_write,
                            logformat,
+                           force,
                            image_path_prefix,
                            image_directory):
 
@@ -783,10 +786,11 @@ class Fl_mrcam_application:
                 print(f"Error: requested logdir_write '{logdir_write}' is a FILE on disk. It should be an empty directory (that we will write to) or it shouldn't exist (we will create the directory)",
                       file=sys.stderr)
                 sys.exit(1)
-            elif not isdirempty(logdir_write):
-                print(f"Error: requested logdir_write '{logdir_write}' is a non-empty directory. It should be an empty directory (that we will write to) or it shouldn't exist (we will create the directory)",
+            else:
+                if not force and not isdirempty(logdir_write):
+                    print(f"Error: requested logdir_write '{logdir_write}' is a non-empty directory. It should be an empty directory (that we will write to) or it shouldn't exist (we will create the directory)",
                       file=sys.stderr)
-                sys.exit(1)
+                    sys.exit(1)
 
             path = f"{logdir_write}/images.vnl"
             try:

@@ -285,6 +285,7 @@ fltk_application = \
                          logdir_read       = args.replay,
                          replay_from_frame = args.replay_from_frame,
                          logformat         = args.logformat,
+                         force             = args.force,
                          image_path_prefix = args.image_path_prefix,
                          image_directory   = args.image_directory)
 
